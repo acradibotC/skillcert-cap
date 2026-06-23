@@ -301,7 +301,7 @@ module.exports = {
 
         // SAP OData base URL for worktime service
         // NOTE: This URL needs to be updated once ZUI_NXR_WORKTIME_UPLOAD_O4 is published
-        const SAP_WORKTIME_URL = 'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload_o4/srvd/sap/zsd_nxr_worktime_upload/0001';
+        const SAP_WORKTIME_URL = 'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload/srvd/sap/zsd_nxr_worktime_upload/0001';
         const SAP_USER = process.env.UI5_USERNAME || 'DEV-271';
         const SAP_PASS = process.env.UI5_PASSWORD || 'Hanoi@12345';
         const SAP_AUTH = 'Basic ' + Buffer.from(SAP_USER + ':' + SAP_PASS).toString('base64');
