@@ -69,9 +69,6 @@ cds.on('bootstrap', app => {
     app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../app/login.html')));
     app.get('/logout', (req, res) => res.sendFile(path.join(__dirname, '../app/logout.html')));
 
-    // Serve launchpad webapp directly at /launchpad to hide raw file paths
-    app.use('/launchpad', express.static(path.join(__dirname, '../app/launchpad/webapp')));
-
     app.get('/auth/google/callback', 
         passport.authenticate('google', { failureRedirect: '/login' }),
         function(req, res) {
@@ -152,16 +149,21 @@ cds.on('bootstrap', app => {
         }
     });
 
-    // Middleware to protect internal apps (Redirect to login page)
-    const protectedRoutes = ['/launchpad', '/profile', '/timesheet', '/calendar', '/hr-upload'];
-    protectedRoutes.forEach(route => {
-        app.use(route, (req, res, next) => {
-            if (!req.isAuthenticated()) {
-                return res.redirect('/login');
-            }
-            next();
-        });
-    });
+    const ensureAuthenticated = (req, res, next) => {
+        if (!req.isAuthenticated()) {
+            return res.redirect('/login');
+        }
+        next();
+    };
+
+    // Serve UI5 app resources only after authentication. The launchpad loads
+    // child components from these routes, so each route needs a real static root.
+    app.use('/launchpad', ensureAuthenticated, express.static(path.join(__dirname, '../app/launchpad/webapp')));
+    app.use('/profile/webapp', ensureAuthenticated, express.static(path.join(__dirname, '../app/profile/webapp')));
+    app.use('/timesheet/webapp', ensureAuthenticated, express.static(path.join(__dirname, '../app/timesheet/webapp')));
+    app.get(['/hr-upload', '/hr-upload/'], ensureAuthenticated, (req, res) => res.redirect('/hr-upload/webapp/'));
+    app.use('/hr-upload/webapp', ensureAuthenticated, express.static(path.join(__dirname, '../app/hr-upload/webapp')));
+    app.use('/calendar', ensureAuthenticated);
 
     // Middleware to protect OData endpoints (API)
     app.use('/api/v1', (req, res, next) => {
@@ -187,8 +189,6 @@ cds.on('bootstrap', app => {
         next();
     });
 
-    // Serve HR Upload app
-    app.use('/hr-upload', express.static(__dirname + '/../app/hr-upload/webapp'));
 });
 
 module.exports = cds.server;

@@ -6,9 +6,11 @@
     xmlns:table="sap.ui.table"
     xmlns:layout="sap.ui.layout"
     xmlns:core="sap.ui.core"
-    displayBlock="true">
+    displayBlock="true"
+    height="100%">
 
-    <Page id="uploadPage" title="{i18n>pageTitle}" showNavButton="true" navButtonPress=".onNavBack">
+    <App id="app">
+        <Page id="uploadPage" title="{i18n>pageTitle}" showNavButton="true" navButtonPress=".onNavBack">
         <content>
             <VBox class="sapUiMediumMargin">
 
@@ -18,7 +20,7 @@
                         <HBox alignItems="Center" justifyContent="Start" class="sapUiSmallMarginBottom">
                             <u:FileUploader id="fileUploader"
                                 name="excelFile"
-                                fileType="xlsx,xls"
+                                fileType="xlsx,xls,csv"
                                 placeholder="{i18n>filePlaceholder}"
                                 change=".onFileSelected"
                                 width="400px"
@@ -48,56 +50,46 @@
                         <ObjectStatus text="{= ${uploadModel>/errorRows} + ' ' + ${i18n>lblErrors}}" state="Error" icon="sap-icon://alert"
                             visible="{= ${uploadModel>/errorRows} > 0}" class="sapUiSmallMarginBegin" />
                     </Toolbar>
-                    <table:Table id="previewTable"
-                        rows="{uploadModel>/records}"
-                        selectionMode="MultiToggle"
-                        visibleRowCount="12"
-                        enableSelectAll="true"
-                        rowSettingsTemplate="{uploadModel>rowSettings}">
-                        <table:columns>
-                            <table:Column width="5rem" label="{i18n>colStatus}">
-                                <table:template>
+                    <Table id="previewTable"
+                        items="{uploadModel>/records}"
+                        mode="MultiSelect"
+                        growing="true"
+                        growingThreshold="20"
+                        class="sapUiSizeCompact">
+                        <columns>
+                            <Column hAlign="Center" width="5rem"><Text text="{i18n>colStatus}" /></Column>
+                            <Column hAlign="Center" width="5rem"><Text text="{i18n>colRow}" /></Column>
+                            <Column hAlign="Center" width="7rem"><Text text="{i18n>colPernr}" /></Column>
+                            <Column hAlign="Center" width="7rem"><Text text="{i18n>colWorkDate}" /></Column>
+                            <Column hAlign="Center" width="6rem"><Text text="{i18n>colFirstEntry}" /></Column>
+                            <Column hAlign="Center" width="6rem"><Text text="{i18n>colLastExit}" /></Column>
+                            <Column hAlign="Center" width="5rem"><Text text="{i18n>colIOT}" /></Column>
+                            <Column hAlign="Center" width="5rem"><Text text="{i18n>colIOTwF}" /></Column>
+                            <Column hAlign="Center" width="4rem"><Text text="{i18n>colIWA}" /></Column>
+                            <Column hAlign="Center" width="4rem"><Text text="{i18n>colEntry}" /></Column>
+                            <Column hAlign="Center" width="4rem"><Text text="{i18n>colExit}" /></Column>
+                            <Column><Text text="{i18n>colErrorMsg}" /></Column>
+                        </columns>
+                        <items>
+                            <ColumnListItem vAlign="Middle" highlight="{= ${uploadModel>_hasError} ? 'Error' : 'None' }">
+                                <cells>
                                     <core:Icon src="{= ${uploadModel>_hasError} ? 'sap-icon://error' : 'sap-icon://sys-enter-2'}"
                                         color="{= ${uploadModel>_hasError} ? '#bb0000' : '#2b7c2b'}" />
-                                </table:template>
-                            </table:Column>
-                            <table:Column width="6rem" label="{i18n>colRow}">
-                                <table:template><Text text="{uploadModel>_rowIndex}" /></table:template>
-                            </table:Column>
-                            <table:Column width="8rem" label="{i18n>colPernr}">
-                                <table:template><Text text="{uploadModel>Pernr}" /></table:template>
-                            </table:Column>
-                            <table:Column width="8rem" label="{i18n>colWorkDate}">
-                                <table:template><Text text="{uploadModel>WorkDateDisplay}" /></table:template>
-                            </table:Column>
-                            <table:Column width="7rem" label="{i18n>colFirstEntry}">
-                                <table:template><Text text="{uploadModel>FirstEntryDisplay}" /></table:template>
-                            </table:Column>
-                            <table:Column width="7rem" label="{i18n>colLastExit}">
-                                <table:template><Text text="{uploadModel>LastExitDisplay}" /></table:template>
-                            </table:Column>
-                            <table:Column width="5rem" label="{i18n>colIOT}">
-                                <table:template><Text text="{uploadModel>Iot}" /></table:template>
-                            </table:Column>
-                            <table:Column width="6rem" label="{i18n>colIOTwF}">
-                                <table:template><Text text="{uploadModel>Iotwf}" /></table:template>
-                            </table:Column>
-                            <table:Column width="5rem" label="{i18n>colIWA}">
-                                <table:template><Text text="{uploadModel>Iwa}" /></table:template>
-                            </table:Column>
-                            <table:Column width="5rem" label="{i18n>colEntry}">
-                                <table:template><Text text="{uploadModel>NumberOfEntry}" /></table:template>
-                            </table:Column>
-                            <table:Column width="5rem" label="{i18n>colExit}">
-                                <table:template><Text text="{uploadModel>NumberOfExit}" /></table:template>
-                            </table:Column>
-                            <table:Column width="12rem" label="{i18n>colErrorMsg}">
-                                <table:template>
+                                    <Text text="{uploadModel>_rowIndex}" />
+                                    <Text text="{uploadModel>Pernr}" />
+                                    <Text text="{uploadModel>WorkDateDisplay}" />
+                                    <Text text="{uploadModel>FirstEntryDisplay}" />
+                                    <Text text="{uploadModel>LastExitDisplay}" />
+                                    <Text text="{uploadModel>Iot}" />
+                                    <Text text="{uploadModel>Iotwf}" />
+                                    <Text text="{uploadModel>Iwa}" />
+                                    <Text text="{uploadModel>NumberOfEntry}" />
+                                    <Text text="{uploadModel>NumberOfExit}" />
                                     <Text text="{uploadModel>_errorMsg}" class="errorText" />
-                                </table:template>
-                            </table:Column>
-                        </table:columns>
-                    </table:Table>
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                    </Table>
                 </Panel>
 
                 <!-- ============ Section 3: Upload Controls ============ -->
@@ -124,5 +116,6 @@
 
             </VBox>
         </content>
-    </Page>
+        </Page>
+    </App>
 </mvc:View>

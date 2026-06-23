@@ -94,7 +94,7 @@
                         </layout:Grid>
 
                         <!-- ========== HR Tools Section (visible for managers) ========== -->
-                        <VBox id="hrSection" visible="{= ${user>/isManager} === true}">
+                        <VBox id="hrSection" visible="true"> <!-- TODO: restore {= ${user>/isManager} === true} after testing -->
                             <Title text="{i18n>sectionHrTools}" level="H2" class="sapUiSmallMarginBottom sapUiMediumMarginTop"/>
                             <layout:Grid containerQuery="true" defaultSpan="XL2 L3 M4 S6" class="sapUiSmallMarginTop">
                                 <GenericTile 

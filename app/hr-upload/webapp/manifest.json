@@ -15,6 +15,16 @@
             "async": true,
             "id": "appView"
         },
+        "dependencies": {
+            "minUI5Version": "1.108.0",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.ui.layout": {},
+                "sap.ui.table": {},
+                "sap.ui.unified": {}
+            }
+        },
         "models": {
             "i18n": {
                 "type": "sap.ui.model.resource.ResourceModel",

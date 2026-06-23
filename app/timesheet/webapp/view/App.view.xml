@@ -341,6 +341,7 @@
                             <Text text="{i18n>txtReportsComing}" />
                         </VBox>
                     </VBox>
+
                 </content>
             </Page>
         </tnt:mainContents>

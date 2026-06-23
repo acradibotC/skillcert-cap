@@ -62,7 +62,7 @@ sap.ui.define([
                         oUserModel.setProperty("/initials", initials);
                         oUserModel.setProperty("/email", oData.email);
                         oUserModel.setProperty("/userId", oData.userId || oData.pernr);
-                        
+                        oUserModel.setProperty("/isManager", oData.isManager === true || oData.isManager === "X");
                         this.byId("welcomeGreeting").setText("Hi " + oData.name + ", great to see you!");
                     } else {
                         this.byId("welcomeGreeting").setText("Hi User, great to see you!");
@@ -219,17 +219,17 @@ sap.ui.define([
 
         onNavToProfile: function () {
             this.getView().getModel("user").setProperty("/shellTitle", "My Profile");
-            this._navigateToApp("profilePage", "znxr09.znxr09f300", "../../profile/webapp");
+            this._navigateToApp("profilePage", "znxr09.znxr09f300", "/profile/webapp");
         },
 
         onNavToTimesheet: function () {
             this.getView().getModel("user").setProperty("/shellTitle", "My Timesheet");
-            this._navigateToApp("timesheetPage", "znxr09.timesheet", "../../timesheet/webapp");
+            this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
         },
 
         onNavToHrUpload: function () {
             this.getView().getModel("user").setProperty("/shellTitle", "HR Timesheet Upload");
-            this._navigateToApp("hrUploadPage", "znxr09.hrupload", "../../hr-upload/webapp");
+            this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
         },
 
         _navigateToApp: function (sPageId, sComponentName, sComponentUrl) {
@@ -242,7 +242,8 @@ sap.ui.define([
                     name: sComponentName,
                     manifest: true,
                     async: true,
-                    url: sComponentUrl
+                    url: sComponentUrl,
+                    height: "100%"
                 });
 
                 oPage = new Page(this.createId(sPageId), {

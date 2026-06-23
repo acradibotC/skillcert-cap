@@ -12,6 +12,14 @@ sap.ui.define([
     return Controller.extend("znxr09.hrupload.controller.App", {
 
         onInit: function () {
+            // Dynamically load SheetJS for Launchpad compatibility
+            if (typeof XLSX === "undefined") {
+                var oScript = document.createElement("script");
+                oScript.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+                oScript.type = "text/javascript";
+                document.head.appendChild(oScript);
+            }
+
             var oUploadModel = new JSONModel({
                 fileSelected: false,
                 fileName: "",
@@ -70,10 +78,22 @@ sap.ui.define([
                 MessageToast.show("No file selected.");
                 return;
             }
+            sap.ui.core.BusyIndicator.show(0);
             var that = this;
             var reader = new FileReader();
             reader.onload = function (e) {
-                that._processExcelData(e.target.result);
+                setTimeout(function() {
+                    try {
+                        that._processExcelData(e.target.result);
+                    } catch (err) {
+                        sap.ui.core.BusyIndicator.hide();
+                        MessageBox.error("Failed to parse file: " + err.message);
+                    }
+                }, 50);
+            };
+            reader.onerror = function () {
+                sap.ui.core.BusyIndicator.hide();
+                MessageBox.error("Error reading the file from disk.");
             };
             reader.readAsArrayBuffer(this._rawFile);
         },
@@ -115,6 +135,8 @@ sap.ui.define([
             oModel.setProperty("/errorRows", iErrors);
             oModel.setProperty("/dataParsed", true);
 
+            sap.ui.core.BusyIndicator.hide();
+
             var oBundle = this.getView().getModel("i18n").getResourceBundle();
             MessageToast.show(oBundle.getText("msgParsed", [aRecords.length, iErrors]));
         },
@@ -146,12 +168,9 @@ sap.ui.define([
                 sDateDisplay = sDateInternal.substring(0, 4) + "-" + sDateInternal.substring(4, 6) + "-" + sDateInternal.substring(6, 8);
             }
 
-            // --- Time conversion: remove ':' ---
-            var sEntry = String(row[2] || "").trim().replace(/:/g, "");
-            var sExit = String(row[3] || "").trim().replace(/:/g, "");
-            // Pad to 6 digits (HHMMSS)
-            while (sEntry.length > 0 && sEntry.length < 6) sEntry = "0" + sEntry;
-            while (sExit.length > 0 && sExit.length < 6) sExit = "0" + sExit;
+            // --- Time conversion ---
+            var sEntry = this._parseTimeUpload(row[2]);
+            var sExit = this._parseTimeUpload(row[3]);
 
             var sEntryDisplay = sEntry ? sEntry.substring(0,2) + ":" + sEntry.substring(2,4) + ":" + sEntry.substring(4,6) : "";
             var sExitDisplay = sExit ? sExit.substring(0,2) + ":" + sExit.substring(2,4) + ":" + sExit.substring(4,6) : "";
@@ -173,6 +192,34 @@ sap.ui.define([
                 NumberOfEntry: parseInt(row[7]) || 0,
                 NumberOfExit: parseInt(row[8]) || 0
             };
+        },
+
+        _parseTimeUpload: function (sTime) {
+            if (!sTime && sTime !== 0) return "";
+            var s = String(sTime).trim();
+            
+            // If it's a decimal (fraction of a day from Excel raw format)
+            if (!isNaN(s) && Number(s) >= 0 && Number(s) < 1 && s.indexOf(":") === -1) {
+                var totalSeconds = Math.round(Number(s) * 86400);
+                var h = Math.floor(totalSeconds / 3600);
+                var m = Math.floor((totalSeconds % 3600) / 60);
+                var sec = totalSeconds % 60;
+                return ("0" + h).slice(-2) + ("0" + m).slice(-2) + ("0" + sec).slice(-2);
+            }
+            
+            // If it contains ":"
+            if (s.indexOf(":") !== -1) {
+                var parts = s.split(":");
+                var h = ("0" + (parts[0] || "0")).slice(-2);
+                var m = ("0" + (parts[1] || "0")).slice(-2);
+                var sec = ("0" + (parts[2] || "0")).slice(-2);
+                return h + m + sec;
+            }
+            
+            // If it's already HHMMSS or HMMSS (numbers only)
+            var sClean = s.replace(/\D/g, "");
+            while (sClean.length > 0 && sClean.length < 6) sClean = "0" + sClean;
+            return sClean;
         },
 
         /**
@@ -210,14 +257,20 @@ sap.ui.define([
         // ======================== Delete Selected Rows ========================
         onDeleteSelected: function () {
             var oTable = this.byId("previewTable");
-            var aIndices = oTable.getSelectedIndices();
-            if (aIndices.length === 0) {
+            var aItems = oTable.getSelectedItems();
+            if (aItems.length === 0) {
                 MessageToast.show("No rows selected.");
                 return;
             }
 
             var oModel = this.getView().getModel("uploadModel");
             var aRecords = oModel.getProperty("/records").slice();
+
+            // Get indices from bindings
+            var aIndices = aItems.map(function(oItem) {
+                var sPath = oItem.getBindingContext("uploadModel").getPath(); // e.g. "/records/5"
+                return parseInt(sPath.split("/")[2], 10);
+            });
 
             // Remove in reverse order to maintain correct indices
             aIndices.sort(function(a, b) { return b - a; });
@@ -229,7 +282,7 @@ sap.ui.define([
             oModel.setProperty("/records", aRecords);
             oModel.setProperty("/totalRows", aRecords.length);
             oModel.setProperty("/errorRows", iErrors);
-            oTable.clearSelection();
+            oTable.removeSelections(true);
 
             MessageToast.show(aIndices.length + " row(s) removed.");
         },
