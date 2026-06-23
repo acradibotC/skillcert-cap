@@ -1,0 +1,32 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f">
+    <ResponsivePopover
+        id="userMenuPopover"
+        placement="Bottom"
+        showHeader="false"
+        contentWidth="300px"
+        class="sapUiPopupWithPadding">
+        
+        <VBox alignItems="Center" class="sapUiSmallMarginTop sapUiMediumMarginBottom">
+            <f:Avatar initials="{user>/initials}" displaySize="XL" class="userMenuAvatar"/>
+            <Title text="{user>/name}" level="H3" class="sapUiTinyMarginTop"/>
+            <Text text="{user>/email}" class="sapUiTinyMarginTop" />
+        </VBox>
+
+        <List mode="None" showSeparators="None">
+            <StandardListItem title="Settings" icon="sap-icon://action-settings" type="Active" press=".onOpenSettings"/>
+            <StandardListItem title="App Finder" icon="sap-icon://sys-find" type="Active"/>
+            <StandardListItem title="My Home Settings" icon="sap-icon://edit" type="Active"/>
+            <StandardListItem title="My User Sessions" icon="sap-icon://collaborate" type="Active"/>
+            <StandardListItem title="Create Extension" icon="sap-icon://add-process" type="Active"/>
+            <StandardListItem title="About" icon="sap-icon://hint" type="Active"/>
+        </List>
+        
+        <Toolbar class="userMenuToolbar">
+            <ToolbarSpacer/>
+            <Button text="Sign Out" icon="sap-icon://log" press=".onLogout" type="Transparent"/>
+        </Toolbar>
+    </ResponsivePopover>
+</core:FragmentDefinition>

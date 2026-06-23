@@ -1,0 +1,348 @@
+<mvc:View
+    controllerName="znxr09.timesheet.controller.App"
+    xmlns:mvc="sap.ui.core.mvc"
+    displayBlock="true"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:tnt="sap.tnt"
+    xmlns:unified="sap.ui.unified"
+    xmlns:form="sap.ui.layout.form">
+    <tnt:ToolPage id="toolPage">
+
+        <!-- Dynamic Page Header -->
+        <tnt:header>
+            <tnt:ToolHeader>
+                <Button icon="sap-icon://menu2" type="Transparent" press="onSideNavButtonPress" tooltip="Toggle Menu" />
+                <ToolbarSpacer />
+                <HBox alignItems="Center" class="sapUiSmallMarginEnd">
+                    <core:Icon src="sap-icon://person-placeholder" class="sapUiSmallMarginEnd" color="#fff"/>
+                    <Text id="userInfoText" text="{i18n>txtLoading}" class="sapUiSmallMarginEnd" />
+                </HBox>
+            </tnt:ToolHeader>
+        </tnt:header>
+
+        <tnt:sideContent>
+            <tnt:SideNavigation id="sideNav" expanded="true" selectedKey="{view>/selectedTab}" itemSelect="onSideNavSelect">
+                <tnt:NavigationList>
+                    <tnt:NavigationListItem text="{i18n>navDashboard}" icon="sap-icon://bar-chart" key="dashboard" />
+                    <tnt:NavigationListItem text="{i18n>navAttendance}" icon="sap-icon://time-entry-request" key="attendance" />
+                    <tnt:NavigationListItem text="{i18n>navCalendar}" icon="sap-icon://calendar" key="calendar" />
+                    <tnt:NavigationListItem text="{i18n>navRequests}" icon="sap-icon://request" key="requests" />
+                    <tnt:NavigationListItem text="{i18n>navHistory}" icon="sap-icon://history" key="history" />
+                    <tnt:NavigationListItem text="{i18n>navReports}" icon="sap-icon://document-text" key="reports" />
+                </tnt:NavigationList>
+            </tnt:SideNavigation>
+        </tnt:sideContent>
+
+        <tnt:mainContents>
+            <Page showHeader="false">
+                <content>
+                    <!-- Dashboard Section -->
+                    <VBox visible="{= ${view>/selectedTab} === 'dashboard' }" class="sapUiResponsiveMargin">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://bar-chart" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>navDashboard}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
+                        <VBox class="premiumTableContainer sapUiMediumMarginBottom sapUiResponsiveContentPadding">
+                            <Text text="{i18n>txtDashboardComing}" />
+                        </VBox>
+                    </VBox>
+
+                    <!-- ============================================ -->
+                    <!-- My Attendance Section (Table)                -->
+                    <!-- ============================================ -->
+                    <VBox visible="{= ${view>/selectedTab} === 'attendance' }" class="sapUiResponsiveMargin">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://time-entry-request" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>navAttendance}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
+                        <VBox class="premiumTableContainer sapUiMediumMarginBottom">
+                            <OverflowToolbar class="premiumTableHeader sapUiSmallMarginBottom" design="Transparent">
+                                <Select id="attMonthSelect" selectedKey="{view>/attMonth}">
+                                    <core:Item key="1" text="{i18n>mJan}" />
+                                    <core:Item key="2" text="{i18n>mFeb}" />
+                                    <core:Item key="3" text="{i18n>mMar}" />
+                                    <core:Item key="4" text="{i18n>mApr}" />
+                                    <core:Item key="5" text="{i18n>mMay}" />
+                                    <core:Item key="6" text="{i18n>mJun}" />
+                                    <core:Item key="7" text="{i18n>mJul}" />
+                                    <core:Item key="8" text="{i18n>mAug}" />
+                                    <core:Item key="9" text="{i18n>mSep}" />
+                                    <core:Item key="10" text="{i18n>mOct}" />
+                                    <core:Item key="11" text="{i18n>mNov}" />
+                                    <core:Item key="12" text="{i18n>mDec}" />
+                                </Select>
+                                <Select id="attYearSelect" selectedKey="{view>/attYear}">
+                                    <core:Item key="2026" text="2026" />
+                                    <core:Item key="2025" text="2025" />
+                                </Select>
+                                <Button text="{i18n>btnSearch}" type="Default" press="onAttendanceSearch" />
+                                <Button text="{i18n>btnExport}" type="Emphasized" press="onExport" />
+                                <ToolbarSpacer />
+                            </OverflowToolbar>
+
+                            <Table id="attendanceTable"
+                                items="{
+                                    path: 'att>/rows'
+                                }"
+                                growing="true"
+                                growingThreshold="31"
+                                alternateRowColors="true"
+                                class="sapUiSizeCompact">
+                                <columns>
+                                    <Column hAlign="Center" width="4rem"><Text text="{i18n>colNo}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colDate}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colCheckin}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colCheckout}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colStatusInOut}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colActualWorking}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colOvertimeHours}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colCreditLeaveDay}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colUnpaidLeaveDay}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colRequestAcceptSent}" /></Column>
+                                    <Column hAlign="Center" width="9rem"><Text text="" /></Column>
+                                </columns>
+                                <items>
+                                    <ColumnListItem vAlign="Middle">
+                                        <cells>
+                                            <Text text="{att>No}" />
+                                            <Text text="{att>Date}" />
+                                            <Text text="{att>Checkin}" />
+                                            <Text text="{att>Checkout}" />
+                                            <ObjectStatus text="{att>StatusText}" state="{att>StatusState}" />
+                                            <Text text="{att>ActualWorking}" />
+                                            <Text text="{att>Overtime}" />
+                                            <Text text="{att>CreditLeave}" />
+                                            <Text text="{att>UnpaidLeave}" />
+                                            <Text text="{att>Request}" />
+                                            <Button text="{i18n>btnCreateRequest}" type="Emphasized" press="onCreateRequest" />
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
+                    </VBox>
+
+                    <!-- ============================================ -->
+                    <!-- Work Calendar Section                        -->
+                    <!-- ============================================ -->
+                    <VBox visible="{= ${view>/selectedTab} === 'calendar' }" class="sapUiResponsiveMargin" busy="{view>/calendarBusy}">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://calendar" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>navCalendar}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
+                        <VBox class="premiumTableContainer sapUiMediumMarginBottom sapUiResponsiveContentPadding">
+                            <HBox wrap="Wrap" justifyContent="SpaceBetween">
+                                <VBox width="60%" class="sapUiMediumMarginEnd">
+                                    <unified:Calendar
+                                        id="attendanceCalendar"
+                                        select="onDateSelect"
+                                        startDateChange="onStartDateChange"
+                                        width="100%"
+                                        legend="calendarLegend" />
+                                </VBox>
+                                
+                                <VBox width="35%">
+                                    <!-- Legend -->
+                                    <unified:CalendarLegend id="calendarLegend" class="sapUiSmallMarginBottom">
+                                        <unified:items>
+                                            <unified:CalendarLegendItem text="{i18n>statusFullAttendance}" type="Type08" />
+                                            <unified:CalendarLegendItem text="{i18n>statusLateLeaveEarly}" type="Type02" />
+                                            <unified:CalendarLegendItem text="{i18n>statusAbsent}" type="Type03" />
+                                            <unified:CalendarLegendItem text="{i18n>statusScheduled}" type="Type06" />
+                                            <unified:CalendarLegendItem text="{i18n>statusOffNoSchedule}" type="Type09" />
+                                        </unified:items>
+                                    </unified:CalendarLegend>
+
+                                    <!-- Detail Panel - 2 Column Layout -->
+                                    <Panel id="detailPanel" headerText="{i18n>detPanelTitle}" visible="false" class="sapUiSmallMarginTop">
+                                        <HBox justifyContent="SpaceBetween" wrap="Wrap" class="sapUiSmallMargin">
+                                            <!-- Column 1: Scheduled Hours -->
+                                            <VBox width="48%">
+                                                <form:SimpleForm layout="ResponsiveGridLayout" editable="false" columnsL="1" columnsM="1">
+                                                    <form:content>
+                                                        <core:Title text="{i18n>detSchHours}" />
+                                                        <Label text="{i18n>colDate}" />
+                                                        <Text id="detDate" text="" />
+                                                        <Label text="{i18n>detShift}" />
+                                                        <Text id="detShift" text="" />
+                                                        <Label text="{i18n>detStart}" />
+                                                        <Text id="detStart" text="" />
+                                                        <Label text="{i18n>detEnd}" />
+                                                        <Text id="detEnd" text="" />
+                                                    </form:content>
+                                                </form:SimpleForm>
+                                            </VBox>
+                                            <!-- Column 2: Actual Hours + Status -->
+                                            <VBox width="48%">
+                                                <form:SimpleForm layout="ResponsiveGridLayout" editable="false" columnsL="1" columnsM="1">
+                                                    <form:content>
+                                                        <core:Title text="{i18n>detActHours}" />
+                                                        <Label text="{i18n>detClockIn}" />
+                                                        <Text id="detActStart" text="" />
+                                                        <Label text="{i18n>detClockOut}" />
+                                                        <Text id="detActEnd" text="" />
+                                                        <Label text="{i18n>detStatus}" />
+                                                        <ObjectStatus id="detStatus" text="" />
+                                                    </form:content>
+                                                </form:SimpleForm>
+                                            </VBox>
+                                        </HBox>
+                                    </Panel>
+                                    
+                                    <VBox id="placeholderDetail" alignItems="Center" class="sapUiLargeMarginTop" visible="true">
+                                        <core:Icon src="sap-icon://appointment" size="3rem" color="#ccc" class="sapUiSmallMarginBottom"/>
+                                        <Text text="{i18n>detPlaceholder}" textAlign="Center"/>
+                                    </VBox>
+                                </VBox>
+                            </HBox>
+                        </VBox>
+                    </VBox>
+
+                    <!-- ============================================ -->
+                    <!-- My Requests Section                          -->
+                    <!-- ============================================ -->
+                    <VBox visible="{= ${view>/selectedTab} === 'requests' }" class="sapUiResponsiveMargin">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://request" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>navRequests}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
+                        <VBox class="premiumTableContainer sapUiMediumMarginBottom">
+                            <OverflowToolbar class="sapUiSmallMarginBottom">
+                                <SegmentedButton id="reqViewToggle" selectedKey="{view>/reqViewMode}" selectionChange="onReqViewToggle">
+                                    <items>
+                                        <SegmentedButtonItem key="employee" text="{i18n>navRequests}" icon="sap-icon://person-placeholder" />
+                                        <SegmentedButtonItem key="manager" text="{i18n>reqViewTeamAppr}" icon="sap-icon://manager" visible="{view>/isManager}" />
+                                    </items>
+                                </SegmentedButton>
+                                <ToolbarSpacer />
+                                <Button text="{i18n>btnRefresh}" icon="sap-icon://refresh" press="onRefreshRequests" />
+                            </OverflowToolbar>
+
+                            <!-- Status Filter -->
+                            <IconTabBar id="reqStatusFilter" select="onReqStatusFilter" selectedKey="ALL" class="sapUiSmallMarginBottom">
+                                <items>
+                                    <IconTabFilter key="ALL" text="{i18n>statusAll}" count="{view>/reqCountAll}" />
+                                    <IconTabFilter key="01" text="{i18n>statusPending}" count="{view>/reqCountPending}" iconColor="Critical" />
+                                    <IconTabFilter key="02" text="{i18n>statusApproved}" count="{view>/reqCountApproved}" iconColor="Positive" />
+                                    <IconTabFilter key="03" text="{i18n>statusRejected}" count="{view>/reqCountRejected}" iconColor="Negative" />
+                                </items>
+                            </IconTabBar>
+
+                            <!-- Request Table -->
+                            <Table id="requestsTable"
+                                items="{ path: 'reqList>/rows' }"
+                                growing="true"
+                                growingThreshold="20"
+                                alternateRowColors="true"
+                                class="sapUiSizeCompact"
+                                noDataText="{i18n>txtNoDataReq}">
+                                <columns>
+                                    <Column width="3rem" hAlign="Center"><Text text="{i18n>colNo}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colType}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colDateRange}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colDuration}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>detStatus}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colApprover}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colReason}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colCreated}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colActions}" /></Column>
+                                </columns>
+                                <items>
+                                    <ColumnListItem vAlign="Middle">
+                                        <cells>
+                                            <Text text="{reqList>No}" />
+                                            <HBox alignItems="Center" justifyContent="Center">
+                                                <core:Icon src="{reqList>TypeIcon}" class="sapUiTinyMarginEnd" />
+                                                <Text text="{reqList>TypeText}" />
+                                            </HBox>
+                                            <Text text="{reqList>DateRange}" />
+                                            <Text text="{reqList>DurationText}" />
+                                            <ObjectStatus text="{reqList>StatusText}" state="{reqList>StatusState}" />
+                                            <Text text="{reqList>ApproverName}" />
+                                            <Text text="{reqList>Reason}" wrapping="false" maxLines="1" />
+                                            <Text text="{reqList>CreatedDate}" />
+                                            <HBox justifyContent="Center">
+                                                <!-- Employee: Cancel (only Pending) -->
+                                                <Button text="{i18n>btnCancel}" type="Reject" press="onCancelRequest"
+                                                    visible="{= ${view>/reqViewMode} === 'employee' &amp;&amp; ${reqList>Status} === '01' }"
+                                                    class="sapUiTinyMarginEnd" />
+                                                <!-- Manager: Approve -->
+                                                <Button text="{i18n>btnApprove}" type="Accept" press="onApproveRequest"
+                                                    visible="{= ${view>/reqViewMode} === 'manager' &amp;&amp; ${reqList>Status} === '01' }"
+                                                    class="sapUiTinyMarginEnd" />
+                                                <!-- Manager: Reject -->
+                                                <Button text="{i18n>btnReject}" type="Reject" press="onRejectRequest"
+                                                    visible="{= ${view>/reqViewMode} === 'manager' &amp;&amp; ${reqList>Status} === '01' }" />
+                                            </HBox>
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
+                    </VBox>
+
+                    <!-- ============================================ -->
+                    <!-- My History Section                           -->
+                    <!-- ============================================ -->
+                    <VBox visible="{= ${view>/selectedTab} === 'history' }" class="sapUiResponsiveMargin">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://history" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>navHistory}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
+                        <VBox class="premiumTableContainer sapUiMediumMarginBottom">
+                            <Table id="historyTable"
+                                items="{ path: 'histList>/rows' }"
+                                growing="true"
+                                growingThreshold="20"
+                                alternateRowColors="true"
+                                class="sapUiSizeCompact"
+                                noDataText="{i18n>txtNoDataHist}">
+                                <columns>
+                                    <Column width="3rem" hAlign="Center"><Text text="{i18n>colNo}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colType}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colDateRange}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colDuration}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>detStatus}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colApprover}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colReason}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colSapStatus}" /></Column>
+                                    <Column hAlign="Center"><Text text="{i18n>colCreated}" /></Column>
+                                </columns>
+                                <items>
+                                    <ColumnListItem vAlign="Middle">
+                                        <cells>
+                                            <Text text="{histList>No}" />
+                                            <HBox alignItems="Center" justifyContent="Center">
+                                                <core:Icon src="{histList>TypeIcon}" class="sapUiTinyMarginEnd" />
+                                                <Text text="{histList>TypeText}" />
+                                            </HBox>
+                                            <Text text="{histList>DateRange}" />
+                                            <Text text="{histList>DurationText}" />
+                                            <ObjectStatus text="{histList>StatusText}" state="{histList>StatusState}" />
+                                            <Text text="{histList>ApproverName}" />
+                                            <Text text="{histList>Reason}" wrapping="false" maxLines="1" />
+                                            <ObjectStatus text="{histList>SapPostStatus}" state="{histList>SapPostState}" />
+                                            <Text text="{histList>CreatedDate}" />
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
+                    </VBox>
+
+                    <!-- Reports Section -->
+                    <VBox visible="{= ${view>/selectedTab} === 'reports' }" class="sapUiResponsiveMargin">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://document-text" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>navReports}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
+                        <VBox class="premiumTableContainer sapUiMediumMarginBottom sapUiResponsiveContentPadding">
+                            <Text text="{i18n>txtReportsComing}" />
+                        </VBox>
+                    </VBox>
+                </content>
+            </Page>
+        </tnt:mainContents>
+    </tnt:ToolPage>
+</mvc:View>

@@ -1,0 +1,206 @@
+{
+ "meta": {
+  "creator": "cds-dk 9.9.2"
+ },
+ "$version": "2.0",
+ "definitions": {
+  "ZUI_NXR_WORKSCHEDULE_O4": {
+   "kind": "service",
+   "@cds.external": true,
+   "@Aggregation.ApplySupported.Transformations": [
+    "aggregate",
+    "groupby",
+    "filter"
+   ],
+   "@Aggregation.ApplySupported.Rollup": {
+    "#": "None"
+   },
+   "@Common.ApplyMultiUnitBehaviorForSortingAndFiltering": true,
+   "@Capabilities.FilterFunctions": [
+    "eq",
+    "ne",
+    "gt",
+    "ge",
+    "lt",
+    "le",
+    "and",
+    "or",
+    "contains",
+    "startswith",
+    "endswith",
+    "any",
+    "all"
+   ],
+   "@Capabilities.SupportedFormats": [
+    "application/json",
+    "application/pdf"
+   ],
+   "@PDF.Features.DocumentDescriptionReference": "../../../../default/iwbep/common/0001/$metadata",
+   "@PDF.Features.DocumentDescriptionCollection": "MyDocumentDescriptions",
+   "@PDF.Features.ArchiveFormat": true,
+   "@PDF.Features.Border": true,
+   "@PDF.Features.CoverPage": true,
+   "@PDF.Features.FitToPage": true,
+   "@PDF.Features.FontName": true,
+   "@PDF.Features.FontSize": true,
+   "@PDF.Features.Margin": true,
+   "@PDF.Features.Signature": true,
+   "@PDF.Features.ResultSizeDefault": 20000,
+   "@PDF.Features.ResultSizeMaximum": 20000
+  },
+  "ZUI_NXR_WORKSCHEDULE_O4.WorkSchedule": {
+   "kind": "entity",
+   "@cds.external": true,
+   "@cds.persistence.skip": true,
+   "elements": {
+    "Pernr": {
+     "key": true,
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Personnel Number",
+     "@Common.Heading": "Pers.No."
+    },
+    "WorkDate": {
+     "key": true,
+     "type": "cds.Date",
+     "notNull": true,
+     "@Common.Label": "Date",
+     "@Common.Heading": "Date in Format YYYYMMDD",
+     "@Common.QuickInfo": "Field of type DATS"
+    },
+    "StartTime": {
+     "type": "cds.Time",
+     "notNull": true,
+     "@Common.Label": "Time"
+    },
+    "EndTime": {
+     "type": "cds.Time",
+     "notNull": true,
+     "@Common.Label": "Time"
+    },
+    "ActualStartTime": {
+     "type": "cds.Time",
+     "notNull": true,
+     "@Common.Label": "Time"
+    },
+    "ActualEndTime": {
+     "type": "cds.Time",
+     "notNull": true,
+     "@Common.Label": "Time"
+    },
+    "ShiftCode": {
+     "type": "cds.String",
+     "length": 4,
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "Daily work schedule",
+     "@Common.Heading": "DWS",
+     "@Common.QuickInfo": "Daily Work Schedule"
+    },
+    "IsHoliday": {
+     "type": "cds.Boolean",
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "Truth Value",
+     "@Common.QuickInfo": "Truth Value: True/False"
+    },
+    "AttendanceStatus": {
+     "type": "cds.Integer",
+     "@odata.Type": "Edm.Byte",
+     "notNull": true
+    }
+   },
+   "@Common.Label": "Employee Work Schedule Custom Entity",
+   "@UI.LineItem": [
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Personnel Number",
+     "Value": {
+      "=": "Pernr"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Work Date",
+     "Value": {
+      "=": "WorkDate"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Start Time",
+     "Value": {
+      "=": "StartTime"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Actual Start Time",
+     "Value": {
+      "=": "ActualStartTime"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "End Time",
+     "Value": {
+      "=": "EndTime"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Actual End Time",
+     "Value": {
+      "=": "ActualEndTime"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Shift Code",
+     "Value": {
+      "=": "ShiftCode"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Is Holiday?",
+     "Value": {
+      "=": "IsHoliday"
+     }
+    },
+    {
+     "$Type": "SAP__UI.DataField",
+     "Label": "Status Color",
+     "Value": {
+      "=": "AttendanceStatus"
+     }
+    }
+   ],
+   "@UI.SelectionFields": [
+    "Pernr",
+    "WorkDate"
+   ],
+   "@Capabilities.SearchRestrictions.Searchable": false,
+   "@Capabilities.InsertRestrictions.Insertable": false,
+   "@Capabilities.DeleteRestrictions.Deletable": false,
+   "@Capabilities.UpdateRestrictions.Updatable": false,
+   "@Capabilities.UpdateRestrictions.QueryOptions.SelectSupported": true,
+   "@Capabilities.FilterRestrictions.FilterExpressionRestrictions": [
+    {
+     "Property": {
+      "=": "ShiftCode"
+     },
+     "AllowedExpressions": "MultiValue"
+    },
+    {
+     "Property": {
+      "=": "IsHoliday"
+     },
+     "AllowedExpressions": "MultiValue"
+    }
+   ]
+  }
+ }
+}

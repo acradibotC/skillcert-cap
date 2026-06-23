@@ -1,0 +1,114 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns:layout="sap.ui.layout">
+    
+    <Dialog
+        id="settingsDialog"
+        title="Settings"
+        contentWidth="800px"
+        contentHeight="500px"
+        resizable="true"
+        draggable="true"
+        verticalScrolling="false"
+        class="sapUiNoContentPadding">
+        
+        <HBox height="100%" width="100%">
+            <!-- Master List (Left Side) -->
+            <VBox width="250px" class="sapUiBorderRight" height="100%">
+                <List id="settingsList" mode="SingleSelectMaster" selectionChange=".onSettingsTabSelect">
+                    <StandardListItem title="User Account" description="{user>/name}" type="Navigation" customData:key="accountTab" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                    <StandardListItem title="Appearance" description="{user>/theme}" type="Navigation" customData:key="appearanceTab" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                    <StandardListItem title="Language and Region" description="English" type="Navigation" customData:key="languageTab" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                    <StandardListItem title="Search" description="Personalized Search: Off" type="Navigation"/>
+                </List>
+            </VBox>
+
+            <!-- Detail Content (Right Side) -->
+            <NavContainer id="settingsNavContainer" height="100%">
+                <layoutData>
+                    <FlexItemData growFactor="1"/>
+                </layoutData>
+                
+                <!-- Account Tab -->
+                <Page id="accountTab" showHeader="true" title="User Account" class="sapUiContentPadding">
+                    <HBox alignItems="Center" class="sapUiLargeMarginBottom">
+                        <f:Avatar initials="{user>/initials}" displaySize="L" class="sapUiMediumMarginEnd"/>
+                        <Title text="{user>/name}" level="H2"/>
+                    </HBox>
+                    <layout:form.SimpleForm editable="false" layout="ResponsiveGridLayout">
+                        <Label text="Name"/>
+                        <Text text="{user>/name}"/>
+                        <Label text="User ID"/>
+                        <Text text="{user>/userId}"/>
+                        <Label text="Email"/>
+                        <Text text="{user>/email}"/>
+                        <Label text="Server"/>
+                        <Text text="{user>/server}"/>
+                    </layout:form.SimpleForm>
+                </Page>
+
+                <!-- Appearance Tab -->
+                <Page id="appearanceTab" showHeader="true" title="Appearance" class="sapUiContentPadding">
+                    <IconTabBar class="sapUiNoContentPadding" stretchContentHeight="true" applyContentPadding="false">
+                        <items>
+                            <IconTabFilter text="Theme">
+                                <List mode="SingleSelectLeft" selectionChange=".onThemeSelect">
+                                    <StandardListItem title="SAP Quartz Light" customData:theme="sap_fiori_3" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                                    <StandardListItem title="SAP Morning Horizon" customData:theme="sap_horizon" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                                    <StandardListItem title="SAP Evening Horizon" customData:theme="sap_horizon_dark" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                                    <StandardListItem title="SAP High Contrast Black" customData:theme="sap_horizon_hcb" xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"/>
+                                </List>
+                            </IconTabFilter>
+                            <IconTabFilter text="Display Settings">
+                                <Text text="Display settings content..." class="sapUiMediumMargin"/>
+                            </IconTabFilter>
+                        </items>
+                    </IconTabBar>
+                </Page>
+
+                <!-- Language Tab -->
+                <Page id="languageTab" showHeader="true" title="Language and Region" class="sapUiContentPadding">
+                    <layout:form.SimpleForm editable="true" layout="ResponsiveGridLayout">
+                        <Label text="Language and Region"/>
+                        <Select id="languageSelect" selectedKey="en">
+                            <core:Item key="en" text="English"/>
+                            <core:Item key="vi" text="Vietnamese"/>
+                        </Select>
+                        <Label text="Date Format"/>
+                        <Select selectedKey="1">
+                            <core:Item key="1" text="YYYY/MM/DD (Gregorian Date)"/>
+                            <core:Item key="2" text="DD.MM.YYYY"/>
+                        </Select>
+                        <Label text="Time Zone"/>
+                        <Select selectedKey="asia">
+                            <core:Item key="asia" text="Asia, Tokyo"/>
+                            <core:Item key="vn" text="Asia, Ho Chi Minh"/>
+                        </Select>
+                        <Label text="Time Format"/>
+                        <Select selectedKey="24">
+                            <core:Item key="24" text="24 Hour Format (Example: 12:05:10)"/>
+                            <core:Item key="12" text="12 Hour Format"/>
+                        </Select>
+                    </layout:form.SimpleForm>
+                    <Text text="After you save your settings, the browser will refresh for the new settings to take effect." class="sapUiSmallMargin" style="color:#666; font-style:italic;"/>
+                </Page>
+
+                <Page id="emptyTab" showHeader="true" title="Settings">
+                    <VBox justifyContent="Center" alignItems="Center" height="100%">
+                        <Text text="Select a setting category from the left."/>
+                    </VBox>
+                </Page>
+
+            </NavContainer>
+        </HBox>
+
+        <beginButton>
+            <Button text="Save" type="Emphasized" press=".onSaveSettings"/>
+        </beginButton>
+        <endButton>
+            <Button text="Cancel" press=".onCloseSettings"/>
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

@@ -1,0 +1,191 @@
+{
+ "meta": {
+  "creator": "cds-dk 9.9.2"
+ },
+ "$version": "2.0",
+ "definitions": {
+  "ZUI_NXR_ATTREQ_O4.SAP__Message": {
+   "kind": "type",
+   "@cds.external": true,
+   "elements": {
+    "code": {
+     "type": "cds.String",
+     "notNull": true
+    },
+    "message": {
+     "type": "cds.String",
+     "notNull": true
+    },
+    "target": {
+     "type": "cds.String"
+    },
+    "additionalTargets": {
+     "items": {
+      "type": "cds.String",
+      "notNull": true
+     }
+    },
+    "transition": {
+     "type": "cds.Boolean",
+     "notNull": true
+    },
+    "numericSeverity": {
+     "type": "cds.Integer",
+     "@odata.Type": "Edm.Byte",
+     "notNull": true
+    },
+    "longtextUrl": {
+     "type": "cds.String"
+    }
+   }
+  },
+  "ZUI_NXR_ATTREQ_O4": {
+   "kind": "service",
+   "@cds.external": true,
+   "@Aggregation.ApplySupported.Transformations": [
+    "aggregate",
+    "groupby",
+    "filter"
+   ],
+   "@Aggregation.ApplySupported.Rollup": {
+    "#": "None"
+   },
+   "@Common.ApplyMultiUnitBehaviorForSortingAndFiltering": true,
+   "@Capabilities.FilterFunctions": [
+    "eq",
+    "ne",
+    "gt",
+    "ge",
+    "lt",
+    "le",
+    "and",
+    "or",
+    "contains",
+    "startswith",
+    "endswith",
+    "any",
+    "all"
+   ],
+   "@Capabilities.SupportedFormats": [
+    "application/json",
+    "application/pdf"
+   ],
+   "@PDF.Features.DocumentDescriptionReference": "../../../../default/iwbep/common/0001/$metadata",
+   "@PDF.Features.DocumentDescriptionCollection": "MyDocumentDescriptions",
+   "@PDF.Features.ArchiveFormat": true,
+   "@PDF.Features.Border": true,
+   "@PDF.Features.CoverPage": true,
+   "@PDF.Features.FitToPage": true,
+   "@PDF.Features.FontName": true,
+   "@PDF.Features.FontSize": true,
+   "@PDF.Features.Margin": true,
+   "@PDF.Features.Signature": true,
+   "@PDF.Features.ResultSizeDefault": 20000,
+   "@PDF.Features.ResultSizeMaximum": 20000
+  },
+  "ZUI_NXR_ATTREQ_O4.AttendanceRequest": {
+   "kind": "entity",
+   "@cds.external": true,
+   "@cds.persistence.skip": true,
+   "elements": {
+    "RequestId": {
+     "key": true,
+     "type": "cds.UUID",
+     "notNull": true,
+     "@Common.Label": "UUID"
+    },
+    "Pernr": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true
+    },
+    "RequestType": {
+     "type": "cds.String",
+     "length": 20,
+     "notNull": true
+    },
+    "StartDate": {
+     "type": "cds.Date"
+    },
+    "EndDate": {
+     "type": "cds.Date"
+    },
+    "Duration": {
+     "type": "cds.Decimal",
+     "precision": 5,
+     "scale": 2
+    },
+    "DurationUnit": {
+     "type": "cds.String",
+     "length": 5
+    },
+    "CorrectedDate": {
+     "type": "cds.Date"
+    },
+    "CorrectedStartTime": {
+     "type": "cds.Time"
+    },
+    "CorrectedEndTime": {
+     "type": "cds.Time"
+    },
+    "OtBreakHours": {
+     "type": "cds.Decimal",
+     "precision": 3,
+     "scale": 1
+    },
+    "ApproverId": {
+     "type": "cds.String",
+     "length": 30
+    },
+    "Status": {
+     "type": "cds.String",
+     "length": 2
+    },
+    "Reason": {
+     "type": "cds.String",
+     "length": 500
+    },
+    "RejectionReason": {
+     "type": "cds.String",
+     "length": 500
+    },
+    "SapPostStatus": {
+     "type": "cds.String",
+     "length": 10
+    },
+    "SapPostMessage": {
+     "type": "cds.String",
+     "length": 500
+    },
+    "CreatedBy": {
+     "type": "cds.String",
+     "length": 12
+    },
+    "CreatedAt": {
+     "type": "cds.Timestamp"
+    },
+    "LastChangedBy": {
+     "type": "cds.String",
+     "length": 12
+    },
+    "LastChangedAt": {
+     "type": "cds.Timestamp"
+    },
+    "LocalLastChangedAt": {
+     "type": "cds.Timestamp"
+    },
+    "SAP__Messages": {
+     "items": {
+      "type": "ZUI_NXR_ATTREQ_O4.SAP__Message",
+      "notNull": true
+     }
+    }
+   },
+   "@Common.Label": "Attendance Request",
+   "@Common.Messages": {
+    "=": "SAP__Messages"
+   },
+   "@Capabilities.SearchRestrictions.Searchable": false
+  }
+ }
+}

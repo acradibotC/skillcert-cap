@@ -1,0 +1,493 @@
+<mvc:View
+    controllerName="znxr09.znxr09f300.controller.SkillList"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout"
+    xmlns:form="sap.ui.layout.form"
+    xmlns:f="sap.f"
+    xmlns:tnt="sap.tnt">
+
+    <tnt:ToolPage id="toolPage">
+
+        <!-- Dynamic Page Header -->
+        <tnt:header>
+            <tnt:ToolHeader>
+                <Button icon="sap-icon://menu2" type="Transparent" press="onSideNavButtonPress" tooltip="Toggle Menu" />
+                <ToolbarSpacer />
+                <HBox alignItems="Center" class="sapUiSmallMarginEnd">
+                    <core:Icon src="sap-icon://person-placeholder" class="sapUiSmallMarginEnd" color="#fff"/>
+                    <Text text="{user>/name}" class="sapUiSmallMarginEnd" />
+                    <Text text="| {user>/department}" />
+                </HBox>
+            </tnt:ToolHeader>
+        </tnt:header>
+
+        <tnt:sideContent>
+            <tnt:SideNavigation id="sideNav" expanded="true" selectedKey="{view>/selectedTab}" itemSelect="onSideNavSelect">
+                <tnt:NavigationList>
+                    <tnt:NavigationListItem text="{i18n>tabMyProfile}" icon="sap-icon://person-placeholder" key="myProfile" />
+                    <tnt:NavigationListItem text="{i18n>tabMySkills}" icon="sap-icon://education" key="mySkills" />
+                    <tnt:NavigationListItem text="{i18n>tabMyCerts}" icon="sap-icon://badge" key="myCerts" />
+                    <tnt:NavigationListItem text="{i18n>tabDashboard}" icon="sap-icon://bar-chart" key="dashboard" visible="{user>/isManager}" />
+                    <tnt:NavigationListItem text="{i18n>tabTeamMgmt}" icon="sap-icon://group" key="team" visible="{user>/isManager}" />
+                </tnt:NavigationList>
+            </tnt:SideNavigation>
+        </tnt:sideContent>
+
+        <tnt:mainContents>
+            <Page showHeader="false">
+                <content>
+                    <VBox class="sapUiResponsiveMargin">
+
+                <!-- Content Sections replacing IconTabBar -->
+                <VBox width="100%" class="sapUiResponsiveContentPadding">
+
+                <!-- Summary Cards for Skills and Certs (Filterable) -->
+                <!-- Summary Cards for Skills and Certs (Premium) -->
+                <HBox justifyContent="Start" wrap="Wrap" class="sapUiMediumMarginBottom" visible="{= ${view>/selectedTab} === 'mySkills' || ${view>/selectedTab} === 'myCerts' }">
+                    <VBox id="cardTotal" class="profileStatCard">
+                        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%">
+                            <Text text="{i18n>cardTotalSkills}" class="profileStatLabel"/>
+                            <core:Icon src="sap-icon://competitor" size="1.25rem" color="#2b7c2b"/>
+                        </HBox>
+                        <Title text="{view>/certCount}" class="profileStatValue"/>
+                    </VBox>
+                    <VBox id="cardPending" class="profileStatCard">
+                        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%">
+                            <Text text="{i18n>cardPending}" class="profileStatLabel"/>
+                            <core:Icon src="sap-icon://pending" size="1.25rem" color="#e78c07"/>
+                        </HBox>
+                        <Title text="{view>/pendingCount}" class="profileStatValue"/>
+                    </VBox>
+                    <VBox id="cardApproved" class="profileStatCard">
+                        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%">
+                            <Text text="{i18n>cardApproved}" class="profileStatLabel"/>
+                            <core:Icon src="sap-icon://accept" size="1.25rem" color="#2b7c2b"/>
+                        </HBox>
+                        <Title text="{view>/approvedCount}" class="profileStatValue"/>
+                    </VBox>
+                    <VBox id="cardRejected" class="profileStatCard">
+                        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%">
+                            <Text text="{i18n>cardRejected}" class="profileStatLabel"/>
+                            <core:Icon src="sap-icon://decline" size="1.25rem" color="#bb0000"/>
+                        </HBox>
+                        <Title text="{view>/rejectedCount}" class="profileStatValue"/>
+                    </VBox>
+                </HBox>
+
+                    <!-- Section 0: My Profile (Redesigned) -->
+                    <VBox visible="{= ${view>/selectedTab} === 'myProfile' }" busy="{view>/profileBusy}" busyIndicatorDelay="0" class="sapUiResponsiveMargin">
+                        
+                        <!-- HERO SECTION -->
+                        <VBox class="profileHeroContainer">
+                            <HBox alignItems="Center">
+                                <f:Avatar initials="{user>/initials}" displaySize="XL" class="profileAvatar sapUiLargeMarginEnd"/>
+                                <VBox>
+                                    <Title text="{user>/name}" level="H1" class="profileHeroTitle"/>
+                                    <HBox class="sapUiSmallMarginTop" wrap="Wrap">
+                                        <HBox alignItems="Center" class="sapUiMediumMarginEnd sapUiTinyMarginBottom">
+                                            <core:Icon src="sap-icon://employee" color="#fff" class="sapUiTinyMarginEnd"/>
+                                            <Text text="{user>/position}" class="profileHeroSubText"/>
+                                        </HBox>
+                                        <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                                            <core:Icon src="sap-icon://building" color="#fff" class="sapUiTinyMarginEnd"/>
+                                            <Text text="{user>/department}" class="profileHeroSubText"/>
+                                        </HBox>
+                                    </HBox>
+                                </VBox>
+                            </HBox>
+                        </VBox>
+
+                        <!-- STATS CARDS REMOVED FROM PROFILE -->
+
+                        <!-- DETAILS GRID -->
+                        <HBox wrap="Wrap" class="sapUiLargeMarginTop" justifyContent="SpaceBetween">
+                            
+                            <!-- Person Card -->
+                            <VBox class="profileDetailCard">
+                                <HBox alignItems="Center" class="sapUiMediumMarginBottom">
+                                    <core:Icon src="sap-icon://person-placeholder" size="1.5rem" class="sapUiSmallMarginEnd detailCardIcon"/>
+                                    <Title text="{i18n>cardPerson}" level="H4"/>
+                                </HBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelFullName}"/>
+                                    <Text text="{user>/name}" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelUserId}"/>
+                                    <Text text="{user>/userId}" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelFunctionPosition}"/>
+                                    <Text text="{user>/position}" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelDepartment}"/>
+                                    <Text text="{user>/department}" class="detailValueBold"/>
+                                </VBox>
+                            </VBox>
+
+                            <!-- Communication Card -->
+                            <VBox class="profileDetailCard">
+                                <HBox alignItems="Center" class="sapUiMediumMarginBottom">
+                                    <core:Icon src="sap-icon://email" size="1.5rem" class="sapUiSmallMarginEnd detailCardIcon"/>
+                                    <Title text="{i18n>cardCommunication}" level="H4"/>
+                                </HBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelEmail}"/>
+                                    <Text text="{user>/email}" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelTelephone}"/>
+                                    <Text text="{user>/phone}" class="detailValueBold"/>
+                                </VBox>
+                            </VBox>
+
+                            <!-- Defaults Card -->
+                            <VBox class="profileDetailCard">
+                                <HBox alignItems="Center" class="sapUiMediumMarginBottom">
+                                    <core:Icon src="sap-icon://settings" size="1.5rem" class="sapUiSmallMarginEnd detailCardIcon"/>
+                                    <Title text="{i18n>cardDefaults}" level="H4"/>
+                                </HBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelLogonLanguage}"/>
+                                    <Text text="EN" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelDecimalFormat}"/>
+                                    <Text text="1.234.567,89" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelDateFormat}"/>
+                                    <Text text="DD.MM.YYYY" class="detailValueBold"/>
+                                </VBox>
+                                <VBox class="detailRow">
+                                    <Label text="{i18n>labelTimeFormat}"/>
+                                    <Text text="{i18n>valTimeFormat24}" class="detailValueBold"/>
+                                </VBox>
+                            </VBox>
+
+                        </HBox>
+                    </VBox>
+
+                    <!-- Section 1: My Skills -->
+                    <VBox visible="{= ${view>/selectedTab} === 'mySkills' }">
+                        <VBox class="premiumTableContainer sapUiSmallMarginBottom">
+                            <Table id="mySkillsTable"
+                                   items="{
+                                       path: 'odata>/Request',
+                                       parameters: { $orderby: 'QualName asc' },
+                                       suspended: true
+                                   }"
+                                   busyIndicatorDelay="0"
+                                   updateFinished="onMySkillsUpdateFinished"
+                                   growing="true"
+                                   growingThreshold="20"
+                                   alternateRowColors="true"
+                                   sticky="ColumnHeaders"
+                                   mode="SingleSelectMaster"
+                                   itemPress="onCertPress">
+                                <headerToolbar>
+                                    <OverflowToolbar class="premiumTableHeader">
+                                        <Title text="{i18n>tabMySkills}" level="H5"/>
+                                        <ToolbarSpacer />
+                                        <SearchField placeholder="{i18n>searchPlaceholder}" width="300px" liveChange="onSearchCerts" class="sapUiSmallMarginEnd"/>
+                                        <Button text="{i18n>btnAddSkill}" icon="sap-icon://education" type="Emphasized" press="onAddSkill"/>
+                                    </OverflowToolbar>
+                                </headerToolbar>
+                                <columns>
+                                    <Column width="30%"><Text text="{i18n>colSkill}"/></Column>
+                                    <Column width="25%"><Text text="{i18n>colAttachedCert}"/></Column>
+                                    <Column width="20%"><Text text="{i18n>colProficiencyLevel}"/></Column>
+                                    <Column width="15%"><Text text="{i18n>colStatus}"/></Column>
+                                    <Column width="10%"><Text text=""/></Column>
+                                </columns>
+                                <items>
+                                    <ColumnListItem type="Navigation">
+                                        <cells>
+                                            <Text text="{odata>QualName}" class="sapMTextBold"/>
+                                            <VBox>
+                                                <Text text="{= ${odata>CertName} ? ${odata>CertName} : ${i18n>noMapping} }" class="sapMTextBold"/>
+                                                <Link text="{odata>CertUrl}" href="{odata>CertUrl}" target="_blank" wrapping="false" visible="{= ${path: 'odata>CertUrl', targetType: 'any'} ? true : false }"/>
+                                            </VBox>
+                                            <HBox alignItems="Center">
+                                                <RatingIndicator maxValue="4" value="{odata>Proficiency}" enabled="false" iconSize="0.85rem" class="sapUiTinyMarginEnd" visible="{= ${path: 'odata>Proficiency', targetType: 'any'} > 0 ? true : false }"/>
+                                                <ObjectStatus text="{= ${odata>YearsExp} ? ${odata>ProficiencyText} + ' (' + ${odata>YearsExp} + ' ' + ${i18n>yearsText} + ')' : ${odata>ProficiencyText} }" state="{= ${path: 'odata>Proficiency', targetType: 'any'} === 4 ? 'Success' : ${path: 'odata>Proficiency', targetType: 'any'} === 3 ? 'Warning' : ${path: 'odata>Proficiency', targetType: 'any'} === 2 ? 'Information' : 'None' }"/>
+                                            </HBox>
+                                            <ObjectStatus text="{odata>StatusText}" state="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? 'Warning' : ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }" inverted="true"/>
+                                            <Button icon="sap-icon://sys-cancel" type="Reject" tooltip="{i18n>btnWithdraw}" press="onWithdrawRequest" visible="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? true : false }"/>
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
+                    </VBox>
+
+                    <!-- Section 2: My Certifications -->
+                    <VBox visible="{= ${view>/selectedTab} === 'myCerts' }">
+                        <VBox class="premiumTableContainer sapUiSmallMarginBottom">
+                            <Table id="myCertsTable"
+                                   items="{
+                                       path: 'odata>/Request',
+                                       parameters: { $orderby: 'CertName asc' },
+                                       suspended: true
+                                   }"
+                                   busyIndicatorDelay="0"
+                                   updateFinished="onMySkillsUpdateFinished"
+                                   growing="true"
+                                   growingThreshold="20"
+                                   alternateRowColors="true"
+                                   sticky="ColumnHeaders"
+                                   mode="SingleSelectMaster"
+                                   itemPress="onCertPress">
+                                <headerToolbar>
+                                    <OverflowToolbar class="premiumTableHeader">
+                                        <Title text="{i18n>tabMyCerts}" level="H5"/>
+                                        <ToolbarSpacer />
+                                        <SearchField placeholder="{i18n>searchPlaceholder}" width="300px" liveChange="onSearchCerts" class="sapUiSmallMarginEnd"/>
+                                        <Button text="{i18n>btnAddCert}" icon="sap-icon://badge" type="Emphasized" press="onAddCert"/>
+                                    </OverflowToolbar>
+                                </headerToolbar>
+                                <columns>
+                                    <Column width="25%"><Text text="{i18n>colCertNameOnly}"/></Column>
+                                    <Column width="15%"><Text text="{i18n>colSource}"/></Column>
+                                    <Column width="15%"><Text text="{i18n>colAttachedSkill}"/></Column>
+                                    <Column width="15%"><Text text="{i18n>colProficiencyLevel}"/></Column>
+                                    <Column width="10%"><Text text="{i18n>colIssuedDate}"/></Column>
+                                    <Column width="10%"><Text text="{i18n>colStatus}"/></Column>
+                                    <Column width="10%"><Text text=""/></Column>
+                                </columns>
+                                <items>
+                                    <ColumnListItem type="Navigation">
+                                        <cells>
+                                            <VBox>
+                                                <Text text="{odata>CertName}" class="sapMTextBold"/>
+                                                <Link text="{odata>CertUrl}" href="{odata>CertUrl}" target="_blank" wrapping="false" visible="{= ${path: 'odata>CertUrl', targetType: 'any'} ? true : false }"/>
+                                            </VBox>
+                                            <ObjectStatus text="{odata>Source}" inverted="true" state="Information" visible="{= ${path: 'odata>Source', targetType: 'any'} ? true : false }"/>
+                                            <Text text="{= ${odata>QualName} ? ${odata>QualName} : ${i18n>noMapping} }"/>
+                                            <HBox alignItems="Center">
+                                                <RatingIndicator maxValue="4" value="{odata>Proficiency}" enabled="false" iconSize="0.85rem" class="sapUiTinyMarginEnd" visible="{= ${path: 'odata>QualiId', targetType: 'any'} !== null ? true : false }"/>
+                                                <ObjectStatus text="{= ${odata>YearsExp} ? ${odata>ProficiencyText} + ' (' + ${odata>YearsExp} + ' ' + ${i18n>yearsText} + ')' : ${odata>ProficiencyText} }" state="{= ${path: 'odata>Proficiency', targetType: 'any'} === 4 ? 'Success' : ${path: 'odata>Proficiency', targetType: 'any'} === 3 ? 'Warning' : ${path: 'odata>Proficiency', targetType: 'any'} === 2 ? 'Information' : 'None' }" visible="{= ${path: 'odata>QualiId', targetType: 'any'} !== null ? true : false }"/>
+                                            </HBox>
+                                            <Text text="{ path: 'odata>IssuedDate', type: 'sap.ui.model.odata.type.Date', formatOptions: { pattern: 'dd/MM/yyyy' } }"/>
+                                            <ObjectStatus text="{odata>StatusText}" state="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? 'Warning' : ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }" inverted="true"/>
+                                            <Button icon="sap-icon://sys-cancel" type="Reject" tooltip="{i18n>btnWithdraw}" press="onWithdrawRequest" visible="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? true : false }"/>
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
+                    </VBox>
+
+                    <!-- Section 3: Dashboard (Manager Only) -->
+                    <VBox visible="{= ${view>/selectedTab} === 'dashboard' &amp;&amp; ${user>/isManager} }">
+                        <!-- Dashboard content will go here -->
+                        <Panel headerText="{i18n>tabDashboard}">
+                            <Text text="Dashboard content placeholder" />
+                        </Panel>
+                    </VBox>
+
+                    <!-- Section 4: Team Management (Manager Only) -->
+                    <VBox visible="{= ${view>/selectedTab} === 'team' &amp;&amp; ${user>/isManager} }">
+                        <l:Splitter height="750px">
+                                    <Page id="teamMasterPage" title="{i18n>teamMembersTitle}" showHeader="true">
+                                        <layoutData>
+                                            <l:SplitterLayoutData size="30%" />
+                                        </layoutData>
+                                        <subHeader>
+                                            <OverflowToolbar>
+                                                <SearchField placeholder="{i18n>searchTeamPlaceholder}" liveChange="onSearchTeamMembers"/>
+                                            </OverflowToolbar>
+                                        </subHeader>
+                                        <content>
+                                            <List id="teamList"
+                                                  items="{team>/teamMembers}"
+                                                  mode="SingleSelectMaster"
+                                                  selectionChange="onEmployeeSelect"
+                                                  busyIndicatorDelay="0"
+                                                  updateFinished="onTeamListUpdateFinished">
+                                                <items>
+                                                    <StandardListItem
+                                                        title="{team>name}"
+                                                        description="{team>position}"
+                                                        info="{team>pernr}"
+                                                        icon="sap-icon://employee"
+                                                        type="Active"/>
+                                                </items>
+                                            </List>
+                                        </content>
+                                    </Page>
+                                    <Page id="teamDetailPage" title="{i18n>teamDetailTitle}" showHeader="false">
+                                        <layoutData>
+                                            <l:SplitterLayoutData size="auto" />
+                                        </layoutData>
+                                        <content>
+                                            <!-- Profile card and tables -->
+                                            <VBox class="sapUiResponsiveMargin" id="employeeDetailContainer" visible="false">
+                                                <!-- Employee Header Card -->
+                                                <HBox class="sapUiSmallMarginBottom sapUiContentPadding employeeHeaderCard" 
+                                                      alignItems="Center">
+                                                    <core:Icon src="sap-icon://person-placeholder" size="3rem" color="#3f51b5" class="sapUiMediumMarginEnd"/>
+                                                    <VBox>
+                                                        <Title text="{detailEmployee>/name}" level="H2" class="sapUiTinyMarginBottom"/>
+                                                        <HBox wrap="Wrap">
+                                                            <ObjectStatus text="{parts:['i18n>userEmployeeId','detailEmployee>/pernr'], formatter:'.formatMessage'}" state="Information" class="sapUiMediumMarginEnd"/>
+                                                            <ObjectStatus text="{parts:['i18n>userPosition','detailEmployee>/position'], formatter:'.formatMessage'}" state="None" class="sapUiMediumMarginEnd"/>
+                                                            <ObjectStatus text="{parts:['i18n>userDepartment','detailEmployee>/department'], formatter:'.formatMessage'}" state="None" class="sapUiMediumMarginEnd"/>
+                                                        </HBox>
+                                                        <HBox class="sapUiTinyMarginTop">
+                                                            <Text text="{parts:['i18n>userEmail','detailEmployee>/email'], formatter:'.formatMessage'}" class="sapUiMediumMarginEnd detailSubText"/>
+                                                            <Text text="{parts:['i18n>userPhone','detailEmployee>/phone'], formatter:'.formatMessage'}" class="detailSubText"/>
+                                                        </HBox>
+                                                    </VBox>
+                                                </HBox>
+
+                                                <!-- Tables for Skills and Cert Requests -->
+                                                <IconTabBar id="teamDetailTabBar" expandable="false" class="sapUiNoContentPadding" headerMode="Inline">
+                                                    <items>
+                                                        <!-- Tab 1: Kỹ năng hiện có -->
+                                                        <IconTabFilter key="skills" text="{i18n>tabTeamSkills}" icon="sap-icon://education">
+                                                            <Table id="teamEmployeeSkillsTable"
+                                                                   items="{
+                                                                       path: 'odata>/Request',
+                                                                       parameters: { $orderby: 'QualName asc' }
+                                                                   }"
+                                                                   busyIndicatorDelay="0"
+                                                                   mode="None"
+                                                                   growing="true"
+                                                                   growingThreshold="20"
+                                                                   alternateRowColors="true">
+                                                                <columns>
+                                                                    <Column width="30%"><Text text="{i18n>colSkill}"/></Column>
+                                                                    <Column width="35%"><Text text="{i18n>colAttachedCert}"/></Column>
+                                                                    <Column width="20%"><Text text="{i18n>colProficiencyLevel}"/></Column>
+                                                                    <Column width="15%"><Text text="{i18n>colStatus}"/></Column>
+                                                                </columns>
+                                                                <items>
+                                                                    <ColumnListItem type="Navigation" press="onCertPress">
+                                                                        <cells>
+                                                                            <Text text="{odata>QualName}" class="sapMTextBold"/>
+                                                                            <VBox>
+                                                                                <Text text="{= ${odata>CertName} ? ${odata>CertName} : ${i18n>noMapping} }" class="sapMTextBold"/>
+                                                                                <Link text="{odata>CertUrl}" href="{odata>CertUrl}" target="_blank" wrapping="false" visible="{= ${path: 'odata>CertUrl', targetType: 'any'} ? true : false }"/>
+                                                                            </VBox>
+                                                                            <HBox alignItems="Center">
+                                                                                <RatingIndicator maxValue="4" value="{odata>Proficiency}" enabled="false" iconSize="0.85rem" class="sapUiTinyMarginEnd" visible="{= ${path: 'odata>Proficiency', targetType: 'any'} > 0 ? true : false }"/>
+                                                                                <ObjectStatus text="{= ${odata>YearsExp} ? ${odata>ProficiencyText} + ' (' + ${odata>YearsExp} + ' ' + ${i18n>yearsText} + ')' : ${odata>ProficiencyText} }" state="{= ${path: 'odata>Proficiency', targetType: 'any'} === 4 ? 'Success' : ${path: 'odata>Proficiency', targetType: 'any'} === 3 ? 'Warning' : ${path: 'odata>Proficiency', targetType: 'any'} === 2 ? 'Information' : 'None' }"/>
+                                                                            </HBox>
+                                                                            <ObjectStatus text="{odata>StatusText}" state="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? 'Warning' : ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }" inverted="true"/>
+                                                                        </cells>
+                                                                    </ColumnListItem>
+                                                                </items>
+                                                            </Table>
+                                                        </IconTabFilter>
+
+                                                        <!-- Tab 2: Chứng chỉ hiện có -->
+                                                        <IconTabFilter key="certs" text="{i18n>tabTeamCerts}" icon="sap-icon://badge">
+                                                            <Table id="teamEmployeeCertsTable"
+                                                                   items="{
+                                                                       path: 'odata>/Request',
+                                                                       parameters: { $orderby: 'CertName asc' }
+                                                                   }"
+                                                                   busyIndicatorDelay="0"
+                                                                   mode="None"
+                                                                   growing="true"
+                                                                   growingThreshold="20"
+                                                                   alternateRowColors="true">
+                                                                <columns>
+                                                                    <Column width="25%"><Text text="{i18n>colCertNameOnly}"/></Column>
+                                                                    <Column width="15%"><Text text="{i18n>colSource}"/></Column>
+                                                                    <Column width="20%"><Text text="{i18n>colAttachedSkill}"/></Column>
+                                                                    <Column width="20%"><Text text="{i18n>colProficiencyLevel}"/></Column>
+                                                                    <Column width="10%"><Text text="{i18n>colIssuedDate}"/></Column>
+                                                                    <Column width="10%"><Text text="{i18n>colStatus}"/></Column>
+                                                                </columns>
+                                                                <items>
+                                                                    <ColumnListItem type="Navigation" press="onCertPress">
+                                                                        <cells>
+                                                                            <VBox>
+                                                                                <Text text="{odata>CertName}" class="sapMTextBold"/>
+                                                                                <Link text="{odata>CertUrl}" href="{odata>CertUrl}" target="_blank" wrapping="false" visible="{= ${path: 'odata>CertUrl', targetType: 'any'} ? true : false }"/>
+                                                                            </VBox>
+                                                                            <ObjectStatus text="{odata>Source}" inverted="true" state="Information" visible="{= ${path: 'odata>Source', targetType: 'any'} ? true : false }"/>
+                                                                            <Text text="{= ${odata>QualName} ? ${odata>QualName} : ${i18n>noMapping} }"/>
+                                                                            <HBox alignItems="Center">
+                                                                                <RatingIndicator maxValue="4" value="{odata>Proficiency}" enabled="false" iconSize="0.85rem" class="sapUiTinyMarginEnd" visible="{= ${path: 'odata>QualiId', targetType: 'any'} !== null ? true : false }"/>
+                                                                                <ObjectStatus text="{= ${odata>YearsExp} ? ${odata>ProficiencyText} + ' (' + ${odata>YearsExp} + ' ' + ${i18n>yearsText} + ')' : ${odata>ProficiencyText} }" state="{= ${path: 'odata>Proficiency', targetType: 'any'} === 4 ? 'Success' : ${path: 'odata>Proficiency', targetType: 'any'} === 3 ? 'Warning' : ${path: 'odata>Proficiency', targetType: 'any'} === 2 ? 'Information' : 'None' }" visible="{= ${path: 'odata>QualiId', targetType: 'any'} !== null ? true : false }"/>
+                                                                            </HBox>
+                                                                            <Text text="{ path: 'odata>IssuedDate', type: 'sap.ui.model.odata.type.Date', formatOptions: { pattern: 'dd/MM/yyyy' } }"/>
+                                                                            <ObjectStatus text="{odata>StatusText}" state="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? 'Warning' : ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }" inverted="true"/>
+                                                                        </cells>
+                                                                    </ColumnListItem>
+                                                                </items>
+                                                            </Table>
+                                                        </IconTabFilter>
+
+                                                        <!-- Tab 3: Yêu cầu chứng chỉ & kỹ năng -->
+                                                        <IconTabFilter key="requests" text="{i18n>tabTeamRequests}" icon="sap-icon://request">
+                                                            <Table id="teamEmployeeRequestsTable"
+                                                                   items="{
+                                                                       path: 'odata>/Request',
+                                                                       parameters: { $orderby: 'CreatedAt desc' }
+                                                                   }"
+                                                                   busyIndicatorDelay="0"
+                                                                   mode="None"
+                                                                   growing="true"
+                                                                   growingThreshold="20"
+                                                                   alternateRowColors="true">
+                                                                <columns>
+                                                                    <Column width="30%"><Text text="{i18n>colCertSkillName}"/></Column>
+                                                                    <Column width="15%"><Text text="{i18n>colSource}"/></Column>
+                                                                    <Column width="20%"><Text text="{i18n>colMappingSkill}"/></Column>
+                                                                    <Column width="15%"><Text text="{i18n>colProposedLevel}"/></Column>
+                                                                    <Column width="20%" hAlign="Center"><Text text="{i18n>colStatus}"/></Column>
+                                                                    <Column width="15%" hAlign="End"><Text text=""/></Column>
+                                                                </columns>
+                                                                <items>
+                                                                    <ColumnListItem>
+                                                                        <cells>
+                                                                            <VBox>
+                                                                                <Text text="{= ${path: 'odata>CertName', targetType: 'any'} ? ${path: 'odata>CertName', targetType: 'any'} : ${i18n>skillRequestPrefix} + ' ' + ${odata>QualName} }" class="sapMTextBold"/>
+                                                                                <Link text="{odata>CertUrl}" href="{odata>CertUrl}" target="_blank" visible="{= ${path: 'odata>CertUrl', targetType: 'any'} !== null ? true : false }" wrapping="false"/>
+                                                                            </VBox>
+                                                                            <Text text="{odata>Source}"/>
+                                                                            <Text text="{= ${odata>QualName} ? ${odata>QualName} : ${i18n>noMapping} }"/>
+                                                                            <HBox alignItems="Center">
+                                                                                <RatingIndicator maxValue="4" value="{odata>Proficiency}" enabled="false" iconSize="0.85rem" class="sapUiTinyMarginEnd" visible="{= ${path: 'odata>QualiId', targetType: 'any'} !== null ? true : false }"/>
+                                                                                <ObjectStatus text="{odata>ProficiencyText}" state="{= ${path: 'odata>Proficiency', targetType: 'any'} === 4 ? 'Success' : ${path: 'odata>Proficiency', targetType: 'any'} === 3 ? 'Warning' : 'Information' }" visible="{= ${path: 'odata>QualiId', targetType: 'any'} !== null ? true : false }"/>
+                                                                            </HBox>
+                                                                            <VBox alignItems="Center">
+                                                                                <ObjectStatus text="{odata>StatusText}" state="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? 'Warning' : ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }" inverted="true" class="sapUiTinyMarginBottom"/>
+                                                                                <Text text="{= ${path: 'odata>Status', targetType: 'any'} === '03' ? ${i18n>rejectionReasonPrefix} + ' ' + ${odata>RejectionReason} : '' }" visible="{= ${path: 'odata>Status', targetType: 'any'} === '03' ? true : false }" class="rejectionText" wrapping="true"/>
+                                                                            </VBox>
+                                                                            <HBox justifyContent="End" visible="{= ${path: 'odata>Status', targetType: 'any'} === '01' }">
+                                                                                <Button icon="sap-icon://accept" type="Accept" tooltip="{i18n>btnApprove}" press="onApproveTeamRequest" class="sapUiTinyMarginEnd"/>
+                                                                                <Button icon="sap-icon://decline" type="Reject" tooltip="{i18n>btnReject}" press="onRejectTeamRequest"/>
+                                                                            </HBox>
+                                                                        </cells>
+                                                                    </ColumnListItem>
+                                                                </items>
+                                                            </Table>
+                                                        </IconTabFilter>
+                                                    </items>
+                                                </IconTabBar>
+                                            </VBox>
+                                            
+                                            <!-- Placeholder when no employee is selected -->
+                                            <VBox id="teamSelectPlaceholder" class="sapUiResponsiveMargin" alignItems="Center" justifyContent="Center" height="80%" visible="true">
+                                                <core:Icon src="sap-icon://employee" size="4rem" class="sapUiMediumMarginBottom placeholderIcon"/>
+                                                <Title text="{i18n>placeholderSelectEmployee}" level="H4" class="placeholderText"/>
+                                            </VBox>
+                                        </content>
+                                    </Page>
+                        </l:Splitter>
+                    </VBox>
+                </VBox>
+            </VBox>
+                </content>
+            </Page>
+        </tnt:mainContents>
+    </tnt:ToolPage>
+</mvc:View>

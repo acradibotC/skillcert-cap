@@ -1,0 +1,120 @@
+<mvc:View
+    controllerName="znxr09.portal.controller.App"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:f="sap.f"
+    xmlns:layout="sap.ui.layout"
+    xmlns:core="sap.ui.core"
+    displayBlock="true">
+    
+    <App id="app">
+        <Page id="mainPage" showHeader="true" enableScrolling="false">
+            <customHeader>
+                <f:ShellBar
+                    title="{user>/shellTitle}"
+                    homeIcon="https://upload.wikimedia.org/wikipedia/commons/5/59/SAP_2011_logo.svg"
+                    showCopilot="false"
+                    showSearch="false"
+                    showNotifications="true"
+                    showProductSwitcher="false"
+                    homeIconPressed=".onNavToHome">
+                    <f:profile>
+                        <f:Avatar id="userAvatar" initials="U" press=".onAvatarPress" />
+                    </f:profile>
+                </f:ShellBar>
+            </customHeader>
+
+            <content>
+                <NavContainer id="navContainer" initialPage="homePage">
+                    <!-- Home Page with Tiles -->
+                    <Page id="homePage" showHeader="false" class="sapUiContentPadding" enableScrolling="true">
+                        
+                        <!-- Welcome Banner -->
+                        <HBox class="welcomeBanner" justifyContent="SpaceBetween" alignItems="Center">
+                            <VBox>
+                                <Text id="welcomeDate" text="Tuesday, June 16, 2026" class="welcomeDate"/>
+                                <Title id="welcomeGreeting" text="Hi Nguyen, great to see you!" level="H3" class="welcomeGreeting"/>
+                            </VBox>
+                        </HBox>
+
+                        <!-- ========== To-Dos Section ========== -->
+                        <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiMediumMarginTop sapUiSmallMarginBottom">
+                            <HBox alignItems="Center">
+                                <Title text="{i18n>titleToDos}" level="H2" class="sapUiTinyMarginEnd"/>
+                                <core:Icon src="sap-icon://slim-arrow-down" size="0.875rem" color="#333"/>
+                            </HBox>
+                            <Button id="btnRefreshTodos" text="{todo>/lastRefresh}" icon="sap-icon://refresh" type="Transparent" press=".onRefreshTodos"/>
+                        </HBox>
+
+                        <!-- Tabs: Tasks / Situations -->
+                        <IconTabBar id="todoTabBar" selectedKey="tasks" class="sapUiSmallMarginBottom todoTabBar">
+                            <items>
+                                <IconTabFilter key="tasks" text="{= ${i18n>tabTasks}.replace('{0}', ${todo>/taskCount}) }">
+                                    <!-- Task Cards -->
+                                    <HBox id="todoCardsContainer" wrap="Wrap" class="sapUiSmallMarginTop">
+                                        <!-- Cards will be rendered dynamically by the controller -->
+                                    </HBox>
+                                    <VBox id="noTodosPlaceholder" visible="{= ${todo>/taskCount} === 0}" alignItems="Center" class="sapUiLargeMarginTop sapUiLargeMarginBottom">
+                                        <core:Icon src="sap-icon://task" size="3rem" color="#ccc" class="sapUiSmallMarginBottom"/>
+                                        <Text text="{i18n>noPendingTasks}" class="sapUiSmallMarginBottom"/>
+                                    </VBox>
+                                </IconTabFilter>
+                                <IconTabFilter key="situations" text="{i18n>tabSituations}">
+                                    <VBox alignItems="Center" class="sapUiLargeMarginTop sapUiLargeMarginBottom">
+                                        <core:Icon src="sap-icon://alert" size="3rem" color="#ccc" class="sapUiSmallMarginBottom"/>
+                                        <Text text="{i18n>noSituations}"/>
+                                    </VBox>
+                                </IconTabFilter>
+                            </items>
+                        </IconTabBar>
+
+                        <!-- ========== My Home Section ========== -->
+                        <Title text="{i18n>titleMyHome}" level="H2" class="sapUiSmallMarginBottom sapUiMediumMarginTop"/>
+                        
+                        <layout:Grid containerQuery="true" defaultSpan="XL2 L3 M4 S6" class="sapUiSmallMarginTop">
+                            <GenericTile 
+                                class="sapUiTinyMarginBegin sapUiTinyMarginTop tileLayout" 
+                                header="{i18n>tileMyProfile}" 
+                                subheader="{i18n>tileSkillsCerts}" 
+                                press=".onNavToProfile">
+                                <TileContent>
+                                    <ImageContent src="sap-icon://employee" />
+                                </TileContent>
+                            </GenericTile>
+
+                            <GenericTile 
+                                class="sapUiTinyMarginBegin sapUiTinyMarginTop tileLayout" 
+                                header="{i18n>tileMyTimesheet}" 
+                                subheader="{i18n>tileLogHours}" 
+                                press=".onNavToTimesheet">
+                                <TileContent>
+                                    <ImageContent src="sap-icon://timesheet" />
+                                </TileContent>
+                            </GenericTile>
+                        </layout:Grid>
+                    </Page>
+
+                    <!-- Error Page: Access Denied (unmapped email) -->
+                    <Page id="errorPage" showHeader="false" class="sapUiContentPadding errorPageBg" enableScrolling="true">
+                        <VBox alignItems="Center" justifyContent="Center" class="errorPageContent">
+                            <core:Icon src="sap-icon://sys-help-2" size="5rem" color="#e78c07" class="sapUiMediumMarginBottom errorIcon"/>
+                            <Title text="Something Went Wrong..." level="H1" class="sapUiSmallMarginBottom errorTitle"/>
+                            <Text id="errorMessage" text="Your email is not linked to any employee record." 
+                                  class="sapUiSmallMarginBottom errorDesc" textAlign="Center" wrapping="true"/>
+                            <Text text="Please contact your administrator to register your email in the system." 
+                                  class="sapUiTinyMarginBottom" textAlign="Center"/>
+                            <HBox alignItems="Center" class="sapUiSmallMarginTop">
+                                <core:Icon src="sap-icon://email" size="1rem" color="#0854A0" class="sapUiTinyMarginEnd"/>
+                                <Link text="sso@nexora.com" href="mailto:sso@nexora.com" class="errorAdminLink"/>
+                            </HBox>
+                            <HBox class="sapUiLargeMarginTop" justifyContent="Center">
+                                <Button text="Try Again" type="Emphasized" press=".onRetryAuth" icon="sap-icon://refresh" class="sapUiSmallMarginEnd"/>
+                                <Button text="Sign Out" type="Transparent" press=".onLogout" icon="sap-icon://log"/>
+                            </HBox>
+                        </VBox>
+                    </Page>
+                </NavContainer>
+            </content>
+        </Page>
+    </App>
+</mvc:View>

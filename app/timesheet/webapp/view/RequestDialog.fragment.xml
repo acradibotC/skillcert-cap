@@ -1,0 +1,106 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout"
+    xmlns:f="sap.ui.layout.form"
+    xmlns:u="sap.ui.unified">
+    <Dialog title="Create Request" contentWidth="600px" class="sapUiContentPadding">
+        <content>
+            <IconTabBar id="requestTabBar" select="onRequestTabSelect" class="sapUiNoMarginTop">
+                <items>
+                    <!-- TAB 1: DAY OFF -->
+                    <IconTabFilter key="DAYOFF" text="Day Off" icon="sap-icon://calendar">
+                        <MessageStrip text="You are making a request for DAY OFF" type="Information" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <f:SimpleForm layout="ResponsiveGridLayout" columnsL="1" columnsM="1" editable="true">
+                            <f:content>
+                                <Label text="Start Date/Time" required="true" />
+                                <DateTimePicker id="doStartDate" displayFormat="yyyy-MM-dd HH:mm" valueFormat="yyyy-MM-ddTHH:mm:ss" change="onCalcDuration" />
+                                <Label text="End Date/Time" required="true" />
+                                <DateTimePicker id="doEndDate" displayFormat="yyyy-MM-dd HH:mm" valueFormat="yyyy-MM-ddTHH:mm:ss" change="onCalcDuration" />
+                                <Label text="Duration" />
+                                <Input id="doDuration" editable="false" description="Days" />
+                                <Label text="Approver" />
+                                <Input id="doApprover" editable="false" />
+                                <Label text="Reason" required="true" />
+                                <TextArea id="doReason" rows="3" />
+                            </f:content>
+                        </f:SimpleForm>
+                    </IconTabFilter>
+
+                    <!-- TAB 2: EDIT TIMESHEET -->
+                    <IconTabFilter key="EDIT_TIMESHEET" text="Edit Timesheet" icon="sap-icon://edit">
+                        <MessageStrip text="You are making a request to EDIT TIMESHEET. (Max 3 times per month)" type="Warning" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <f:SimpleForm layout="ResponsiveGridLayout" columnsL="1" columnsM="1" editable="true">
+                            <f:content>
+                                <Label text="Date" required="true" />
+                                <DatePicker id="etDate" editable="false" />
+                                <Label text="Corrected Start Time" required="true" />
+                                <TimePicker id="etStartTime" valueFormat="HH:mm:ss" displayFormat="HH:mm" />
+                                <Label text="Corrected End Time" required="true" />
+                                <TimePicker id="etEndTime" valueFormat="HH:mm:ss" displayFormat="HH:mm" />
+                                <Label text="Approver" />
+                                <Input id="etApprover" editable="false" />
+                                <Label text="Reason" required="true" />
+                                <TextArea id="etReason" rows="3" />
+                                <Label text="Evidence" />
+                                <u:FileUploader id="etFile" buttonText="Upload" tooltip="Upload Evidence" />
+                            </f:content>
+                        </f:SimpleForm>
+                    </IconTabFilter>
+
+                    <!-- TAB 3: OVERTIME -->
+                    <IconTabFilter key="OVERTIME" text="Overtime" icon="sap-icon://overtime">
+                        <MessageStrip text="You are making a request for OVERTIME. Break rules: >4h(1h break), >8h(1.5h break), >12h(2h break). Max 40h/month." type="Information" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <f:SimpleForm layout="ResponsiveGridLayout" columnsL="1" columnsM="1" editable="true">
+                            <f:content>
+                                <Label text="Date" required="true" />
+                                <DatePicker id="otDate" editable="false" />
+                                <Label text="Timesheet In/Out" />
+                                <HBox>
+                                    <Input id="otActStart" editable="false" width="5rem" class="sapUiTinyMarginEnd" />
+                                    <Text text=" - " class="sapUiTinyMarginEnd sapUiTinyMarginTop" />
+                                    <Input id="otActEnd" editable="false" width="5rem" />
+                                </HBox>
+                                <Label text="OT Start Time" required="true" />
+                                <TimePicker id="otStartTime" valueFormat="HH:mm:ss" displayFormat="HH:mm" change="onCalcDuration" />
+                                <Label text="OT End Time" required="true" />
+                                <TimePicker id="otEndTime" valueFormat="HH:mm:ss" displayFormat="HH:mm" change="onCalcDuration" />
+                                <Label text="Duration / Break" />
+                                <HBox>
+                                    <Input id="otDuration" editable="false" description="Hrs" width="8rem" class="sapUiTinyMarginEnd" />
+                                    <Input id="otBreak" editable="false" description="Break Hrs" width="8rem" />
+                                </HBox>
+                                <Label text="Approver" />
+                                <Input id="otApprover" editable="false" />
+                                <Label text="Reason" required="true" />
+                                <TextArea id="otReason" rows="3" />
+                            </f:content>
+                        </f:SimpleForm>
+                    </IconTabFilter>
+                    <!-- TAB 4: WORK FROM HOME -->
+                    <IconTabFilter key="WFH" text="Work From Home" icon="sap-icon://home">
+                        <MessageStrip text="You are making a request for WORK FROM HOME." type="Information" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <f:SimpleForm layout="ResponsiveGridLayout" columnsL="1" columnsM="1" editable="true">
+                            <f:content>
+                                <Label text="Start Date/Time" required="true" />
+                                <DateTimePicker id="wfhStartDate" displayFormat="yyyy-MM-dd HH:mm" valueFormat="yyyy-MM-ddTHH:mm:ss" change="onCalcDuration" />
+                                <Label text="End Date/Time" required="true" />
+                                <DateTimePicker id="wfhEndDate" displayFormat="yyyy-MM-dd HH:mm" valueFormat="yyyy-MM-ddTHH:mm:ss" change="onCalcDuration" />
+                                <Label text="Duration" />
+                                <Input id="wfhDuration" editable="false" description="Days" />
+                                <Label text="Approver" />
+                                <Input id="wfhApprover" editable="false" />
+                                <Label text="Reason" required="true" />
+                                <TextArea id="wfhReason" rows="3" />
+                            </f:content>
+                        </f:SimpleForm>
+                    </IconTabFilter>
+                </items>
+            </IconTabBar>
+        </content>
+        <buttons>
+            <Button text="Send Request" type="Emphasized" press="onSubmitRequest" />
+            <Button text="Cancel" press="onCloseRequestDialog" />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

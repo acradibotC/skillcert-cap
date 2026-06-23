@@ -1,0 +1,192 @@
+/* Skill & Certs App - Custom Styles */
+
+.sapMPage {
+    background-color: #f5f6f7;
+}
+
+/* Status badges */
+.statusSubmitted {
+    color: #e78c07;
+    font-weight: 600;
+}
+
+.statusApproved {
+    color: #2b7c2b;
+    font-weight: 600;
+}
+
+.statusRejected {
+    color: #bb0000;
+    font-weight: 600;
+}
+
+/* Summary cards */
+.summaryCard {
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    box-shadow: 0 0 0.25rem rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.summaryCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.employeeHeaderCard {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.detailSubText {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.rejectionText {
+    font-size: 0.8rem;
+    color: #bb0000;
+}
+
+.placeholderText {
+    color: #999;
+}
+
+.placeholderIcon {
+    color: #d3d3d3;
+}
+
+/* Proficiency bar */
+.proficiencyContainer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Certificate URL link */
+.certUrlLink {
+    color: #0a6ed1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.certUrlLink:hover {
+    text-decoration: underline;
+}
+
+/* Rejection reason highlight */
+.rejectionBox {
+    background-color: #fff3f3;
+    border-left: 4px solid #bb0000;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+
+.userInfoStrip {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #354a5f 0%, #2c3e50 100%);
+    color: white;
+}
+
+/* --- Modern Profile Hero Redesign --- */
+.profileHeroContainer {
+    background: linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%);
+    border-radius: 16px;
+    padding: 2.5rem 2rem 2.5rem 2rem; /* reduced bottom padding since cards are removed */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    color: white;
+    position: relative;
+}
+.premiumTableContainer {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    overflow: hidden;
+    margin-top: 1rem;
+}
+.premiumTableHeader {
+    background: linear-gradient(to right, #ffffff, #f0f4f8) !important;
+    border-bottom: 2px solid #1976d2 !important;
+}
+.profileAvatar {
+    border: 4px solid rgba(255,255,255,0.4);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    background-color: white !important;
+}
+.profileHeroTitle {
+    color: white !important;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    font-size: 1.8rem !important;
+}
+.profileHeroSubText {
+    color: rgba(255,255,255,0.9) !important;
+    font-weight: 500;
+    font-size: 1rem !important;
+}
+.profileStatsRow {
+    margin-top: -3.5rem; /* Overlap hero */
+    position: relative;
+    z-index: 10;
+}
+.profileStatCard {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255,255,255,0.5);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    margin: 0.5rem;
+    width: 220px;
+}
+.profileStatCard:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+}
+.profileStatLabel {
+    font-size: 0.95rem;
+    color: #555;
+    font-weight: 600;
+}
+.profileStatValue {
+    font-size: 2rem !important;
+    color: #333 !important;
+    margin-top: 0.5rem;
+}
+.profileDetailCard {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    border: 1px solid #f0f0f0;
+    width: 31%;
+    min-width: 300px;
+    flex-grow: 1;
+    margin: 0.5rem;
+    transition: box-shadow 0.3s ease;
+}
+.profileDetailCard:hover {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+.detailCardIcon {
+    color: #1976d2;
+    background: #e3f2fd;
+    padding: 8px;
+    border-radius: 8px;
+}
+.detailRow {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+.detailRow:last-child {
+    border-bottom: none;
+}
+.detailValueBold {
+    font-weight: 600;
+    color: #333;
+}

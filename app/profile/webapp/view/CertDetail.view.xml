@@ -1,0 +1,196 @@
+<mvc:View
+    controllerName="znxr09.znxr09f300.controller.CertDetail"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns:l="sap.ui.layout"
+    xmlns:form="sap.ui.layout.form"
+    xmlns:uxap="sap.uxap">
+
+    <Page id="certDetailPage"
+          showNavButton="true"
+          navButtonPress="onNavBack"
+          busyIndicatorDelay="0"
+          title="{i18n>detailTitle}">
+
+        <content>
+            <uxap:ObjectPageLayout id="objectPageLayout"
+                                   showTitleInHeaderContent="true"
+                                   upperCaseAnchorBar="false"
+                                   headerContentPinnable="true"
+                                   preserveHeaderStateOnScroll="true">
+
+                <!-- Object Page Header -->
+                <uxap:headerTitle>
+                    <uxap:ObjectPageDynamicHeaderTitle>
+                        <uxap:heading>
+                            <Title text="{= ${path: 'odata>CertName', targetType: 'any'} ? ${path: 'odata>CertName', targetType: 'any'} : ${i18n>skillRequestPrefix} + ' ' + ${odata>QualName} }" wrapping="true" level="H3"/>
+                        </uxap:heading>
+                        <uxap:expandedContent>
+                            <HBox>
+                                <ObjectStatus
+                                    text="{odata>StatusText}"
+                                    state="{= ${path: 'odata>Status', targetType: 'any'} === '01' ? 'Warning' : ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }"
+                                    inverted="true"
+                                    class="sapUiSmallMarginEnd"/>
+                                <ObjectStatus
+                                    text="{parts:['i18n>detailSourcePrefix','odata>Source'], formatter:'.formatMessage'}"
+                                    state="Information"
+                                    inverted="true"/>
+                            </HBox>
+                        </uxap:expandedContent>
+                    </uxap:ObjectPageDynamicHeaderTitle>
+                </uxap:headerTitle>
+
+                <uxap:headerContent>
+                    <l:HorizontalLayout class="sapUiSmallMarginBeginEnd">
+                        <VBox class="sapUiMediumMarginEnd">
+                            <Label text="{i18n>detailEmployee}"/>
+                            <Text text="{odata>Pernr}" class="sapMTextBold"/>
+                        </VBox>
+                        <VBox class="sapUiMediumMarginEnd">
+                            <Label text="{i18n>detailApprover}"/>
+                            <Text text="{= ${odata>LastChangedBy} ? ${odata>LastChangedBy} : 'System' }" class="sapMTextBold"/>
+                        </VBox>
+                        <VBox class="sapUiMediumMarginEnd">
+                            <Label text="{i18n>detailSubmittedDate}"/>
+                            <Text text="{odata>CreatedAt}"/>
+                        </VBox>
+                        <VBox>
+                            <Label text="{i18n>detailRequestId}"/>
+                            <Text text="{odata>RequestId}"/>
+                        </VBox>
+                    </l:HorizontalLayout>
+                </uxap:headerContent>
+
+                <!-- Section 1: Certificate Info -->
+                <uxap:sections>
+                    <uxap:ObjectPageSection title="{i18n>sectionCertInfo}" visible="{= ${path: 'odata>CertName', targetType: 'any'} ? true : false }">
+                        <uxap:subSections>
+                            <uxap:ObjectPageSubSection>
+                                <uxap:blocks>
+                                    <form:SimpleForm
+                                        editable="false"
+                                        layout="ResponsiveGridLayout"
+                                        labelSpanXL="4" labelSpanL="4" labelSpanM="4"
+                                        emptySpanXL="0" emptySpanL="0" emptySpanM="0"
+                                        columnsXL="2" columnsL="2" columnsM="1">
+
+                                        <form:toolbar>
+                                            <Toolbar><Title text="{i18n>sectionBasicInfo}" level="H5"/></Toolbar>
+                                        </form:toolbar>
+
+                                        <Label text="{i18n>lblCertName}"/>
+                                        <Text text="{odata>CertName}"/>
+
+                                        <Label text="{i18n>lblSource}"/>
+                                        <ObjectStatus text="{odata>Source}" state="Information" inverted="true"/>
+
+                                        <Label text="{i18n>lblVerifyLink}"/>
+                                        <Link text="{odata>CertUrl}"
+                                              href="{odata>CertUrl}"
+                                              target="_blank"/>
+
+                                        <Label text="{i18n>lblIssuedDate}"/>
+                                        <Text text="{ path: 'odata>IssuedDate', type: 'sap.ui.model.odata.type.Date', formatOptions: { pattern: 'dd/MM/yyyy' } }"/>
+
+                                        <Label text="{i18n>lblExpiryDate}"/>
+                                        <Text text="{ path: 'odata>ExpiryDate', type: 'sap.ui.model.odata.type.Date', formatOptions: { pattern: 'dd/MM/yyyy' } }"/>
+
+                                        <Label text="{i18n>lblNotes}"/>
+                                        <Text text="" wrapping="true"/>
+                                    </form:SimpleForm>
+                                </uxap:blocks>
+                            </uxap:ObjectPageSubSection>
+                        </uxap:subSections>
+                    </uxap:ObjectPageSection>
+
+                    <!-- Section 2: Skill Mapping -->
+                    <uxap:ObjectPageSection title="{i18n>sectionSkillMapping}" visible="{= ${path: 'odata>QualName', targetType: 'any'} ? true : false }">
+                        <uxap:subSections>
+                            <uxap:ObjectPageSubSection>
+                                <uxap:blocks>
+                                    <form:SimpleForm
+                                        editable="false"
+                                        layout="ResponsiveGridLayout"
+                                        labelSpanXL="4" labelSpanL="4" labelSpanM="4"
+                                        columnsXL="2" columnsL="2" columnsM="1">
+
+                                        <Label text="{i18n>lblSapSkill}"/>
+                                        <Text text="{= ${path: 'odata>QualName', targetType: 'any'} ? ${path: 'odata>QualName', targetType: 'any'} : ${i18n>notMapped} }"/>
+
+                                        <Label text="{i18n>lblProficiency}"/>
+                                        <HBox alignItems="Center">
+                                            <RatingIndicator
+                                                maxValue="4"
+                                                value="{odata>Proficiency}"
+                                                enabled="false"
+                                                iconSize="1.2rem"
+                                                class="sapUiSmallMarginEnd"/>
+                                            <ObjectStatus
+                                                text="{odata>ProficiencyText}"
+                                                state="{= ${path: 'odata>Proficiency', targetType: 'any'} === 4 ? 'Success' : ${path: 'odata>Proficiency', targetType: 'any'} === 3 ? 'Warning' : 'Information' }"/>
+
+                                        </HBox>
+
+                                        <Label text="{i18n>lblYearsExp}"/>
+                                        <Text text="{odata>YearsExp} {i18n>yearsText}"/>
+                                    </form:SimpleForm>
+                                </uxap:blocks>
+                            </uxap:ObjectPageSubSection>
+                        </uxap:subSections>
+                    </uxap:ObjectPageSection>
+
+                    <!-- Section 3: Approval Info (visible when approved/rejected) -->
+                    <uxap:ObjectPageSection title="{i18n>sectionApprovalInfo}"
+                                           visible="{= ${path: 'odata>Status', targetType: 'any'} !== '01' }">
+                        <uxap:subSections>
+                            <uxap:ObjectPageSubSection>
+                                <uxap:blocks>
+                                    <form:SimpleForm
+                                        editable="false"
+                                        layout="ResponsiveGridLayout"
+                                        labelSpanXL="4" labelSpanL="4" labelSpanM="4"
+                                        columnsXL="2" columnsL="2" columnsM="1">
+
+                                        <Label text="{i18n>lblResult}"/>
+                                        <ObjectStatus
+                                            text="{odata>StatusText}"
+                                            state="{= ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }"
+                                            inverted="true"/>
+
+                                        <Label text="{i18n>lblApprover}"/>
+                                        <Text text="{= ${odata>LastChangedBy} ? ${odata>LastChangedBy} : 'System' }"/>
+
+                                        <Label text="{i18n>lblApprovalDate}"/>
+                                        <Text text="{odata>LastChangedAt}"/>
+                                        
+                                        <!-- Rejection reason -->
+                                        <Label text="{i18n>lblReason}" visible="{= ${path: 'odata>Status', targetType: 'any'} === '03' }"/>
+                                        <Text text="{odata>RejectionReason}" visible="{= ${path: 'odata>Status', targetType: 'any'} === '03' }" class="sapMTextBold sapUiTheme-sapUiNegativeText"/>
+                                    </form:SimpleForm>
+                                </uxap:blocks>
+                            </uxap:ObjectPageSubSection>
+                        </uxap:subSections>
+                    </uxap:ObjectPageSection>
+                </uxap:sections>
+            </uxap:ObjectPageLayout>
+        </content>
+
+        <footer>
+            <OverflowToolbar visible="{= ${path: 'odata>Status', targetType: 'any'} === '01' &amp;&amp; ${user>/isManager} }">
+                <ToolbarSpacer/>
+                <Button text="{i18n>btnApprove}"
+                        icon="sap-icon://accept"
+                        type="Accept"
+                        press="onApprove"/>
+                <Button text="{i18n>btnReject}"
+                        icon="sap-icon://decline"
+                        type="Reject"
+                        press="onReject"
+                        class="sapUiTinyMarginBegin"/>
+            </OverflowToolbar>
+        </footer>
+    </Page>
+</mvc:View>

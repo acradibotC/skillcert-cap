@@ -1,0 +1,99 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form">
+    
+    <Dialog title="{i18n>dlgSkillTitle}" contentWidth="600px" id="skillCreateDialog">
+        <content>
+            <form:SimpleForm
+                editable="true"
+                layout="ResponsiveGridLayout"
+                labelSpanXL="4" labelSpanL="4" labelSpanM="4"
+                emptySpanXL="1" emptySpanL="1" emptySpanM="0"
+                columnsXL="1" columnsL="1" columnsM="1">
+
+                <Label text="{i18n>dlgAttachCert}" />
+                <Switch state="{newSkill>/mapToCert}" 
+                        customTextOn="{i18n>dlgSwitchYes}" 
+                        customTextOff="{i18n>dlgSwitchNo}" />
+
+
+
+                <Label text="{i18n>dlgSkillCorresponding}" required="true" />
+                <ComboBox selectedKey="{newSkill>/qualiId}"
+                          value="{newSkill>/qualNameTyped}"
+                          items="{
+                              path: 'odata>/QualificationCatalog',
+                              parameters: { $orderby: 'Name asc' }
+                          }" 
+                          showSecondaryValues="false">
+                    <core:ListItem key="{odata>QualiId}" text="{odata>Name}" />
+                </ComboBox>
+
+                <Label text="{i18n>dlgProficiency}" required="true" />
+                <Select selectedKey="{newSkill>/proficiency}" change="onProficiencyChange">
+                    <core:Item key="1" text="{i18n>profBeginner}"/>
+                    <core:Item key="2" text="{i18n>profIntermediate}"/>
+                    <core:Item key="3" text="{i18n>profAdvanced}"/>
+                    <core:Item key="4" text="{i18n>profExpert}"/>
+                </Select>
+
+                <Label text="{i18n>dlgYearsExp}" />
+                <StepInput value="{newSkill>/yearsExp}" 
+                           min="0" 
+                           max="40" 
+                           step="0.5"
+                           change="onYearsExpChange" />
+
+                <Toolbar visible="{newSkill>/mapToCert}">
+                    <Title text="{i18n>dlgCertInfoTitle}" level="H5" />
+                </Toolbar>
+                            
+                <Label text="{i18n>dlgCertName}" 
+                       required="true"
+                       visible="{newSkill>/mapToCert}"/>
+                <Input value="{newSkill>/certName}" 
+                       placeholder="{i18n>dlgCertPlaceholder}" 
+                       maxLength="100"
+                       visible="{newSkill>/mapToCert}"/>
+
+                <Label text="{i18n>dlgSource}" 
+                       required="true"
+                       visible="{newSkill>/mapToCert}"/>
+                <ComboBox selectedKey="{newSkill>/certSource}" 
+                          items="{/certSources}"
+                          visible="{newSkill>/mapToCert}">
+                    <core:Item key="{key}" text="{text}"/>
+                </ComboBox>
+
+                <Label text="{i18n>dlgVerifyLink}" 
+                       required="true"
+                       visible="{newSkill>/mapToCert}"/>
+                <Input value="{newSkill>/certUrl}" 
+                       type="Url" 
+                       placeholder="https://..." 
+                       maxLength="255"
+                       visible="{newSkill>/mapToCert}"/>
+
+                <Label text="{i18n>dlgIssuedDate}"
+                       visible="{newSkill>/mapToCert}"/>
+                <DatePicker value="{newSkill>/issuedDate}" 
+                            displayFormat="dd/MM/yyyy" 
+                            valueFormat="yyyy-MM-dd"
+                            visible="{newSkill>/mapToCert}"/>
+
+                <Label text="{i18n>dlgExpiryDate}"
+                       visible="{newSkill>/mapToCert}"/>
+                <DatePicker value="{newSkill>/expiryDate}" 
+                            displayFormat="dd/MM/yyyy" 
+                            valueFormat="yyyy-MM-dd"
+                            visible="{newSkill>/mapToCert}"/>
+
+            </form:SimpleForm>
+        </content>
+        <buttons>
+            <Button text="{i18n>btnSave}" type="Emphasized" press="onSaveSkill" icon="sap-icon://save"/>
+            <Button text="{i18n>btnCancel}" press="onCancelSkill" icon="sap-icon://decline"/>
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

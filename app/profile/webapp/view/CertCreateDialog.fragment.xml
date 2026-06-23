@@ -1,0 +1,94 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form">
+    
+    <Dialog title="{i18n>dlgCertTitle}" contentWidth="600px" id="certCreateDialog">
+        <content>
+            <form:SimpleForm
+                editable="true"
+                layout="ResponsiveGridLayout"
+                labelSpanXL="4" labelSpanL="4" labelSpanM="4"
+                emptySpanXL="1" emptySpanL="1" emptySpanM="0"
+                columnsXL="1" columnsL="1" columnsM="1">
+
+                <Label text="{i18n>dlgMapSkill}" />
+                <Switch state="{newCert>/mapToSkill}" 
+                        customTextOn="{i18n>dlgSwitchYes}" 
+                        customTextOff="{i18n>dlgSwitchNo}" />
+
+
+                            
+                <Label text="{i18n>dlgCertName}" required="true" />
+                <Input value="{newCert>/certName}" 
+                       placeholder="{i18n>dlgCertPlaceholder}" 
+                       maxLength="100" />
+
+                <Label text="{i18n>dlgSource}" required="true" />
+                <ComboBox selectedKey="{newCert>/certSource}" 
+                          items="{/certSources}">
+                    <core:Item key="{key}" text="{text}"/>
+                </ComboBox>
+
+                <Label text="{i18n>dlgVerifyLink}" required="true" />
+                <Input value="{newCert>/certUrl}" 
+                       type="Url" 
+                       placeholder="https://..." 
+                       maxLength="255" />
+
+                <Label text="{i18n>dlgIssuedDate}" />
+                <DatePicker value="{newCert>/issuedDate}" 
+                            displayFormat="dd/MM/yyyy" 
+                            valueFormat="yyyy-MM-dd" />
+
+                <Label text="{i18n>dlgExpiryDate}" />
+                <DatePicker value="{newCert>/expiryDate}" 
+                            displayFormat="dd/MM/yyyy" 
+                            valueFormat="yyyy-MM-dd" />
+
+                <Toolbar visible="{newCert>/mapToSkill}">
+                    <Title text="{i18n>dlgSkillInfoTitle}" level="H5" />
+                </Toolbar>
+
+                <Label text="{i18n>dlgSkillCorresponding}" 
+                       required="true"
+                       visible="{newCert>/mapToSkill}"/>
+                <ComboBox selectedKey="{newCert>/qualiId}"
+                          value="{newCert>/qualNameTyped}"
+                          items="{
+                              path: 'odata>/QualificationCatalog',
+                              parameters: { $orderby: 'Name asc' }
+                          }" 
+                          showSecondaryValues="false"
+                          visible="{newCert>/mapToSkill}">
+                    <core:ListItem key="{odata>QualiId}" text="{odata>Name}" />
+                </ComboBox>
+
+                <Label text="{i18n>dlgProficiency}" 
+                       required="true"
+                       visible="{newCert>/mapToSkill}"/>
+                <Select selectedKey="{newCert>/proficiency}"
+                        change="onProficiencyChange"
+                        visible="{newCert>/mapToSkill}">
+                    <core:Item key="1" text="{i18n>profBeginner}"/>
+                    <core:Item key="2" text="{i18n>profIntermediate}"/>
+                    <core:Item key="3" text="{i18n>profAdvanced}"/>
+                    <core:Item key="4" text="{i18n>profExpert}"/>
+                </Select>
+
+                <Label text="{i18n>dlgYearsExp}"
+                       visible="{newCert>/mapToSkill}"/>
+                <StepInput value="{newCert>/yearsExp}" 
+                           min="0" 
+                           max="40" 
+                           step="0.5"
+                           change="onYearsExpChange"
+                           visible="{newCert>/mapToSkill}"/>
+            </form:SimpleForm>
+        </content>
+        <buttons>
+            <Button text="{i18n>btnSave}" type="Emphasized" press="onSaveCert" icon="sap-icon://save"/>
+            <Button text="{i18n>btnCancel}" press="onCancelCert" icon="sap-icon://decline"/>
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

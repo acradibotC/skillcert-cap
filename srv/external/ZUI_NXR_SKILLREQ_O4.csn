@@ -1,0 +1,546 @@
+{
+ "meta": {
+  "creator": "cds-dk 9.9.2"
+ },
+ "$version": "2.0",
+ "definitions": {
+  "ZUI_NXR_SKILLREQ_O4.RequestOperationControl": {
+   "kind": "type",
+   "@cds.external": true,
+   "elements": {
+    "approveRequest": {
+     "type": "cds.Boolean",
+     "notNull": true
+    },
+    "rejectRequest": {
+     "type": "cds.Boolean",
+     "notNull": true
+    }
+   }
+  },
+  "ZUI_NXR_SKILLREQ_O4.EntityControl": {
+   "kind": "type",
+   "@cds.external": true,
+   "elements": {
+    "Deletable": {
+     "type": "cds.Boolean",
+     "notNull": true
+    },
+    "Updatable": {
+     "type": "cds.Boolean",
+     "notNull": true
+    }
+   }
+  },
+  "ZUI_NXR_SKILLREQ_O4.SAP__Message": {
+   "kind": "type",
+   "@cds.external": true,
+   "elements": {
+    "code": {
+     "type": "cds.String",
+     "notNull": true
+    },
+    "message": {
+     "type": "cds.String",
+     "notNull": true
+    },
+    "target": {
+     "type": "cds.String"
+    },
+    "additionalTargets": {
+     "items": {
+      "type": "cds.String",
+      "notNull": true
+     }
+    },
+    "transition": {
+     "type": "cds.Boolean",
+     "notNull": true
+    },
+    "numericSeverity": {
+     "type": "cds.Integer",
+     "@odata.Type": "Edm.Byte",
+     "notNull": true
+    },
+    "longtextUrl": {
+     "type": "cds.String"
+    }
+   }
+  },
+  "ZUI_NXR_SKILLREQ_O4": {
+   "kind": "service",
+   "@cds.external": true,
+   "@Aggregation.ApplySupported.Transformations": [
+    "aggregate",
+    "groupby",
+    "filter"
+   ],
+   "@Aggregation.ApplySupported.Rollup": {
+    "#": "None"
+   },
+   "@Common.ApplyMultiUnitBehaviorForSortingAndFiltering": true,
+   "@Capabilities.FilterFunctions": [
+    "eq",
+    "ne",
+    "gt",
+    "ge",
+    "lt",
+    "le",
+    "and",
+    "or",
+    "contains",
+    "startswith",
+    "endswith",
+    "any",
+    "all"
+   ],
+   "@Capabilities.SupportedFormats": [
+    "application/json",
+    "application/pdf"
+   ],
+   "@PDF.Features.DocumentDescriptionReference": "../../../../default/iwbep/common/0001/$metadata",
+   "@PDF.Features.DocumentDescriptionCollection": "MyDocumentDescriptions",
+   "@PDF.Features.ArchiveFormat": true,
+   "@PDF.Features.Border": true,
+   "@PDF.Features.CoverPage": true,
+   "@PDF.Features.FitToPage": true,
+   "@PDF.Features.FontName": true,
+   "@PDF.Features.FontSize": true,
+   "@PDF.Features.Margin": true,
+   "@PDF.Features.Signature": true,
+   "@PDF.Features.ResultSizeDefault": 20000,
+   "@PDF.Features.ResultSizeMaximum": 20000
+  },
+  "ZUI_NXR_SKILLREQ_O4.QualificationCatalog": {
+   "kind": "entity",
+   "@cds.external": true,
+   "@cds.persistence.skip": true,
+   "elements": {
+    "QualiId": {
+     "key": true,
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Object ID",
+     "@Common.Heading": "ObjectID"
+    },
+    "Name": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Object name",
+     "@Common.QuickInfo": "Object Name"
+    }
+   },
+   "@Common.Label": "Qualification Catalog from HRP1000",
+   "@Capabilities.SearchRestrictions.Searchable": false,
+   "@Capabilities.InsertRestrictions.Insertable": false,
+   "@Capabilities.DeleteRestrictions.Deletable": false,
+   "@Capabilities.UpdateRestrictions.Updatable": false,
+   "@Capabilities.UpdateRestrictions.QueryOptions.SelectSupported": true
+  },
+  "ZUI_NXR_SKILLREQ_O4.Request": {
+   "kind": "entity",
+   "@cds.external": true,
+   "@cds.persistence.skip": true,
+   "elements": {
+    "RequestId": {
+     "key": true,
+     "type": "cds.UUID",
+     "notNull": true,
+     "@Core.Computed": true,
+     "@Common.Label": "UUID",
+     "@Common.QuickInfo": "16 Byte UUID in 16 Bytes (Raw Format)"
+    },
+    "Pernr": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true
+    },
+    "ReqType": {
+     "type": "cds.String",
+     "length": 10,
+     "notNull": true
+    },
+    "CertName": {
+     "type": "cds.String",
+     "length": 100,
+     "notNull": true
+    },
+    "QualiId": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true
+    },
+    "QualName": {
+     "type": "cds.String",
+     "length": 50,
+     "notNull": true
+    },
+    "Source": {
+     "type": "cds.String",
+     "length": 50,
+     "notNull": true
+    },
+    "CertUrl": {
+     "type": "cds.String",
+     "length": 255,
+     "notNull": true
+    },
+    "IssuedDate": {
+     "type": "cds.Date"
+    },
+    "ExpiryDate": {
+     "type": "cds.Date"
+    },
+    "Proficiency": {
+     "type": "cds.Integer",
+     "@odata.Type": "Edm.Byte",
+     "notNull": true
+    },
+    "ProficiencyText": {
+     "type": "cds.String",
+     "length": 50,
+     "notNull": true
+    },
+    "YearsExp": {
+     "type": "cds.Integer",
+     "@odata.Type": "Edm.Byte",
+     "notNull": true
+    },
+    "Status": {
+     "type": "cds.String",
+     "length": 2,
+     "notNull": true,
+     "@Core.Computed": true
+    },
+    "StatusText": {
+     "type": "cds.String",
+     "length": 20,
+     "notNull": true,
+     "@Core.Computed": true
+    },
+    "RejectionReason": {
+     "type": "cds.String",
+     "length": 255,
+     "notNull": true
+    },
+    "CreatedBy": {
+     "type": "cds.String",
+     "length": 12,
+     "notNull": true,
+     "@Core.Computed": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "User Name",
+     "@Common.Heading": "User"
+    },
+    "CreatedAt": {
+     "type": "cds.Timestamp",
+     "@odata.Precision": 7,
+     "@odata.Type": "Edm.DateTimeOffset",
+     "@Core.Computed": true,
+     "@Common.Label": "Time Stamp",
+     "@Common.QuickInfo": "UTC Time Stamp in Long Form (YYYYMMDDhhmmssmmmuuun)"
+    },
+    "LastChangedBy": {
+     "type": "cds.String",
+     "length": 12,
+     "notNull": true,
+     "@Core.Computed": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "User Name",
+     "@Common.Heading": "User"
+    },
+    "LastChangedAt": {
+     "type": "cds.Timestamp",
+     "@odata.Precision": 7,
+     "@odata.Type": "Edm.DateTimeOffset",
+     "@Core.Computed": true,
+     "@Common.Label": "Time Stamp",
+     "@Common.QuickInfo": "UTC Time Stamp in Long Form (YYYYMMDDhhmmssmmmuuun)"
+    },
+    "LocalLastChangedAt": {
+     "type": "cds.Timestamp",
+     "@odata.Precision": 7,
+     "@odata.Type": "Edm.DateTimeOffset",
+     "@Core.Computed": true,
+     "@Common.Label": "Time Stamp",
+     "@Common.QuickInfo": "UTC Time Stamp in Long Form (YYYYMMDDhhmmssmmmuuun)"
+    },
+    "__EntityControl": {
+     "type": "ZUI_NXR_SKILLREQ_O4.EntityControl",
+     "@Core.Computed": true,
+     "@UI.HiddenFilter": true,
+     "@UI.Hidden": true
+    },
+    "__OperationControl": {
+     "type": "ZUI_NXR_SKILLREQ_O4.RequestOperationControl",
+     "@Core.Computed": true,
+     "@UI.HiddenFilter": true,
+     "@UI.Hidden": true
+    },
+    "SAP__Messages": {
+     "items": {
+      "type": "ZUI_NXR_SKILLREQ_O4.SAP__Message",
+      "notNull": true
+     }
+    }
+   },
+   "actions": {
+    "approveRequest": {
+     "kind": "action",
+     "params": {},
+     "returns": {
+      "type": "ZUI_NXR_SKILLREQ_O4.Request",
+      "notNull": true
+     },
+     "@Core.OperationAvailable": {
+      "=": "_it/__OperationControl/approveRequest"
+     }
+    },
+    "rejectRequest": {
+     "kind": "action",
+     "params": {
+      "RejectionReason": {
+       "type": "cds.String",
+       "length": 255,
+       "notNull": true,
+       "@Common.Label": "Rejection Reason"
+      }
+     },
+     "returns": {
+      "type": "ZUI_NXR_SKILLREQ_O4.Request",
+      "notNull": true
+     },
+     "@Core.OperationAvailable": {
+      "=": "_it/__OperationControl/rejectRequest"
+     }
+    }
+   },
+   "@Common.Label": "Projection View for Skill Requests",
+   "@Common.Messages": {
+    "=": "SAP__Messages"
+   },
+   "@Capabilities.SearchRestrictions.Searchable": false,
+   "@Capabilities.FilterRestrictions.NonFilterableProperties": [
+    "__EntityControl",
+    "__OperationControl"
+   ],
+   "@Capabilities.SortRestrictions.NonSortableProperties": [
+    "__EntityControl",
+    "__OperationControl"
+   ],
+   "@Capabilities.DeleteRestrictions.Deletable": {
+    "=": "__EntityControl/Deletable"
+   },
+   "@Capabilities.UpdateRestrictions.Updatable": {
+    "=": "__EntityControl/Updatable"
+   },
+   "@Capabilities.UpdateRestrictions.QueryOptions.SelectSupported": true
+  },
+  "ZUI_NXR_SKILLREQ_O4.TeamMembers": {
+   "kind": "entity",
+   "@cds.external": true,
+   "@cds.persistence.skip": true,
+   "elements": {
+    "ManagerUserId": {
+     "key": true,
+     "type": "cds.String",
+     "length": 30,
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "System ID",
+     "@Common.QuickInfo": "Communication Identification/Number"
+    },
+    "EmployeePernr": {
+     "key": true,
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Personnel Number",
+     "@Common.Heading": "Pers.No."
+    },
+    "EmployeeUserId": {
+     "type": "cds.String",
+     "length": 30,
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "System ID",
+     "@Common.QuickInfo": "Communication Identification/Number"
+    },
+    "EmployeeName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Employee/app.name",
+     "@Common.Heading": "Name of employee or applicant",
+     "@Common.QuickInfo": "Formatted Name of Employee or Applicant"
+    },
+    "PositionId": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Position"
+    },
+    "PositionName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Object name",
+     "@Common.QuickInfo": "Object Name"
+    },
+    "OrgUnitId": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Organizational unit",
+     "@Common.Heading": "Org.unit",
+     "@Common.QuickInfo": "Organizational Unit"
+    },
+    "OrgUnitName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Object name",
+     "@Common.QuickInfo": "Object Name"
+    },
+    "EmployeeEmail": {
+     "type": "cds.String",
+     "length": 241,
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "Long ID/Number",
+     "@Common.QuickInfo": "Communication: Long Identification/Number"
+    },
+    "EmployeePhone": {
+     "type": "cds.String",
+     "length": 30,
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "System ID",
+     "@Common.QuickInfo": "Communication Identification/Number"
+    }
+   },
+   "@Common.Label": "Team Members Projection",
+   "@UI.HeaderInfo.TypeName": "Team Member",
+   "@UI.HeaderInfo.TypeNamePlural": "Team Members",
+   "@Capabilities.SearchRestrictions.Searchable": false,
+   "@Capabilities.InsertRestrictions.Insertable": false,
+   "@Capabilities.DeleteRestrictions.Deletable": false,
+   "@Capabilities.UpdateRestrictions.Updatable": false,
+   "@Capabilities.UpdateRestrictions.QueryOptions.SelectSupported": true,
+   "@Capabilities.FilterRestrictions.FilterExpressionRestrictions": [
+    {
+     "Property": {
+      "=": "ManagerUserId"
+     },
+     "AllowedExpressions": "MultiValue"
+    },
+    {
+     "Property": {
+      "=": "EmployeeUserId"
+     },
+     "AllowedExpressions": "MultiValue"
+    },
+    {
+     "Property": {
+      "=": "EmployeeEmail"
+     },
+     "AllowedExpressions": "MultiValue"
+    },
+    {
+     "Property": {
+      "=": "EmployeePhone"
+     },
+     "AllowedExpressions": "MultiValue"
+    }
+   ]
+  },
+  "ZUI_NXR_SKILLREQ_O4.UserProfile": {
+   "kind": "entity",
+   "@cds.external": true,
+   "@cds.persistence.skip": true,
+   "elements": {
+    "UserId": {
+     "key": true,
+     "type": "cds.String",
+     "length": 30,
+     "notNull": true,
+     "@Common.IsUpperCase": true,
+     "@Common.Label": "System ID",
+     "@Common.QuickInfo": "Communication Identification/Number"
+    },
+    "Pernr": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Personnel Number",
+     "@Common.Heading": "Pers.No."
+    },
+    "EmployeeName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Employee/app.name",
+     "@Common.Heading": "Name of employee or applicant",
+     "@Common.QuickInfo": "Formatted Name of Employee or Applicant"
+    },
+    "PositionId": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Position"
+    },
+    "PositionName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Object name",
+     "@Common.QuickInfo": "Object Name"
+    },
+    "OrgUnitId": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Common.Label": "Organizational unit",
+     "@Common.Heading": "Org.unit",
+     "@Common.QuickInfo": "Organizational Unit"
+    },
+    "OrgUnitName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Common.Label": "Object name",
+     "@Common.QuickInfo": "Object Name"
+    },
+    "IsManager": {
+     "type": "cds.String",
+     "length": 1,
+     "notNull": true
+    }
+   },
+   "@Common.Label": "User Profile & Manager Info",
+   "@Capabilities.SearchRestrictions.Searchable": false,
+   "@Capabilities.InsertRestrictions.Insertable": false,
+   "@Capabilities.DeleteRestrictions.Deletable": false,
+   "@Capabilities.UpdateRestrictions.Updatable": false,
+   "@Capabilities.UpdateRestrictions.QueryOptions.SelectSupported": true,
+   "@Capabilities.FilterRestrictions.FilterExpressionRestrictions": [
+    {
+     "Property": {
+      "=": "UserId"
+     },
+     "AllowedExpressions": "MultiValue"
+    }
+   ]
+  }
+ }
+}

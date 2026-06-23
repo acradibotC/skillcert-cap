@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logoff</title>
+    <style>
+        body, html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            font-family: "72", "72full", Arial, Helvetica, sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .message-container {
+            text-align: center;
+            margin-top: -100px; /* Slight offset for perfect vertical centering like standard */
+        }
+
+        .goodbye-title {
+            font-size: 40px;
+            font-weight: 300;
+            color: #444444;
+            margin-bottom: 12px;
+            margin-top: 0;
+        }
+
+        .goodbye-subtitle {
+            font-size: 24px;
+            font-weight: 300;
+            color: #444444;
+            margin: 0;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            left: 30px;
+            right: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .sap-logo {
+            width: 100px;
+            height: 50px;
+        }
+
+        .copyright {
+            font-size: 14px;
+            color: #666666;
+            margin-bottom: 5px;
+        }
+        
+        .login-link {
+            margin-top: 30px;
+            display: inline-block;
+            color: #0a6ed1;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .login-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="message-container">
+        <h1 class="goodbye-title">Goodbye</h1>
+        <p class="goodbye-subtitle">You have been logged off</p>
+    </div>
+
+    <div class="footer">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/59/SAP_2011_logo.svg" alt="SAP Logo" class="sap-logo">
+        <div class="copyright">© 2018 SAP SE, All rights reserved.</div>
+    </div>
+
+</body>
+</html>

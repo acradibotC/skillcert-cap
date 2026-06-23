@@ -1,0 +1,184 @@
+.welcomeBanner {
+    background: linear-gradient(135deg, #0a4f96 0%, #1e88e5 100%);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+.welcomeDate {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #e3f2fd;
+    margin-bottom: 0.5rem;
+}
+
+.welcomeGreeting {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+}
+
+.welcomeButtons .sapMBtn {
+    margin-left: 0.5rem;
+}
+
+.welcomeButtons .sapMBtnInner {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: none;
+    color: #0a4f96;
+    font-weight: bold;
+    border-radius: 1rem;
+    padding: 0 1rem;
+}
+
+.welcomeButtons .sapMBtnInner:hover {
+    background-color: white;
+}
+
+/* User Menu Avatar Customization */
+.userMenuAvatar {
+    margin-top: 1rem;
+    border: 2px solid #0a4f96;
+}
+
+.sapUiPopupWithPadding .sapMPopoverCont {
+    padding: 0;
+}
+
+.userMenuToolbar {
+    border-top: 1px solid #d9d9d9 !important;
+    border-bottom: none !important;
+    background: transparent !important;
+}
+
+/* Settings Dialog Customization */
+.sapUiNoContentPadding .sapMDialogSection {
+    padding: 0 !important;
+}
+
+.sapUiBorderRight {
+    border-right: 1px solid #e5e5e5;
+}
+
+/* ========== To-Do Task Cards (FLP Style) ========== */
+.todoCard {
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    width: 360px;
+    min-height: 180px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    transition: all 0.25s ease;
+    cursor: default;
+    display: flex;
+    flex-direction: column;
+}
+
+.todoCard:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.todoIconBox {
+    background-color: #f2f2f2;
+    border-radius: 8px;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+}
+
+.todoTitle {
+    color: #333 !important;
+    font-size: 0.875rem !important;
+    font-weight: bold !important;
+    line-height: 1.2;
+}
+
+.todoPriority {
+    color: #d26d03; /* SAP Warning color */
+    font-size: 0.75rem;
+    font-weight: normal;
+    margin-top: 0.2rem;
+}
+
+.todoSource {
+    font-size: 0.875rem;
+}
+
+.todoLabel {
+    color: #555;
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+}
+
+.todoDateValue {
+    font-weight: normal;
+    font-size: 0.875rem;
+    color: #333;
+}
+
+.todoBtnContainer {
+    margin-top: auto !important; /* pushes button to the bottom */
+}
+
+.todoViewBtn {
+    border-radius: 1rem;
+}
+
+.todoViewBtn .sapMBtnInner {
+    border-radius: 1rem;
+    border: 1px solid #0854a0;
+    color: #0854a0;
+    padding: 0 1rem;
+}
+
+.todoViewBtn .sapMBtnInner:hover {
+    background-color: #e5f0fa;
+}
+
+/* To-Do Tab Bar styling */
+.todoTabBar .sapMITBHead {
+    border-bottom: 1px solid #e5e5e5;
+}
+.todoTabBar .sapMITBFilter {
+    padding-left: 0 !important;
+}
+
+/* ========== Access Denied Error Page ========== */
+.errorPageBg {
+    background: linear-gradient(135deg, #fafbfc 0%, #f0f2f5 100%) !important;
+}
+
+.errorPageContent {
+    min-height: 60vh;
+    padding-top: 10vh;
+}
+
+.errorIcon {
+    animation: errorPulse 2s ease-in-out infinite;
+}
+
+@keyframes errorPulse {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+}
+
+.errorTitle {
+    color: #d14900 !important;
+    font-size: 1.75rem !important;
+    font-weight: 600 !important;
+}
+
+.errorDesc {
+    font-size: 1rem;
+    color: #555;
+    max-width: 480px;
+    line-height: 1.5;
+}
+
+.errorAdminLink {
+    font-size: 0.95rem;
+    font-weight: 500;
+}
