@@ -5,6 +5,9 @@
     "start": "cds run",
     "watch": "cds watch"
   },
+  "engines": {
+    "node": ">= 20.12.0"
+  },
   "dependencies": {
     "@sap-cloud-sdk/connectivity": "^4",
     "@sap-cloud-sdk/http-client": "^4.7.0",
