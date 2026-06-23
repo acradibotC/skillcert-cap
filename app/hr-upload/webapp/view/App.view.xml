@@ -1,0 +1,128 @@
+<mvc:View
+    controllerName="znxr09.hrupload.controller.App"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:u="sap.ui.unified"
+    xmlns:table="sap.ui.table"
+    xmlns:layout="sap.ui.layout"
+    xmlns:core="sap.ui.core"
+    displayBlock="true">
+
+    <Page id="uploadPage" title="{i18n>pageTitle}" showNavButton="true" navButtonPress=".onNavBack">
+        <content>
+            <VBox class="sapUiMediumMargin">
+
+                <!-- ============ Section 1: File Upload Zone ============ -->
+                <Panel id="panelUpload" headerText="{i18n>panelUpload}" class="sapUiSmallMarginBottom">
+                    <VBox class="sapUiSmallMargin">
+                        <HBox alignItems="Center" justifyContent="Start" class="sapUiSmallMarginBottom">
+                            <u:FileUploader id="fileUploader"
+                                name="excelFile"
+                                fileType="xlsx,xls"
+                                placeholder="{i18n>filePlaceholder}"
+                                change=".onFileSelected"
+                                width="400px"
+                                buttonText="{i18n>btnBrowse}" />
+                            <Button id="btnParse" text="{i18n>btnParseFile}" icon="sap-icon://accept"
+                                type="Emphasized" press=".onParseFile" enabled="{uploadModel>/fileSelected}"
+                                class="sapUiSmallMarginBegin" />
+                            <Button id="btnClear" text="{i18n>btnClear}" icon="sap-icon://decline"
+                                type="Transparent" press=".onClearFile"
+                                class="sapUiSmallMarginBegin" />
+                        </HBox>
+                        <HBox id="fileInfoBox" visible="{uploadModel>/fileSelected}" alignItems="Center">
+                            <core:Icon src="sap-icon://excel-attachment" size="1.25rem" color="#217346" class="sapUiTinyMarginEnd" />
+                            <Text text="{uploadModel>/fileName}" class="sapUiTinyMarginEnd" />
+                            <ObjectStatus text="{uploadModel>/fileSize}" state="Information" />
+                        </HBox>
+                    </VBox>
+                </Panel>
+
+                <!-- ============ Section 2: Data Preview ============ -->
+                <Panel id="panelPreview" headerText="{i18n>panelPreview}" visible="{uploadModel>/dataParsed}" class="sapUiSmallMarginBottom">
+                    <!-- Summary bar -->
+                    <Toolbar>
+                        <Title text="{i18n>previewTitle}" level="H4" />
+                        <ToolbarSpacer />
+                        <ObjectStatus text="{= ${uploadModel>/totalRows} + ' ' + ${i18n>lblRows}}" state="Success" icon="sap-icon://accept" />
+                        <ObjectStatus text="{= ${uploadModel>/errorRows} + ' ' + ${i18n>lblErrors}}" state="Error" icon="sap-icon://alert"
+                            visible="{= ${uploadModel>/errorRows} > 0}" class="sapUiSmallMarginBegin" />
+                    </Toolbar>
+                    <table:Table id="previewTable"
+                        rows="{uploadModel>/records}"
+                        selectionMode="MultiToggle"
+                        visibleRowCount="12"
+                        enableSelectAll="true"
+                        rowSettingsTemplate="{uploadModel>rowSettings}">
+                        <table:columns>
+                            <table:Column width="5rem" label="{i18n>colStatus}">
+                                <table:template>
+                                    <core:Icon src="{= ${uploadModel>_hasError} ? 'sap-icon://error' : 'sap-icon://sys-enter-2'}"
+                                        color="{= ${uploadModel>_hasError} ? '#bb0000' : '#2b7c2b'}" />
+                                </table:template>
+                            </table:Column>
+                            <table:Column width="6rem" label="{i18n>colRow}">
+                                <table:template><Text text="{uploadModel>_rowIndex}" /></table:template>
+                            </table:Column>
+                            <table:Column width="8rem" label="{i18n>colPernr}">
+                                <table:template><Text text="{uploadModel>Pernr}" /></table:template>
+                            </table:Column>
+                            <table:Column width="8rem" label="{i18n>colWorkDate}">
+                                <table:template><Text text="{uploadModel>WorkDateDisplay}" /></table:template>
+                            </table:Column>
+                            <table:Column width="7rem" label="{i18n>colFirstEntry}">
+                                <table:template><Text text="{uploadModel>FirstEntryDisplay}" /></table:template>
+                            </table:Column>
+                            <table:Column width="7rem" label="{i18n>colLastExit}">
+                                <table:template><Text text="{uploadModel>LastExitDisplay}" /></table:template>
+                            </table:Column>
+                            <table:Column width="5rem" label="{i18n>colIOT}">
+                                <table:template><Text text="{uploadModel>Iot}" /></table:template>
+                            </table:Column>
+                            <table:Column width="6rem" label="{i18n>colIOTwF}">
+                                <table:template><Text text="{uploadModel>Iotwf}" /></table:template>
+                            </table:Column>
+                            <table:Column width="5rem" label="{i18n>colIWA}">
+                                <table:template><Text text="{uploadModel>Iwa}" /></table:template>
+                            </table:Column>
+                            <table:Column width="5rem" label="{i18n>colEntry}">
+                                <table:template><Text text="{uploadModel>NumberOfEntry}" /></table:template>
+                            </table:Column>
+                            <table:Column width="5rem" label="{i18n>colExit}">
+                                <table:template><Text text="{uploadModel>NumberOfExit}" /></table:template>
+                            </table:Column>
+                            <table:Column width="12rem" label="{i18n>colErrorMsg}">
+                                <table:template>
+                                    <Text text="{uploadModel>_errorMsg}" class="errorText" />
+                                </table:template>
+                            </table:Column>
+                        </table:columns>
+                    </table:Table>
+                </Panel>
+
+                <!-- ============ Section 3: Upload Controls ============ -->
+                <Panel id="panelActions" headerText="{i18n>panelActions}" visible="{uploadModel>/dataParsed}">
+                    <Toolbar>
+                        <Button id="btnDeleteSelected" text="{i18n>btnDeleteSelected}" icon="sap-icon://delete"
+                            type="Reject" press=".onDeleteSelected" class="sapUiTinyMarginEnd" />
+                        <ToolbarSpacer />
+                        <Button id="btnCheckExisting" text="{i18n>btnCheckExisting}" icon="sap-icon://inspect"
+                            type="Default" press=".onCheckExisting" class="sapUiTinyMarginEnd" />
+                        <Button id="btnUpload" text="{i18n>btnUploadToSAP}" icon="sap-icon://upload-to-cloud"
+                            type="Emphasized" press=".onUploadToSAP"
+                            enabled="{= ${uploadModel>/totalRows} > 0 &amp;&amp; ${uploadModel>/errorRows} === 0}" />
+                    </Toolbar>
+                    <!-- Progress -->
+                    <VBox visible="{uploadModel>/uploading}" class="sapUiSmallMargin">
+                        <ProgressIndicator id="uploadProgress"
+                            percentValue="{uploadModel>/uploadProgress}"
+                            displayValue="{uploadModel>/uploadProgressText}"
+                            state="Information"
+                            showValue="true" />
+                    </VBox>
+                </Panel>
+
+            </VBox>
+        </content>
+    </Page>
+</mvc:View>

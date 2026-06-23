@@ -1,0 +1,28 @@
+{
+    "_version": "1.58.0",
+    "sap.app": {
+        "id": "znxr09.hrupload",
+        "type": "application",
+        "title": "{{appTitle}}",
+        "description": "{{appDescription}}",
+        "applicationVersion": { "version": "1.0.0" },
+        "dataSources": {}
+    },
+    "sap.ui5": {
+        "rootView": {
+            "viewName": "znxr09.hrupload.view.App",
+            "type": "XML",
+            "async": true,
+            "id": "appView"
+        },
+        "models": {
+            "i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "settings": {
+                    "bundleName": "znxr09.hrupload.i18n.i18n"
+                }
+            }
+        },
+        "resources": { "css": [{ "uri": "css/style.css" }] }
+    }
+}

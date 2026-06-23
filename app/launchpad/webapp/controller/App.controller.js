@@ -227,6 +227,11 @@ sap.ui.define([
             this._navigateToApp("timesheetPage", "znxr09.timesheet", "../../timesheet/webapp");
         },
 
+        onNavToHrUpload: function () {
+            this.getView().getModel("user").setProperty("/shellTitle", "HR Timesheet Upload");
+            this._navigateToApp("hrUploadPage", "znxr09.hrupload", "../../hr-upload/webapp");
+        },
+
         _navigateToApp: function (sPageId, sComponentName, sComponentUrl) {
             var oNavContainer = this.byId("navContainer");
             var oPage = this.byId(sPageId);

@@ -48,3 +48,35 @@ service AttendanceService @(path: '/api/v3') {
         icon     : String;
     }
 }
+
+// ============================================================
+// Worktime Upload Service — HR Bulk Upload
+// ============================================================
+service WorktimeUploadService @(path: '/api/v4') {
+    // Custom actions for upload workflow
+    action uploadBatch(records: array of WorktimePayload) returns UploadResult;
+    action checkExisting(months: array of String)          returns ExistingResult;
+
+    type WorktimePayload {
+        Pernr         : String(8);
+        WorkDate      : String(8);
+        FirstEntry    : String(6);
+        LastExit      : String(6);
+        Iot           : Decimal(5,2);
+        Iotwf         : Decimal(5,2);
+        Iwa           : Decimal(5,2);
+        NumberOfEntry : Integer;
+        NumberOfExit  : Integer;
+    }
+
+    type UploadResult {
+        success : Integer;
+        failed  : Integer;
+        message : String;
+    }
+
+    type ExistingResult {
+        count   : Integer;
+        months  : String;
+    }
+}

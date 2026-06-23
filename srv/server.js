@@ -153,7 +153,7 @@ cds.on('bootstrap', app => {
     });
 
     // Middleware to protect internal apps (Redirect to login page)
-    const protectedRoutes = ['/launchpad', '/profile', '/timesheet', '/calendar'];
+    const protectedRoutes = ['/launchpad', '/profile', '/timesheet', '/calendar', '/hr-upload'];
     protectedRoutes.forEach(route => {
         app.use(route, (req, res, next) => {
             if (!req.isAuthenticated()) {
@@ -178,6 +178,17 @@ cds.on('bootstrap', app => {
         }
         next();
     });
+
+    // Protect HR Upload API
+    app.use('/api/v4', (req, res, next) => {
+        if (!req.isAuthenticated()) {
+            return res.status(401).json({ error: "Unauthorized. Please log in." });
+        }
+        next();
+    });
+
+    // Serve HR Upload app
+    app.use('/hr-upload', express.static(__dirname + '/../app/hr-upload/webapp'));
 });
 
 module.exports = cds.server;

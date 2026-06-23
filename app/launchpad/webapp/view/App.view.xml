@@ -92,6 +92,22 @@
                                 </TileContent>
                             </GenericTile>
                         </layout:Grid>
+
+                        <!-- ========== HR Tools Section (visible for managers) ========== -->
+                        <VBox id="hrSection" visible="{= ${user>/isManager} === true}">
+                            <Title text="{i18n>sectionHrTools}" level="H2" class="sapUiSmallMarginBottom sapUiMediumMarginTop"/>
+                            <layout:Grid containerQuery="true" defaultSpan="XL2 L3 M4 S6" class="sapUiSmallMarginTop">
+                                <GenericTile 
+                                    class="sapUiTinyMarginBegin sapUiTinyMarginTop tileLayout" 
+                                    header="{i18n>tileHrUpload}" 
+                                    subheader="{i18n>tileHrUploadSub}" 
+                                    press=".onNavToHrUpload">
+                                    <TileContent>
+                                        <ImageContent src="sap-icon://upload-to-cloud" />
+                                    </TileContent>
+                                </GenericTile>
+                            </layout:Grid>
+                        </VBox>
                     </Page>
 
                     <!-- Error Page: Access Denied (unmapped email) -->

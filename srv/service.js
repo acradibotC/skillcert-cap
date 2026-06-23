@@ -291,5 +291,120 @@ module.exports = {
                 return req.reject(500, errMsg);
             }
         });
+    },
+
+    // ================================================================
+    // WorktimeUploadService — HR Bulk Upload to ztb_nxr_worktime
+    // ================================================================
+    WorktimeUploadService: async function() {
+        const axios = require('axios');
+
+        // SAP OData base URL for worktime service
+        // NOTE: This URL needs to be updated once ZUI_NXR_WORKTIME_UPLOAD_O4 is published
+        const SAP_WORKTIME_URL = 'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload_o4/srvd/sap/zsd_nxr_worktime_upload/0001';
+        const SAP_USER = process.env.UI5_USERNAME || 'DEV-271';
+        const SAP_PASS = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        const SAP_AUTH = 'Basic ' + Buffer.from(SAP_USER + ':' + SAP_PASS).toString('base64');
+
+        async function fetchCsrfToken() {
+            const resp = await axios.get(SAP_WORKTIME_URL + '/', {
+                headers: {
+                    'Authorization': SAP_AUTH,
+                    'x-csrf-token': 'Fetch',
+                    'Accept': 'application/json'
+                },
+                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+            });
+            return {
+                token: resp.headers['x-csrf-token'],
+                cookies: resp.headers['set-cookie']
+            };
+        }
+
+        // ---- ACTION: checkExisting ----
+        this.on('checkExisting', async (req) => {
+            const { months } = req.data;
+            if (!months || months.length === 0) return { count: 0, months: '' };
+
+            try {
+                // Build filter: WorkDate ge 'YYYYMM01' and WorkDate le 'YYYYMM31' for each month
+                let totalCount = 0;
+                for (const month of months) {
+                    const from = month + '01';
+                    const to = month + '31';
+                    const url = `${SAP_WORKTIME_URL}/WorktimeRecord?$filter=WorkDate ge '${from}' and WorkDate le '${to}'&$count=true&$top=0`;
+                    try {
+                        const resp = await axios.get(url, {
+                            headers: {
+                                'Authorization': SAP_AUTH,
+                                'Accept': 'application/json'
+                            },
+                            httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+                        });
+                        totalCount += (resp.data['@odata.count'] || 0);
+                    } catch (e) {
+                        console.warn(`[WorktimeUpload] Check failed for month ${month}:`, e.message);
+                    }
+                }
+
+                const sMonthList = months.map(m => m.substring(4,6) + '/' + m.substring(0,4)).join(', ');
+                return { count: totalCount, months: sMonthList };
+            } catch (error) {
+                console.error('[WorktimeUpload] checkExisting error:', error.message);
+                return { count: 0, months: '' };
+            }
+        });
+
+        // ---- ACTION: uploadBatch ----
+        this.on('uploadBatch', async (req) => {
+            const { records } = req.data;
+            if (!records || records.length === 0) {
+                return req.reject(400, 'No records provided');
+            }
+
+            console.log(`[WorktimeUpload] Uploading ${records.length} records...`);
+
+            let success = 0;
+            let failed = 0;
+
+            try {
+                const { token, cookies } = await fetchCsrfToken();
+
+                for (const rec of records) {
+                    try {
+                        await axios.post(SAP_WORKTIME_URL + '/WorktimeRecord', {
+                            Pernr: rec.Pernr,
+                            WorkDate: rec.WorkDate,
+                            FirstEntry: rec.FirstEntry,
+                            LastExit: rec.LastExit,
+                            Iot: rec.Iot,
+                            Iotwf: rec.Iotwf,
+                            Iwa: rec.Iwa,
+                            NumberOfEntry: rec.NumberOfEntry,
+                            NumberOfExit: rec.NumberOfExit
+                        }, {
+                            headers: {
+                                'Authorization': SAP_AUTH,
+                                'x-csrf-token': token,
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Cookie': cookies ? cookies.join('; ') : ''
+                            },
+                            httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+                        });
+                        success++;
+                    } catch (e) {
+                        failed++;
+                        console.error(`[WorktimeUpload] Failed record PERNR=${rec.Pernr} DATE=${rec.WorkDate}:`, e.response?.data?.error?.message || e.message);
+                    }
+                }
+
+                console.log(`[WorktimeUpload] Done: ${success} success, ${failed} failed.`);
+                return { success, failed, message: `${success} records saved, ${failed} failed.` };
+            } catch (error) {
+                console.error('[WorktimeUpload] CSRF/upload error:', error.message);
+                return req.reject(500, 'Upload failed: ' + error.message);
+            }
+        });
     }
 };

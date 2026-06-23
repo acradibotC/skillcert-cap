@@ -1,0 +1,29 @@
+/* =======================================
+   HR Upload App — Custom Styles
+   ======================================= */
+
+/* Upload zone highlight */
+.uploadDropZone {
+    border: 2px dashed #0854A0;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    background: rgba(8, 84, 160, 0.04);
+    transition: all 0.2s ease;
+}
+.uploadDropZone:hover {
+    background: rgba(8, 84, 160, 0.08);
+    border-color: #0a6ed1;
+}
+
+/* Error text in preview table */
+.errorText {
+    color: #bb0000 !important;
+    font-style: italic;
+    font-size: 0.8125rem;
+}
+
+/* Row highlight for errors */
+.sapUiTableRowSel .errorText {
+    color: #ff4444 !important;
+}
