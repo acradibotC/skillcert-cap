@@ -92,9 +92,19 @@ sap.ui.define([
         _loadTodos: function () {
             var oTodoModel = this.getView().getModel("todo");
             var that = this;
+            var bIsManager = this.getView().getModel("user").getProperty("/isManager");
+
+            if (!bIsManager) {
+                oTodoModel.setProperty("/tasks", []);
+                oTodoModel.setProperty("/taskCount", 0);
+                this._lastRefreshTime = new Date();
+                this._updateRefreshText();
+                this._renderTodoCards([]);
+                return;
+            }
 
             jQuery.ajax({
-                url: "/api/v3/AttendanceRequest?$filter=Status eq '01'&$orderby=CreatedAt desc",
+                url: "/api/manager/attendance-requests?status=01",
                 method: "GET",
                 cache: false, // Prevent browser caching so new/removed cards show up
                 success: function (oData) {
@@ -142,7 +152,8 @@ sap.ui.define([
                 var sTypeLabel = that._getRequestTypeLabel(oTask.RequestType);
                 var sIcon = that._getRequestTypeIcon(oTask.RequestType);
                 var sCreated = oTask.CreatedAt ? new Date(oTask.CreatedAt).toLocaleDateString("en-CA") : "";
-                var sTitle = sTypeLabel + " - " + (oTask.Pernr || "Employee");
+                var sEmployee = oTask.EmployeeName || oTask.Pernr || "Employee";
+                var sTitle = sTypeLabel + " - " + sEmployee;
 
                 var oCard = new VBox({
                     items: [
@@ -204,10 +215,17 @@ sap.ui.define([
         },
 
         _onViewTodo: function () {
-            // Navigate to Timesheet app -> My Requests tab
+            try {
+                window.sessionStorage.setItem("znxr09.timesheet.reqViewMode", "manager");
+            } catch (e) {
+                // Session storage can be unavailable in strict browser modes; event bus below is the fallback.
+            }
+
+            // Navigate to Timesheet app -> Team Approval tab
             this.onNavToTimesheet();
-            // Publish event so the Timesheet app can switch to the Requests tab
-            sap.ui.getCore().getEventBus().publish("Launchpad", "NavToRequests");
+            setTimeout(function () {
+                sap.ui.getCore().getEventBus().publish("Launchpad", "NavToRequests", { mode: "manager" });
+            }, 0);
         },
 
         onNavToHome: function () {

@@ -134,7 +134,7 @@ cds.on('bootstrap', app => {
                     name: name,
                     pernr: profile.Pernr,
                     employeeName: profile.EmployeeName || name,
-                    isManager: !!profile.IsManager
+                    isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x'
                 });
             } else {
                 // Email not found in SAP → Access Denied
@@ -159,6 +159,217 @@ cds.on('bootstrap', app => {
                 pernr: null,
                 errorMessage: 'Unable to verify your account. The system is currently unavailable. Please try again later or contact sso@nexora.com.'
             });
+        }
+    });
+
+    const getCurrentUserEmail = (req) => {
+        return req.user && req.user.emails && req.user.emails[0] && req.user.emails[0].value
+            ? req.user.emails[0].value
+            : '';
+    };
+
+    const escapeODataString = (value) => String(value || '').replace(/'/g, "''");
+
+    const getSapAuthHeader = () => {
+        const sapUser = process.env.UI5_USERNAME || 'DEV-271';
+        const sapPass = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        return 'Basic ' + Buffer.from(sapUser + ':' + sapPass).toString('base64');
+    };
+
+    const normalizeODataRows = (data) => {
+        if (!data) return [];
+        if (Array.isArray(data.value)) return data.value;
+        if (data.d && Array.isArray(data.d.results)) return data.d.results;
+        if (Array.isArray(data)) return data;
+        return [];
+    };
+
+    const trimTrailingSlash = (url) => String(url || '').replace(/\/+$/, '');
+
+    // Training-system fallback: ZI_NXR_HR_TEAM_MEMBERS currently misses some
+    // position-based reporting lines because PA0001-ORGEH is not populated.
+    // Keep this map narrow and remove it once the SAP CDS view is fixed.
+    const managerSubordinateFallbacks = {
+        '90000005': [
+            { pernr: '90000007', name: 'Nguyen Tuan Anh' }
+        ]
+    };
+
+    const managerByEmployeeFallbacks = {
+        '90000007': {
+            approverId: 'HAONGUYEN022202@GMAIL.COM',
+            approverName: 'Hoang Minh Tuan',
+            approverPernr: '90000005'
+        }
+    };
+
+    // Manager-only task source: only pending requests from direct team members.
+    app.get('/api/manager/attendance-requests', async (req, res) => {
+        if (!req.isAuthenticated()) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const email = getCurrentUserEmail(req);
+        if (!email) {
+            return res.status(400).json({ error: "Cannot determine current user email." });
+        }
+
+        try {
+            const axios = require('axios');
+            const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
+            const authHeader = getSapAuthHeader();
+            const skillUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url);
+            const attUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.url);
+            let managerPernr = '';
+
+            for (const userId of [email, email.toUpperCase()]) {
+                try {
+                    const profileResp = await axios.get(
+                        skillUrl + "/UserProfile('" + encodeURIComponent(userId) + "')",
+                        {
+                            headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                            httpsAgent,
+                            validateStatus: (s) => s < 500
+                        }
+                    );
+                    if (profileResp.status === 200 && profileResp.data && profileResp.data.Pernr) {
+                        managerPernr = profileResp.data.Pernr;
+                        break;
+                    }
+                } catch (e) {
+                    // Continue with TeamMembers lookup; profile lookup is only needed for fallback.
+                }
+            }
+
+            const managerIds = Array.from(new Set([email, email.toUpperCase()].filter(Boolean)));
+            const teamFilter = managerIds.map(id => "ManagerUserId eq '" + escapeODataString(id) + "'").join(' or ');
+            const teamResp = await axios.get(
+                skillUrl + "/TeamMembers?$filter=" + encodeURIComponent(teamFilter) + "&$select=EmployeePernr,EmployeeName",
+                {
+                    headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                    httpsAgent
+                }
+            );
+
+            const teamRows = normalizeODataRows(teamResp.data);
+            const employeeByPernr = new Map();
+            teamRows.forEach(row => {
+                if (row.EmployeePernr) {
+                    employeeByPernr.set(row.EmployeePernr, row.EmployeeName || '');
+                }
+            });
+
+            if (employeeByPernr.size === 0 && managerPernr && managerSubordinateFallbacks[managerPernr]) {
+                managerSubordinateFallbacks[managerPernr].forEach(row => {
+                    employeeByPernr.set(row.pernr, row.name || '');
+                });
+            }
+
+            const pernrList = Array.from(employeeByPernr.keys());
+            if (pernrList.length === 0) {
+                return res.json({ value: [] });
+            }
+
+            const status = req.query.status || '01';
+            const requestFilters = [
+                '(' + pernrList.map(pernr => "Pernr eq '" + escapeODataString(pernr) + "'").join(' or ') + ')'
+            ];
+            if (status !== 'ALL') {
+                requestFilters.unshift("Status eq '" + escapeODataString(status) + "'");
+            }
+            const requestFilter = requestFilters.join(' and ');
+
+            const reqResp = await axios.get(
+                attUrl + "/AttendanceRequest?$filter=" + encodeURIComponent(requestFilter) + "&$orderby=CreatedAt desc",
+                {
+                    headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                    httpsAgent
+                }
+            );
+
+            const requests = normalizeODataRows(reqResp.data).map(row => ({
+                ...row,
+                EmployeeName: employeeByPernr.get(row.Pernr) || row.EmployeeName || ''
+            }));
+
+            res.json({ value: requests });
+        } catch (error) {
+            const status = error.response && error.response.status ? error.response.status : 500;
+            const message = error.response && error.response.data && error.response.data.error && error.response.data.error.message
+                ? error.response.data.error.message
+                : error.message;
+            console.error('[ManagerTasks] Failed to load team attendance requests:', message);
+            res.status(status).json({ error: message });
+        }
+    });
+
+    app.get('/api/attendance/approver', async (req, res) => {
+        if (!req.isAuthenticated()) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const pernr = req.query.pernr;
+        if (!pernr) {
+            return res.status(400).json({ error: "Missing pernr." });
+        }
+
+        try {
+            const axios = require('axios');
+            const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
+            const authHeader = getSapAuthHeader();
+            const skillUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url);
+            const teamResp = await axios.get(
+                skillUrl + "/TeamMembers?$filter=" + encodeURIComponent("EmployeePernr eq '" + escapeODataString(pernr) + "'") +
+                    "&$select=ManagerUserId,EmployeePernr",
+                {
+                    headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                    httpsAgent
+                }
+            );
+
+            const teamEntry = normalizeODataRows(teamResp.data)[0];
+            if (teamEntry && teamEntry.ManagerUserId) {
+                let approverName = teamEntry.ManagerUserId;
+                let approverPernr = '';
+                try {
+                    const profileResp = await axios.get(
+                        skillUrl + "/UserProfile('" + encodeURIComponent(teamEntry.ManagerUserId) + "')",
+                        {
+                            headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                            httpsAgent,
+                            validateStatus: (s) => s < 500
+                        }
+                    );
+                    if (profileResp.status === 200 && profileResp.data) {
+                        approverName = profileResp.data.EmployeeName || approverName;
+                        approverPernr = profileResp.data.Pernr || '';
+                    }
+                } catch (e) {
+                    // The approver id is already enough for routing; keep the id as display fallback.
+                }
+
+                return res.json({
+                    approverId: teamEntry.ManagerUserId,
+                    approverName,
+                    approverPernr
+                });
+            }
+
+            if (managerByEmployeeFallbacks[pernr]) {
+                return res.json(managerByEmployeeFallbacks[pernr]);
+            }
+
+            res.status(404).json({ error: "No approver found for employee " + pernr + "." });
+        } catch (error) {
+            if (managerByEmployeeFallbacks[pernr]) {
+                return res.json(managerByEmployeeFallbacks[pernr]);
+            }
+            const status = error.response && error.response.status ? error.response.status : 500;
+            const message = error.response && error.response.data && error.response.data.error && error.response.data.error.message
+                ? error.response.data.error.message
+                : error.message;
+            console.error('[ApproverLookup] Failed to load approver:', message);
+            res.status(status).json({ error: message });
         }
     });
 

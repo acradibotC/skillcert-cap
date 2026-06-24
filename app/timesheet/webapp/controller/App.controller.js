@@ -68,14 +68,18 @@ sap.ui.define([
             }.bind(this));
 
             // Subscribe to cross-app navigation events from Launchpad
-            sap.ui.getCore().getEventBus().subscribe("Launchpad", "NavToRequests", function() {
+            sap.ui.getCore().getEventBus().subscribe("Launchpad", "NavToRequests", function(sChannel, sEvent, oData) {
                 this.getView().getModel("view").setProperty("/selectedTab", "requests");
+                if (oData && oData.mode) {
+                    this.getView().getModel("view").setProperty("/reqViewMode", oData.mode);
+                }
                 
                 // Ensure SideNavigation selection is updated visually
                 var oSideNav = this.byId("sideNav");
                 if (oSideNav) {
                     oSideNav.setSelectedKey("requests");
                 }
+                this._loadRequests();
             }, this);
         },
 
@@ -233,6 +237,17 @@ sap.ui.define([
                     if (!sEmail) {
                         oViewModel.setProperty("/calendarBusy", false);
                         return;
+                    }
+                    this._sCurrentUserEmail = sEmail;
+                    oViewModel.setProperty("/isManager", oLocalUser.isManager === true || oLocalUser.isManager === "X");
+                    try {
+                        var sStoredReqMode = window.sessionStorage.getItem("znxr09.timesheet.reqViewMode");
+                        if (sStoredReqMode) {
+                            oViewModel.setProperty("/reqViewMode", sStoredReqMode);
+                            window.sessionStorage.removeItem("znxr09.timesheet.reqViewMode");
+                        }
+                    } catch (e) {
+                        // Keep default request mode when session storage is unavailable.
                     }
 
                     // 2. Fetch real Pernr from SAP UserProfile via /api/v1/ (SkillService)
@@ -542,12 +557,9 @@ sap.ui.define([
             var oView = this.getView();
             oView.byId("requestTabBar").setSelectedKey("DAYOFF");
             
-            // Set Approver placeholder (in real life we fetch from backend)
-            var sApprover = "Fetching...";
-            oView.byId("doApprover").setValue(sApprover);
-            oView.byId("etApprover").setValue(sApprover);
-            oView.byId("otApprover").setValue(sApprover);
-            oView.byId("wfhApprover").setValue(sApprover);
+            this._oCurrentApprover = null;
+            this._setApproverFields("Fetching...");
+            this._loadApprover();
 
             // Pre-fill Date if opened from a specific row
             var oDate;
@@ -581,6 +593,42 @@ sap.ui.define([
             this.onCalcDuration();
 
             this.oRequestDialog.open();
+        },
+
+        _setApproverFields: function (sValue) {
+            var oView = this.getView();
+            ["doApprover", "etApprover", "otApprover", "wfhApprover"].forEach(function (sId) {
+                var oInput = oView.byId(sId);
+                if (oInput) {
+                    oInput.setValue(sValue);
+                }
+            });
+        },
+
+        _loadApprover: function () {
+            if (!this._sCurrentPernr) {
+                this._setApproverFields("No employee profile");
+                return;
+            }
+
+            jQuery.ajax({
+                url: "/api/attendance/approver?pernr=" + encodeURIComponent(this._sCurrentPernr),
+                method: "GET",
+                success: function (oData) {
+                    this._oCurrentApprover = oData || null;
+                    var sDisplay = oData && oData.approverName
+                        ? oData.approverName
+                        : (oData && oData.approverId ? oData.approverId : "No approver found");
+                    this._setApproverFields(sDisplay);
+                }.bind(this),
+                error: function (jqXHR) {
+                    this._oCurrentApprover = null;
+                    var sMsg = jqXHR.responseJSON && jqXHR.responseJSON.error
+                        ? jqXHR.responseJSON.error
+                        : "No approver found";
+                    this._setApproverFields(sMsg);
+                }.bind(this)
+            });
         },
 
         onCloseRequestDialog: function () {
@@ -636,6 +684,10 @@ sap.ui.define([
                 Pernr: this._sCurrentPernr // Needs to be fetched/set
             };
 
+            if (this._oCurrentApprover && this._oCurrentApprover.approverId) {
+                oPayload.ApproverId = this._oCurrentApprover.approverId;
+            }
+
             if (sTab === "DAYOFF" || sTab === "WFH") {
                 var sPrefix = sTab === "DAYOFF" ? "do" : "wfh";
                 var doStart = oView.byId(sPrefix + "StartDate").getDateValue();
@@ -652,6 +704,9 @@ sap.ui.define([
                 var etEnd = oView.byId("etEndTime").getValue();
                 var etReason = oView.byId("etReason").getValue();
                 if (!etDate || !etStart || !etEnd || !etReason) return sap.m.MessageToast.show(this.getText("msgFillRequired"));
+                if (this._countEditTimesheetRequestsInMonth(etDate) >= 3) {
+                    return sap.m.MessageBox.error("You have reached the monthly limit of 3 Edit Timesheet requests.");
+                }
                 
                 oPayload.StartDate = this.getDateKey(etDate);
                 oPayload.EndDate = this.getDateKey(etDate); // Same day
@@ -688,8 +743,9 @@ sap.ui.define([
                 data: JSON.stringify(oPayload),
                 success: function () {
                     sap.ui.core.BusyIndicator.hide();
+                    var sSuccessText = this.getText("msgReqSubmitted");
                     sap.ui.require(["sap/m/MessageToast"], function(MessageToast) {
-                        MessageToast.show(this.getText("msgReqSubmitted"));
+                        MessageToast.show(sSuccessText);
                     });
                     this.onCloseRequestDialog();
                     this.onRefreshRequests();
@@ -703,11 +759,30 @@ sap.ui.define([
                     } else if (jqXHR.responseText) {
                         sMsg = jqXHR.responseText;
                     }
+                    var sErrorText = this.getText("msgReqFailed") + "\n" + sMsg;
                     sap.ui.require(["sap/m/MessageBox"], function(MessageBox) {
-                        MessageBox.error(this.getText("msgReqFailed") + "\n" + sMsg);
+                        MessageBox.error(sErrorText);
                     });
-                }
+                }.bind(this)
             });
+        },
+
+        _countEditTimesheetRequestsInMonth: function (oDate) {
+            if (!oDate) return 0;
+            var iMonth = oDate.getMonth();
+            var iYear = oDate.getFullYear();
+            var sCurrentPernr = this._sCurrentPernr;
+            return (this._aRawRequests || []).filter(function (oReq) {
+                if (oReq.Pernr !== sCurrentPernr || oReq.RequestType !== "EDIT_TIMESHEET" || oReq.Status === "04") {
+                    return false;
+                }
+                var sDate = (oReq.StartDate || oReq.CorrectedDate || "").substring(0, 10);
+                if (!sDate) return false;
+                var aParts = sDate.split("-");
+                if (aParts.length !== 3) return false;
+                var oReqDate = new Date(parseInt(aParts[0], 10), parseInt(aParts[1], 10) - 1, parseInt(aParts[2], 10));
+                return oReqDate.getFullYear() === iYear && oReqDate.getMonth() === iMonth;
+            }).length;
         },
 
         // ====== MY REQUESTS & HISTORY ======
@@ -718,11 +793,16 @@ sap.ui.define([
         _loadRequests: function() {
             var oViewModel = this.getView().getModel("view");
             var sPernr = this._sCurrentPernr;
-            if (!sPernr) return;
+            var sMode = oViewModel.getProperty("/reqViewMode") || "employee";
+            if (sMode === "employee" && !sPernr) return;
+
+            var sUrl = sMode === "manager"
+                ? "/api/manager/attendance-requests?status=ALL"
+                : "/api/v3/AttendanceRequest?$filter=Pernr eq '" + sPernr + "'&$orderby=CreatedAt desc";
             
             // Fetch requests for current pernr
             jQuery.ajax({
-                url: "/api/v3/AttendanceRequest?$filter=Pernr eq '" + sPernr + "'&$orderby=CreatedAt desc",
+                url: sUrl,
                 method: "GET",
                 success: function(oData) {
                     var aResults = oData.value || [];
@@ -742,7 +822,8 @@ sap.ui.define([
                             Status: oReq.Status,
                             StatusText: sStatusText,
                             StatusState: oReq.Status === '01' ? 'Warning' : (oReq.Status === '02' ? 'Success' : (oReq.Status === '03' ? 'Error' : 'None')),
-                            ApproverName: oReq.ApproverId || 'Manager',
+                            EmployeeName: oReq.EmployeeName || oReq.Pernr || '',
+                            ApproverName: oReq.ApproverName || oReq.ApproverId || 'Manager',
                             Reason: oReq.Reason || '',
                             CreatedDate: oReq.CreatedAt ? oReq.CreatedAt.substring(0,10) : '',
                             SapPostStatus: oReq.SapPostStatus || 'N/A',
@@ -782,8 +863,11 @@ sap.ui.define([
         onReqViewToggle: function (oEvent) {
             var sKey = oEvent.getParameter("item").getKey();
             this.getView().getModel("view").setProperty("/reqViewMode", sKey);
-            // In a real app, you would apply different filters to the OData binding here
-            // e.g. if 'manager', filter by ApproverId = me
+            var oStatusFilter = this.byId("reqStatusFilter");
+            if (oStatusFilter) {
+                oStatusFilter.setSelectedKey("ALL");
+            }
+            this._loadRequests();
         },
 
         onReqStatusFilter: function (oEvent) {

@@ -37,9 +37,9 @@ service AttendanceService @(path: '/api/v3') {
     entity AttendanceRequest as projection on att_external.AttendanceRequest;
 
     // Approval actions
-    action approveAttRequest(RequestId: UUID)                              returns AttendanceRequest;
-    action rejectAttRequest(RequestId: UUID, RejectionReason: String(500)) returns AttendanceRequest;
-    action cancelAttRequest(RequestId: UUID)                               returns AttendanceRequest;
+    action approveAttRequest(RequestId: String)                            returns AttendanceRequest;
+    action rejectAttRequest(RequestId: String, RejectionReason: String(500)) returns AttendanceRequest;
+    action cancelAttRequest(RequestId: String)                             returns AttendanceRequest;
 
     // Read-only helper: request type catalog
     @readonly entity requestTypes {

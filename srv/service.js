@@ -70,7 +70,6 @@ module.exports = {
     // AttendanceService — Proxy to S/4HANA RAP BO
     // ================================================================
     AttendanceService: async function() {
-        const { AttendanceRequest } = this.entities;
         const skillSrv = await cds.connect.to('ZUI_NXR_SKILLREQ_O4');
         const attExternal = await cds.connect.to('ZUI_NXR_ATTREQ_O4');
         const axios = require('axios');
@@ -80,6 +79,77 @@ module.exports = {
         const SAP_USER = process.env.UI5_USERNAME || 'DEV-271';
         const SAP_PASS = process.env.UI5_PASSWORD || 'Hanoi@12345';
         const SAP_AUTH = 'Basic ' + Buffer.from(SAP_USER + ':' + SAP_PASS).toString('base64');
+        const approverFallbacksByEmployee = {
+            '90000007': {
+                approverId: 'HAONGUYEN022202@GMAIL.COM',
+                approverName: 'Hoang Minh Tuan',
+                approverPernr: '90000005'
+            }
+        };
+
+        function normalizeGuid(value) {
+            const raw = String(value || '').replace(/[{}-]/g, '');
+            if (/^[0-9a-fA-F]{32}$/.test(raw)) {
+                return [
+                    raw.substring(0, 8),
+                    raw.substring(8, 12),
+                    raw.substring(12, 16),
+                    raw.substring(16, 20),
+                    raw.substring(20)
+                ].join('-').toLowerCase();
+            }
+            return String(value || '');
+        }
+
+        function attendanceRequestKey(requestId) {
+            return `AttendanceRequest(RequestId=${normalizeGuid(requestId)})`;
+        }
+
+        function getMonthBounds(oDate) {
+            const start = new Date(oDate.getFullYear(), oDate.getMonth(), 1);
+            const end = new Date(oDate.getFullYear(), oDate.getMonth() + 1, 0);
+            const fmt = (d) => d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+            return { start: fmt(start), end: fmt(end) };
+        }
+
+        async function resolveApprover(pernr) {
+            if (!pernr) return null;
+            try {
+                const teamEntry = await skillSrv.run(
+                    SELECT.one.from('TeamMembers').where({ EmployeePernr: pernr })
+                );
+                if (teamEntry && teamEntry.ManagerUserId) {
+                    return {
+                        approverId: teamEntry.ManagerUserId,
+                        approverName: teamEntry.ManagerUserId,
+                        approverPernr: ''
+                    };
+                }
+            } catch (e) {
+                console.warn('[AttendanceService] TeamMembers lookup failed:', e.message);
+            }
+            return approverFallbacksByEmployee[pernr] || null;
+        }
+
+        async function countEditTimesheetRequestsInMonth(pernr, dateValue) {
+            if (!pernr || !dateValue) return 0;
+            const targetDate = new Date(dateValue);
+            if (Number.isNaN(targetDate.getTime())) return 0;
+            const bounds = getMonthBounds(targetDate);
+            const rows = await attExternal.run(
+                SELECT.from('AttendanceRequest').where({
+                    Pernr: pernr,
+                    RequestType: 'EDIT_TIMESHEET'
+                })
+            );
+            return (rows || []).filter(row => {
+                const status = row.Status || '';
+                const startDate = String(row.StartDate || '').substring(0, 10);
+                return status !== '04' && startDate >= bounds.start && startDate <= bounds.end;
+            }).length;
+        }
 
         // Helper: Fetch CSRF token from SAP via GET with x-csrf-token: Fetch header
         async function fetchCsrfToken() {
@@ -119,6 +189,7 @@ module.exports = {
                 headers: {
                     'Authorization': SAP_AUTH,
                     'x-csrf-token': token,
+                    'If-Match': '*',
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Cookie': cookies ? cookies.join('; ') : ''
@@ -173,26 +244,31 @@ module.exports = {
             } else if (data.RequestType === 'EDIT_TIMESHEET') {
                 data.Duration = 1;
                 data.DurationUnit = 'TAG';
+
+                try {
+                    const monthlyCount = await countEditTimesheetRequestsInMonth(data.Pernr, data.StartDate);
+                    if (monthlyCount >= 3) {
+                        return req.reject(400, 'Edit Timesheet requests are limited to 3 times per month.');
+                    }
+                } catch (e) {
+                    console.warn('[AttendanceService] Monthly Edit Timesheet check failed:', e.message);
+                }
             }
 
             // --- Auto-determine Approver from org tree ---
             try {
                 if (data.Pernr) {
-                    const teamEntry = await skillSrv.run(
-                        SELECT.one.from('TeamMembers').where({ EmployeePernr: data.Pernr })
-                    );
+                    const teamEntry = await resolveApprover(data.Pernr);
                     if (teamEntry) {
-                        data.ApproverId = data.ApproverId || teamEntry.ManagerUserId;
+                        data.ApproverId = data.ApproverId || teamEntry.approverId;
                         if (data.RequestType === 'DAYOFF' && data.Duration > 5) {
                             try {
                                 const managerProfile = await skillSrv.run(
-                                    SELECT.one.from('UserProfile').where({ UserId: teamEntry.ManagerUserId })
+                                    SELECT.one.from('UserProfile').where({ UserId: teamEntry.approverId })
                                 );
                                 if (managerProfile && managerProfile.Pernr) {
-                                    const skipEntry = await skillSrv.run(
-                                        SELECT.one.from('TeamMembers').where({ EmployeePernr: managerProfile.Pernr })
-                                    );
-                                    if (skipEntry) data.ApproverId = skipEntry.ManagerUserId;
+                                    const skipEntry = await resolveApprover(managerProfile.Pernr);
+                                    if (skipEntry) data.ApproverId = skipEntry.approverId;
                                 }
                             } catch (e) {
                                 console.warn('[AttendanceService] Skip-level lookup failed:', e.message);
@@ -239,18 +315,27 @@ module.exports = {
         this.on('approveAttRequest', async (req) => {
             const { RequestId } = req.data;
             if (!RequestId) return req.reject(400, 'RequestId is required');
+            const key = attendanceRequestKey(RequestId);
 
             try {
                 const result = await sapPost(
-                    `AttendanceRequest(RequestId=${RequestId},IsActiveEntity=true)/com.sap.gateway.srvd.zsd_nxr_attreq_post.v0001.Approve`,
+                    `${key}/com.sap.gateway.srvd.zsd_nxr_attreq_post.v0001.Approve`,
                     {}
                 );
                 console.log(`[AttendanceService] APPROVED request ${RequestId}`);
                 return result;
             } catch (error) {
                 const errMsg = error.response?.data?.error?.message || error.message;
-                console.error(`[AttendanceService] Approve failed:`, errMsg);
-                return req.reject(500, errMsg);
+                console.warn(`[AttendanceService] Approve action failed, trying status PATCH:`, errMsg);
+                try {
+                    const result = await sapPatch(key, { Status: '02' });
+                    console.log(`[AttendanceService] APPROVED request ${RequestId} via status PATCH`);
+                    return result;
+                } catch (patchError) {
+                    const patchMsg = patchError.response?.data?.error?.message || patchError.message;
+                    console.error(`[AttendanceService] Approve failed:`, patchMsg);
+                    return req.reject(500, patchMsg);
+                }
             }
         });
 
@@ -258,18 +343,27 @@ module.exports = {
         this.on('rejectAttRequest', async (req) => {
             const { RequestId, RejectionReason } = req.data;
             if (!RequestId) return req.reject(400, 'RequestId is required');
+            const key = attendanceRequestKey(RequestId);
 
             try {
                 const result = await sapPost(
-                    `AttendanceRequest(RequestId=${RequestId},IsActiveEntity=true)/com.sap.gateway.srvd.zsd_nxr_attreq_post.v0001.Reject`,
+                    `${key}/com.sap.gateway.srvd.zsd_nxr_attreq_post.v0001.Reject`,
                     { RejectionReason: RejectionReason || '' }
                 );
                 console.log(`[AttendanceService] REJECTED request ${RequestId}`);
                 return result;
             } catch (error) {
                 const errMsg = error.response?.data?.error?.message || error.message;
-                console.error(`[AttendanceService] Reject failed:`, errMsg);
-                return req.reject(500, errMsg);
+                console.warn(`[AttendanceService] Reject action failed, trying status PATCH:`, errMsg);
+                try {
+                    const result = await sapPatch(key, { Status: '03', RejectionReason: RejectionReason || '' });
+                    console.log(`[AttendanceService] REJECTED request ${RequestId} via status PATCH`);
+                    return result;
+                } catch (patchError) {
+                    const patchMsg = patchError.response?.data?.error?.message || patchError.message;
+                    console.error(`[AttendanceService] Reject failed:`, patchMsg);
+                    return req.reject(500, patchMsg);
+                }
             }
         });
 
@@ -277,10 +371,11 @@ module.exports = {
         this.on('cancelAttRequest', async (req) => {
             const { RequestId } = req.data;
             if (!RequestId) return req.reject(400, 'RequestId is required');
+            const key = attendanceRequestKey(RequestId);
 
             try {
                 const result = await sapPatch(
-                    `AttendanceRequest(RequestId=${RequestId},IsActiveEntity=true)`,
+                    key,
                     { Status: '04', SapPostStatus: 'CANCELLED' }
                 );
                 console.log(`[AttendanceService] CANCELLED request ${RequestId}`);

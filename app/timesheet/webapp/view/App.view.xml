@@ -239,6 +239,7 @@
                                 noDataText="{i18n>txtNoDataReq}">
                                 <columns>
                                     <Column width="3rem" hAlign="Center"><Text text="{i18n>colNo}" /></Column>
+                                    <Column hAlign="Center" visible="{= ${view>/reqViewMode} === 'manager' }"><Text text="{i18n>colEmployee}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colType}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colDateRange}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colDuration}" /></Column>
@@ -252,6 +253,7 @@
                                     <ColumnListItem vAlign="Middle">
                                         <cells>
                                             <Text text="{reqList>No}" />
+                                            <Text text="{reqList>EmployeeName}" visible="{= ${view>/reqViewMode} === 'manager' }" />
                                             <HBox alignItems="Center" justifyContent="Center">
                                                 <core:Icon src="{reqList>TypeIcon}" class="sapUiTinyMarginEnd" />
                                                 <Text text="{reqList>TypeText}" />
