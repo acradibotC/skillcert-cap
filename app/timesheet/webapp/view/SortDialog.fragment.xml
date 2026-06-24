@@ -1,0 +1,17 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <ViewSettingsDialog
+        id="attendanceSortDialog"
+        title="{i18n>dlgSortTitle}"
+        confirm="onSortAttendanceConfirm">
+        <sortItems>
+            <ViewSettingsItem text="{i18n>colDate}" key="DateKey" selected="true" />
+            <ViewSettingsItem text="{i18n>colCheckin}" key="Checkin" />
+            <ViewSettingsItem text="{i18n>colCheckout}" key="Checkout" />
+            <ViewSettingsItem text="{i18n>colStatusInOut}" key="StatusText" />
+            <ViewSettingsItem text="{i18n>colActualWorking}" key="ActualWorking" />
+            <ViewSettingsItem text="{i18n>colOvertimeHours}" key="Overtime" />
+        </sortItems>
+    </ViewSettingsDialog>
+</core:FragmentDefinition>

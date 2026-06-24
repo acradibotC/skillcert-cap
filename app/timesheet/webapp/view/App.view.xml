@@ -6,6 +6,7 @@
     xmlns:core="sap.ui.core"
     xmlns:tnt="sap.tnt"
     xmlns:unified="sap.ui.unified"
+    xmlns:layout="sap.ui.layout"
     xmlns:form="sap.ui.layout.form">
     <tnt:ToolPage id="toolPage">
 
@@ -76,15 +77,18 @@
                                     <core:Item key="2026" text="2026" />
                                     <core:Item key="2025" text="2025" />
                                 </Select>
-                                <Button text="{i18n>btnSearch}" type="Default" press="onAttendanceSearch" />
-                                <Button text="{i18n>btnExport}" type="Emphasized" press="onExport" />
+                                <Button text="{i18n>btnSearch}" icon="sap-icon://search" type="Default" press="onAttendanceSearch" />
                                 <ToolbarSpacer />
+                                <Button text="{i18n>btnSort}" icon="sap-icon://sort" press="onSortAttendanceOpen" />
+                                <Button text="{i18n>btnExport}" icon="sap-icon://excel-attachment" type="Emphasized" press="onExport" />
+                                <Button text="{i18n>btnCreateRequest}" icon="sap-icon://add" type="Emphasized" press="onCreateRequest" />
                             </OverflowToolbar>
 
                             <Table id="attendanceTable"
                                 items="{
                                     path: 'att>/rows'
                                 }"
+                                mode="SingleSelectLeft"
                                 growing="true"
                                 growingThreshold="31"
                                 alternateRowColors="true"
@@ -100,7 +104,6 @@
                                     <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colCreditLeaveDay}" /></Column>
                                     <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colUnpaidLeaveDay}" /></Column>
                                     <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colRequestAcceptSent}" /></Column>
-                                    <Column hAlign="Center" width="9rem"><Text text="" /></Column>
                                 </columns>
                                 <items>
                                     <ColumnListItem vAlign="Middle">
@@ -115,7 +118,6 @@
                                             <Text text="{att>CreditLeave}" />
                                             <Text text="{att>UnpaidLeave}" />
                                             <Text text="{att>Request}" />
-                                            <Button text="{i18n>btnCreateRequest}" type="Emphasized" press="onCreateRequest" />
                                         </cells>
                                     </ColumnListItem>
                                 </items>
@@ -132,8 +134,8 @@
                             <Title text="{i18n>navCalendar}" class="timesheetHeaderTitle" level="H2" />
                         </HBox>
                         <VBox class="premiumTableContainer sapUiMediumMarginBottom sapUiResponsiveContentPadding">
-                            <HBox wrap="Wrap" justifyContent="SpaceBetween">
-                                <VBox width="60%" class="sapUiMediumMarginEnd">
+                            <layout:Grid defaultSpan="XL8 L8 M12 S12" hSpacing="1">
+                                <VBox>
                                     <unified:Calendar
                                         id="attendanceCalendar"
                                         select="onDateSelect"
@@ -142,7 +144,10 @@
                                         legend="calendarLegend" />
                                 </VBox>
                                 
-                                <VBox width="35%">
+                                <VBox>
+                                    <layoutData>
+                                        <layout:GridData span="XL4 L4 M12 S12" />
+                                    </layoutData>
                                     <!-- Legend -->
                                     <unified:CalendarLegend id="calendarLegend" class="sapUiSmallMarginBottom">
                                         <unified:items>
@@ -156,9 +161,9 @@
 
                                     <!-- Detail Panel - 2 Column Layout -->
                                     <Panel id="detailPanel" headerText="{i18n>detPanelTitle}" visible="false" class="sapUiSmallMarginTop">
-                                        <HBox justifyContent="SpaceBetween" wrap="Wrap" class="sapUiSmallMargin">
+                                        <layout:Grid defaultSpan="XL6 L6 M12 S12" hSpacing="1" class="sapUiSmallMargin">
                                             <!-- Column 1: Scheduled Hours -->
-                                            <VBox width="48%">
+                                            <VBox>
                                                 <form:SimpleForm layout="ResponsiveGridLayout" editable="false" columnsL="1" columnsM="1">
                                                     <form:content>
                                                         <core:Title text="{i18n>detSchHours}" />
@@ -174,7 +179,7 @@
                                                 </form:SimpleForm>
                                             </VBox>
                                             <!-- Column 2: Actual Hours + Status -->
-                                            <VBox width="48%">
+                                            <VBox>
                                                 <form:SimpleForm layout="ResponsiveGridLayout" editable="false" columnsL="1" columnsM="1">
                                                     <form:content>
                                                         <core:Title text="{i18n>detActHours}" />
@@ -187,7 +192,7 @@
                                                     </form:content>
                                                 </form:SimpleForm>
                                             </VBox>
-                                        </HBox>
+                                        </layout:Grid>
                                     </Panel>
                                     
                                     <VBox id="placeholderDetail" alignItems="Center" class="sapUiLargeMarginTop" visible="true">
@@ -195,7 +200,7 @@
                                         <Text text="{i18n>detPlaceholder}" textAlign="Center"/>
                                     </VBox>
                                 </VBox>
-                            </HBox>
+                            </layout:Grid>
                         </VBox>
                     </VBox>
 
@@ -238,15 +243,15 @@
                                 class="sapUiSizeCompact"
                                 noDataText="{i18n>txtNoDataReq}">
                                 <columns>
-                                    <Column width="3rem" hAlign="Center"><Text text="{i18n>colNo}" /></Column>
+                                    <Column width="3rem" hAlign="Center" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colNo}" /></Column>
                                     <Column hAlign="Center" visible="{= ${view>/reqViewMode} === 'manager' }"><Text text="{i18n>colEmployee}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colType}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colDateRange}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colDuration}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colDuration}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>detStatus}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colApprover}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colReason}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colCreated}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colApprover}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colReason}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colCreated}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colActions}" /></Column>
                                 </columns>
                                 <items>
@@ -261,7 +266,7 @@
                                             <Text text="{reqList>DateRange}" />
                                             <Text text="{reqList>DurationText}" />
                                             <ObjectStatus text="{reqList>StatusText}" state="{reqList>StatusState}" />
-                                            <Text text="{reqList>ApproverName}" />
+                                            <Link text="{reqList>ApproverName}" press="onApproverPress" />
                                             <Text text="{reqList>Reason}" wrapping="false" maxLines="1" />
                                             <Text text="{reqList>CreatedDate}" />
                                             <HBox justifyContent="Center">
@@ -301,15 +306,15 @@
                                 class="sapUiSizeCompact"
                                 noDataText="{i18n>txtNoDataHist}">
                                 <columns>
-                                    <Column width="3rem" hAlign="Center"><Text text="{i18n>colNo}" /></Column>
+                                    <Column width="3rem" hAlign="Center" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colNo}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colType}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colDateRange}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colDuration}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colDuration}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>detStatus}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colApprover}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colReason}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colApprover}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colReason}" /></Column>
                                     <Column hAlign="Center"><Text text="{i18n>colSapStatus}" /></Column>
-                                    <Column hAlign="Center"><Text text="{i18n>colCreated}" /></Column>
+                                    <Column hAlign="Center" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colCreated}" /></Column>
                                 </columns>
                                 <items>
                                     <ColumnListItem vAlign="Middle">
@@ -322,7 +327,7 @@
                                             <Text text="{histList>DateRange}" />
                                             <Text text="{histList>DurationText}" />
                                             <ObjectStatus text="{histList>StatusText}" state="{histList>StatusState}" />
-                                            <Text text="{histList>ApproverName}" />
+                                            <Link text="{histList>ApproverName}" press="onApproverPress" />
                                             <Text text="{histList>Reason}" wrapping="false" maxLines="1" />
                                             <ObjectStatus text="{histList>SapPostStatus}" state="{histList>SapPostState}" />
                                             <Text text="{histList>CreatedDate}" />

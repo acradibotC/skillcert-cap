@@ -458,6 +458,23 @@ sap.ui.define([
             }.bind(this));
         },
 
+        // ====== TOOLBAR ACTIONS ======
+        onSortAttendanceOpen: function () {
+            var oTable = this.byId("attendanceTable");
+            var oBinding = oTable.getBinding("items");
+            if (!oBinding) return;
+
+            var bDescending = this._bSortDescending === undefined ? true : !this._bSortDescending;
+            this._bSortDescending = bDescending;
+
+            var aSorters = [new sap.ui.model.Sorter("Date", bDescending)];
+            oBinding.sort(aSorters);
+        },
+
+        onExport: function () {
+            sap.m.MessageToast.show("Export functionality coming soon...");
+        },
+
         // ====== CALENDAR EVENTS ======
         onStartDateChange: function(oEvent) {
             // When user navigates calendar, check if year changed → reload data
@@ -535,6 +552,16 @@ sap.ui.define([
         onCreateRequest: function (oEvent) {
             var oButton = oEvent.getSource();
             var oContext = oButton.getBindingContext("att");
+            
+            // If button is in toolbar (no context), try to get from selected table row
+            if (!oContext) {
+                var oTable = this.byId("attendanceTable");
+                var oSelectedItem = oTable.getSelectedItem();
+                if (oSelectedItem) {
+                    oContext = oSelectedItem.getBindingContext("att");
+                }
+            }
+
             var oRowData = oContext ? oContext.getObject() : null;
 
             if (!this.oRequestDialog) {
@@ -605,16 +632,27 @@ sap.ui.define([
             });
         },
 
-        _loadApprover: function () {
+        _loadApprover: function (sDuration, sRequestType) {
             if (!this._sCurrentPernr) {
                 this._setApproverFields("No employee profile");
                 return;
             }
 
+            var sUrl = "/api/attendance/approver?pernr=" + encodeURIComponent(this._sCurrentPernr);
+            if (sDuration !== undefined && sRequestType) {
+                sUrl += "&duration=" + encodeURIComponent(sDuration) + "&requestType=" + encodeURIComponent(sRequestType);
+            }
+
+            if (this.oRequestDialog) {
+                this.oRequestDialog.setBusyIndicatorDelay(0);
+                this.oRequestDialog.setBusy(true);
+            }
+
             jQuery.ajax({
-                url: "/api/attendance/approver?pernr=" + encodeURIComponent(this._sCurrentPernr),
+                url: sUrl,
                 method: "GET",
                 success: function (oData) {
+                    if (this.oRequestDialog) this.oRequestDialog.setBusy(false);
                     this._oCurrentApprover = oData || null;
                     var sDisplay = oData && oData.approverName
                         ? oData.approverName
@@ -622,6 +660,7 @@ sap.ui.define([
                     this._setApproverFields(sDisplay);
                 }.bind(this),
                 error: function (jqXHR) {
+                    if (this.oRequestDialog) this.oRequestDialog.setBusy(false);
                     this._oCurrentApprover = null;
                     var sMsg = jqXHR.responseJSON && jqXHR.responseJSON.error
                         ? jqXHR.responseJSON.error
@@ -638,7 +677,7 @@ sap.ui.define([
         },
 
         onRequestTabSelect: function (oEvent) {
-            // Can add logic here if tab change requires reset
+            this.onCalcDuration();
         },
 
         onCalcDuration: function () {
@@ -650,9 +689,25 @@ sap.ui.define([
                 var oStart = oView.byId(sPrefix + "StartDate").getDateValue();
                 var oEnd = oView.byId(sPrefix + "EndDate").getDateValue();
                 if (oStart && oEnd) {
-                    var diffTime = Math.abs(oEnd - oStart);
-                    var diffDays = Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 1);
+                    var diffDays = 0;
+                    var currentDate = new Date(oStart.getTime());
+                    var endDate = new Date(oEnd.getTime());
+                    endDate.setHours(23, 59, 59, 999);
+
+                    // Iterate and count weekdays
+                    while (currentDate <= endDate) {
+                        var dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
+                        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                            diffDays++;
+                        }
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    if (diffDays === 0 && oStart <= endDate) diffDays = 0;
+
                     oView.byId(sPrefix + "Duration").setValue(diffDays);
+
+                    // Re-load approver if duration might change skip-level logic
+                    this._loadApprover(diffDays, sTab);
                 }
             } else if (sTab === "OVERTIME") {
                 var sStartT = oView.byId("otStartTime").getValue(); // HH:mm
@@ -673,6 +728,9 @@ sap.ui.define([
                     
                     oView.byId("otBreak").setValue(breakHrs.toFixed(1));
                 }
+                this._loadApprover(0, sTab);
+            } else if (sTab === "EDIT_TIMESHEET") {
+                this._loadApprover(0, sTab);
             }
         },
 
@@ -823,7 +881,8 @@ sap.ui.define([
                             StatusText: sStatusText,
                             StatusState: oReq.Status === '01' ? 'Warning' : (oReq.Status === '02' ? 'Success' : (oReq.Status === '03' ? 'Error' : 'None')),
                             EmployeeName: oReq.EmployeeName || oReq.Pernr || '',
-                            ApproverName: oReq.ApproverName || oReq.ApproverId || 'Manager',
+                            ApproverName: oReq.ApproverName || (oReq.ApproverId ? oReq.ApproverId.toLowerCase() : 'Manager'),
+                            ApproverId: oReq.ApproverId || '',
                             Reason: oReq.Reason || '',
                             CreatedDate: oReq.CreatedAt ? oReq.CreatedAt.substring(0,10) : '',
                             SapPostStatus: oReq.SapPostStatus || 'N/A',
@@ -860,6 +919,70 @@ sap.ui.define([
             });
         },
 
+        onApproverPress: function (oEvent) {
+            var oLink = oEvent.getSource();
+            var oContext = oLink.getBindingContext("reqList") || oLink.getBindingContext("histList");
+            if (!oContext) {
+                sap.ui.require(["sap/m/MessageToast"], function(MessageToast) {
+                    MessageToast.show("Could not find binding context.");
+                });
+                return;
+            }
+            
+            var oRow = oContext.getObject();
+            var sApproverId = oRow.ApproverId || oRow.ApproverName;
+            
+            if (!sApproverId || sApproverId === "Manager") {
+                sap.ui.require(["sap/m/MessageToast"], function(MessageToast) {
+                    MessageToast.show("No contact details available.");
+                });
+                return;
+            }
+            
+            oLink.setBusy(true);
+            
+            jQuery.ajax({
+                url: "/api/v1/UserProfile('" + encodeURIComponent(sApproverId) + "')",
+                method: "GET",
+                success: function (oData) {
+                    oLink.setBusy(false);
+                    var oProfile = oData.d || oData || {};
+                    
+                    var sEmail = oProfile.UserId || sApproverId;
+                    
+                    var oModel = new sap.ui.model.json.JSONModel({
+                        EmployeeName: oProfile.EmployeeName || sApproverId,
+                        PositionName: oProfile.PositionName || "Manager",
+                        OrgUnitName: oProfile.OrgUnitName || "N/A",
+                        UserId: sEmail ? sEmail.toLowerCase() : "N/A",
+                        Pernr: oProfile.Pernr || "N/A"
+                    });
+                    
+                    if (!this._oApproverQuickView) {
+                        sap.ui.core.Fragment.load({
+                            id: this.getView().getId(),
+                            name: "znxr09.timesheet.view.ApproverQuickView",
+                            controller: this
+                        }).then(function (oQuickView) {
+                            this._oApproverQuickView = oQuickView;
+                            this.getView().addDependent(this._oApproverQuickView);
+                            this._oApproverQuickView.setModel(oModel, "approver");
+                            this._oApproverQuickView.openBy(oLink);
+                        }.bind(this));
+                    } else {
+                        this._oApproverQuickView.setModel(oModel, "approver");
+                        this._oApproverQuickView.openBy(oLink);
+                    }
+                }.bind(this),
+                error: function () {
+                    oLink.setBusy(false);
+                    sap.ui.require(["sap/m/MessageToast"], function(MessageToast) {
+                        MessageToast.show("Could not load contact details.");
+                    });
+                }
+            });
+        },
+
         onReqViewToggle: function (oEvent) {
             var sKey = oEvent.getParameter("item").getKey();
             this.getView().getModel("view").setProperty("/reqViewMode", sKey);
@@ -890,10 +1013,51 @@ sap.ui.define([
         onRejectRequest: function (oEvent) {
             var oContext = oEvent.getSource().getBindingContext("reqList");
             var sReqId = oContext.getProperty("RequestId");
-            var sReason = prompt("Please enter a reason for rejection:");
-            if (sReason !== null) {
-                this._callAction("rejectAttRequest", sReqId, sReason);
-            }
+            var that = this;
+            var oBundle = this.getView().getModel("i18n").getResourceBundle();
+
+            sap.ui.require(["sap/m/Dialog", "sap/m/Button", "sap/m/TextArea", "sap/m/Label", "sap/m/MessageToast"], function(Dialog, Button, TextArea, Label, MessageToast) {
+                var oTextArea = new TextArea({
+                    width: "100%",
+                    placeholder: oBundle.getText("lblRejectReasonPlaceholder"),
+                    rows: 4
+                });
+
+                var oDialog = new Dialog({
+                    title: oBundle.getText("ttlRejectReq"),
+                    type: "Message",
+                    contentWidth: "400px",
+                    content: [
+                        new Label({ text: oBundle.getText("lblReason"), labelFor: oTextArea }),
+                        oTextArea
+                    ],
+                    beginButton: new Button({
+                        text: oBundle.getText("btnConfirm"),
+                        type: "Reject",
+                        press: function () {
+                            var sReason = oTextArea.getValue().trim();
+                            if (!sReason) {
+                                MessageToast.show(oBundle.getText("msgEnterRejectReason"));
+                                return;
+                            }
+                            oDialog.close();
+                            that._callAction("rejectAttRequest", sReqId, sReason);
+                        }
+                    }),
+                    endButton: new Button({
+                        text: oBundle.getText("btnCancel"),
+                        press: function () {
+                            oDialog.close();
+                        }
+                    }),
+                    afterClose: function() {
+                        oDialog.destroy();
+                    }
+                });
+
+                that.getView().addDependent(oDialog);
+                oDialog.open();
+            });
         },
 
         onCancelRequest: function (oEvent) {

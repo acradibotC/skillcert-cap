@@ -200,6 +200,11 @@ cds.on('bootstrap', app => {
             approverId: 'HAONGUYEN022202@GMAIL.COM',
             approverName: 'Hoang Minh Tuan',
             approverPernr: '90000005'
+        },
+        '90000005': {
+            approverId: '90000001',
+            approverName: '90000001',
+            approverPernr: '90000001'
         }
     };
 
@@ -309,6 +314,9 @@ cds.on('bootstrap', app => {
         }
 
         const pernr = req.query.pernr;
+        const duration = parseInt(req.query.duration, 10) || 0;
+        const requestType = req.query.requestType || '';
+
         if (!pernr) {
             return res.status(400).json({ error: "Missing pernr." });
         }
@@ -327,36 +335,95 @@ cds.on('bootstrap', app => {
                 }
             );
 
-            const teamEntry = normalizeODataRows(teamResp.data)[0];
+            let currentManagerId = '';
+            let approverName = '';
+            let approverPernr = '';
+
+            const teamRows = normalizeODataRows(teamResp.data);
+            const teamEntry = teamRows.find(r => r.EmployeePernr === pernr);
+
             if (teamEntry && teamEntry.ManagerUserId) {
-                let approverName = teamEntry.ManagerUserId;
-                let approverPernr = '';
+                currentManagerId = teamEntry.ManagerUserId;
+                approverName = currentManagerId;
+            } else if (managerByEmployeeFallbacks[pernr]) {
+                const fb = managerByEmployeeFallbacks[pernr];
+                currentManagerId = fb.approverId;
+                approverName = fb.approverName;
+                approverPernr = fb.approverPernr;
+            }
+
+            if (currentManagerId) {
                 try {
-                    const profileResp = await axios.get(
-                        skillUrl + "/UserProfile('" + encodeURIComponent(teamEntry.ManagerUserId) + "')",
-                        {
-                            headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
-                            httpsAgent,
-                            validateStatus: (s) => s < 500
+                    // Get Profile for direct manager if we don't have pernr/name
+                    if (!approverPernr) {
+                        const profileResp = await axios.get(
+                            skillUrl + "/UserProfile('" + encodeURIComponent(currentManagerId) + "')",
+                            {
+                                headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                                httpsAgent,
+                                validateStatus: (s) => s < 500
+                            }
+                        );
+                        if (profileResp.status === 200 && profileResp.data) {
+                            const name = profileResp.data.EmployeeName || approverName;
+                            const position = profileResp.data.PositionName || '';
+                            approverName = position ? name + ' - ' + position : name;
+                            approverPernr = profileResp.data.Pernr || '';
                         }
-                    );
-                    if (profileResp.status === 200 && profileResp.data) {
-                        approverName = profileResp.data.EmployeeName || approverName;
-                        approverPernr = profileResp.data.Pernr || '';
                     }
+
+                    // Skip-level logic
+                    if (requestType === 'DAYOFF' && duration > 5 && approverPernr) {
+                        let skipManagerId = '';
+                        // First try OData
+                        const skipTeamResp = await axios.get(
+                            skillUrl + "/TeamMembers?$filter=" + encodeURIComponent("EmployeePernr eq '" + escapeODataString(approverPernr) + "'") +
+                                "&$select=ManagerUserId,EmployeePernr",
+                            {
+                                headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                                httpsAgent
+                            }
+                        );
+                        const skipTeamRows = normalizeODataRows(skipTeamResp.data);
+                        const skipTeamEntry = skipTeamRows.find(r => r.EmployeePernr === approverPernr);
+                        if (skipTeamEntry && skipTeamEntry.ManagerUserId) {
+                            skipManagerId = skipTeamEntry.ManagerUserId;
+                        } else if (managerByEmployeeFallbacks[approverPernr]) {
+                            // Try fallback for skip manager
+                            skipManagerId = managerByEmployeeFallbacks[approverPernr].approverId;
+                        }
+
+                        if (skipManagerId) {
+                            currentManagerId = skipManagerId;
+                            approverName = currentManagerId; // Default
+                            approverPernr = '';
+                            
+                            const skipProfileResp = await axios.get(
+                                skillUrl + "/UserProfile('" + encodeURIComponent(currentManagerId) + "')",
+                                {
+                                    headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+                                    httpsAgent,
+                                    validateStatus: (s) => s < 500
+                                }
+                            );
+                            if (skipProfileResp.status === 200 && skipProfileResp.data) {
+                                const skipName = skipProfileResp.data.EmployeeName || approverName;
+                                const skipPosition = skipProfileResp.data.PositionName || '';
+                                approverName = skipPosition ? skipName + ' - ' + skipPosition : skipName;
+                                approverPernr = skipProfileResp.data.Pernr || '';
+                            }
+                        }
+                    }
+
                 } catch (e) {
-                    // The approver id is already enough for routing; keep the id as display fallback.
+                    // Fallback
                 }
 
                 return res.json({
-                    approverId: teamEntry.ManagerUserId,
+                    approverId: currentManagerId,
                     approverName,
                     approverPernr
                 });
-            }
-
-            if (managerByEmployeeFallbacks[pernr]) {
-                return res.json(managerByEmployeeFallbacks[pernr]);
             }
 
             res.status(404).json({ error: "No approver found for employee " + pernr + "." });

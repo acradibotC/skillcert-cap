@@ -1,0 +1,27 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.ui.layout.form">
+    <QuickView id="approverQuickView" placement="Auto">
+        <QuickViewPage
+            pageId="approverPageId"
+            header="{i18n>ttlContactInfo}"
+            title="{approver>/EmployeeName}"
+            description="{approver>/PositionName}"
+            icon="sap-icon://employee">
+            <QuickViewGroup heading="{i18n>ttlContactDetails}">
+                <QuickViewGroupElement
+                    label="{i18n>lblEmail}"
+                    value="{approver>/UserId}"
+                    url="mailto:{approver>/UserId}"
+                    type="email" />
+                <QuickViewGroupElement
+                    label="{i18n>lblDepartment}"
+                    value="{approver>/OrgUnitName}" />
+                <QuickViewGroupElement
+                    label="{i18n>lblPernr}"
+                    value="{approver>/Pernr}" />
+            </QuickViewGroup>
+        </QuickViewPage>
+    </QuickView>
+</core:FragmentDefinition>

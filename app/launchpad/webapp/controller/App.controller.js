@@ -16,6 +16,17 @@ sap.ui.define([
 
     return Controller.extend("znxr09.portal.controller.App", {
         onInit: function () {
+            // Intercept browser back button to prevent navigating back to Google SSO
+            window.history.pushState(null, null, window.location.href);
+            window.addEventListener('popstate', function(event) {
+                var oNavContainer = this.byId("navContainer");
+                if (oNavContainer && oNavContainer.getCurrentPage() && oNavContainer.getCurrentPage().getId() !== this.createId("homePage")) {
+                    this.onNavToHome();
+                }
+                // Always push state again to trap the back button within the app
+                window.history.pushState(null, null, window.location.href);
+            }.bind(this));
+
             // Set welcome date
             var oDate = new Date();
             var options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -56,14 +67,15 @@ sap.ui.define([
                         return;
                     }
 
-                    if (oData && oData.name) {
-                        var initials = oData.name.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase();
-                        oUserModel.setProperty("/name", oData.name);
+                    if (oData && (oData.employeeName || oData.name)) {
+                        var sDisplayName = oData.employeeName || oData.name;
+                        var initials = sDisplayName.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase();
+                        oUserModel.setProperty("/name", sDisplayName);
                         oUserModel.setProperty("/initials", initials);
-                        oUserModel.setProperty("/email", oData.email);
+                        oUserModel.setProperty("/email", oData.email ? oData.email.toLowerCase() : "");
                         oUserModel.setProperty("/userId", oData.userId || oData.pernr);
                         oUserModel.setProperty("/isManager", oData.isManager === true || oData.isManager === "X");
-                        this.byId("welcomeGreeting").setText("Hi " + oData.name + ", great to see you!");
+                        this.byId("welcomeGreeting").setText("Hi " + sDisplayName + ", great to see you!");
                     } else {
                         this.byId("welcomeGreeting").setText("Hi User, great to see you!");
                     }
@@ -236,17 +248,14 @@ sap.ui.define([
         },
 
         onNavToProfile: function () {
-            this.getView().getModel("user").setProperty("/shellTitle", "My Profile");
             this._navigateToApp("profilePage", "znxr09.znxr09f300", "/profile/webapp");
         },
 
         onNavToTimesheet: function () {
-            this.getView().getModel("user").setProperty("/shellTitle", "My Timesheet");
             this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
         },
 
         onNavToHrUpload: function () {
-            this.getView().getModel("user").setProperty("/shellTitle", "HR Timesheet Upload");
             this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
         },
 

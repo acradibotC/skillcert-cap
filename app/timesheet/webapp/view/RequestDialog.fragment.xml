@@ -49,7 +49,7 @@
                     </IconTabFilter>
 
                     <!-- TAB 3: OVERTIME -->
-                    <IconTabFilter key="OVERTIME" text="Overtime" icon="sap-icon://overtime">
+                    <IconTabFilter key="OVERTIME" text="Overtime" icon="sap-icon://history">
                         <MessageStrip text="You are making a request for OVERTIME. Break rules: >4h(1h break), >8h(1.5h break), >12h(2h break). Max 40h/month." type="Information" showIcon="true" class="sapUiSmallMarginBottom" />
                         <f:SimpleForm layout="ResponsiveGridLayout" columnsL="1" columnsM="1" editable="true">
                             <f:content>

@@ -10,9 +10,15 @@
     height="100%">
 
     <App id="app">
-        <Page id="uploadPage" title="{i18n>pageTitle}" showNavButton="true" navButtonPress=".onNavBack">
+        <Page id="uploadPage" showHeader="false">
         <content>
-            <VBox class="sapUiMediumMargin">
+            <VBox class="sapUiResponsiveMargin">
+
+                <!-- Custom Modern Header -->
+                <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                    <core:Icon src="sap-icon://upload" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                    <Title text="{i18n>pageTitle}" class="timesheetHeaderTitle" level="H2" />
+                </HBox>
 
                 <!-- ============ Section 1: File Upload Zone ============ -->
                 <Panel id="panelUpload" headerText="{i18n>panelUpload}" class="sapUiSmallMarginBottom">

@@ -84,6 +84,11 @@ module.exports = {
                 approverId: 'HAONGUYEN022202@GMAIL.COM',
                 approverName: 'Hoang Minh Tuan',
                 approverPernr: '90000005'
+            },
+            '90000005': {
+                approverId: '90000001',
+                approverName: '90000001',
+                approverPernr: '90000001'
             }
         };
 
@@ -117,9 +122,11 @@ module.exports = {
         async function resolveApprover(pernr) {
             if (!pernr) return null;
             try {
-                const teamEntry = await skillSrv.run(
-                    SELECT.one.from('TeamMembers').where({ EmployeePernr: pernr })
+                const teamRows = await skillSrv.run(
+                    SELECT.from('TeamMembers')
                 );
+                const teamEntry = (teamRows || []).find(r => r.EmployeePernr === pernr);
+
                 if (teamEntry && teamEntry.ManagerUserId) {
                     return {
                         approverId: teamEntry.ManagerUserId,
@@ -182,6 +189,21 @@ module.exports = {
             return resp.data;
         }
 
+        function getSapErrorMessage(error) {
+            const data = error.response?.data;
+            if (typeof data === 'string') return data;
+            return data?.error?.message
+                || data?.error?.details?.map(detail => detail.message).filter(Boolean).join('; ')
+                || error.message;
+        }
+
+        function normalizeTimeValue(value) {
+            if (!value) return value;
+            const time = String(value).trim();
+            if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
+            return time;
+        }
+
         // Helper: PATCH to SAP with CSRF token
         async function sapPatch(path, data) {
             const { token, cookies } = await fetchCsrfToken();
@@ -226,8 +248,18 @@ module.exports = {
             if ((data.RequestType === 'DAYOFF' || data.RequestType === 'WFH') && data.StartDate && data.EndDate) {
                 const start = new Date(data.StartDate);
                 const end = new Date(data.EndDate);
-                const diffMs = end - start;
-                const diffDays = Math.max(Math.ceil(diffMs / (1000 * 60 * 60 * 24)), 1);
+                let diffDays = 0;
+                let current = new Date(start.getTime());
+                end.setHours(23, 59, 59, 999);
+
+                while (current <= end) {
+                    const dayOfWeek = current.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        diffDays++;
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+                
                 data.Duration = diffDays;
                 data.DurationUnit = 'TAG';
             } else if (data.RequestType === 'OVERTIME' && data.StartDate && data.EndDate) {
@@ -263,11 +295,17 @@ module.exports = {
                         data.ApproverId = data.ApproverId || teamEntry.approverId;
                         if (data.RequestType === 'DAYOFF' && data.Duration > 5) {
                             try {
-                                const managerProfile = await skillSrv.run(
-                                    SELECT.one.from('UserProfile').where({ UserId: teamEntry.approverId })
-                                );
-                                if (managerProfile && managerProfile.Pernr) {
-                                    const skipEntry = await resolveApprover(managerProfile.Pernr);
+                                let managerPernr = teamEntry.approverPernr;
+                                if (!managerPernr) {
+                                    const managerProfile = await skillSrv.run(
+                                        SELECT.one.from('UserProfile').where({ UserId: teamEntry.approverId })
+                                    );
+                                    if (managerProfile && managerProfile.Pernr) {
+                                        managerPernr = managerProfile.Pernr;
+                                    }
+                                }
+                                if (managerPernr) {
+                                    const skipEntry = await resolveApprover(managerPernr);
                                     if (skipEntry) data.ApproverId = skipEntry.approverId;
                                 }
                             } catch (e) {
@@ -293,8 +331,8 @@ module.exports = {
                 SapPostStatus: data.SapPostStatus,
                 ApproverId: data.ApproverId || ''
             };
-            if (data.CorrectedStartTime) payload.CorrectedStartTime = data.CorrectedStartTime;
-            if (data.CorrectedEndTime) payload.CorrectedEndTime = data.CorrectedEndTime;
+            if (data.CorrectedStartTime) payload.CorrectedStartTime = normalizeTimeValue(data.CorrectedStartTime);
+            if (data.CorrectedEndTime) payload.CorrectedEndTime = normalizeTimeValue(data.CorrectedEndTime);
             if (data.CorrectedDate) payload.CorrectedDate = data.CorrectedDate;
             if (data.OtBreakHours !== undefined) payload.OtBreakHours = data.OtBreakHours;
 
@@ -305,7 +343,7 @@ module.exports = {
                 console.log('[AttendanceService] Created successfully:', result.RequestId || result.d?.RequestId);
                 return result;
             } catch (error) {
-                const errMsg = error.response?.data?.error?.message || error.message;
+                const errMsg = getSapErrorMessage(error);
                 console.error('[AttendanceService] CREATE failed:', errMsg);
                 return req.reject(error.response?.status || 500, errMsg);
             }
@@ -325,17 +363,9 @@ module.exports = {
                 console.log(`[AttendanceService] APPROVED request ${RequestId}`);
                 return result;
             } catch (error) {
-                const errMsg = error.response?.data?.error?.message || error.message;
-                console.warn(`[AttendanceService] Approve action failed, trying status PATCH:`, errMsg);
-                try {
-                    const result = await sapPatch(key, { Status: '02' });
-                    console.log(`[AttendanceService] APPROVED request ${RequestId} via status PATCH`);
-                    return result;
-                } catch (patchError) {
-                    const patchMsg = patchError.response?.data?.error?.message || patchError.message;
-                    console.error(`[AttendanceService] Approve failed:`, patchMsg);
-                    return req.reject(500, patchMsg);
-                }
+                const errMsg = getSapErrorMessage(error);
+                console.error(`[AttendanceService] Approve failed:`, errMsg);
+                return req.reject(error.response?.status || 500, errMsg);
             }
         });
 
@@ -346,23 +376,25 @@ module.exports = {
             const key = attendanceRequestKey(RequestId);
 
             try {
-                const result = await sapPost(
-                    `${key}/com.sap.gateway.srvd.zsd_nxr_attreq_post.v0001.Reject`,
-                    { RejectionReason: RejectionReason || '' }
+                // First try to use CAP UPDATE which handles OData V4 properly
+                console.log(`[AttendanceService] Attempting to REJECT request ${RequestId} via CAP UPDATE`);
+                const result = await attExternal.run(
+                    UPDATE('AttendanceRequest')
+                    .set({ Status: '03', RejectionReason: RejectionReason || '', SapPostStatus: 'SUCCESS' })
+                    .where({ RequestId: normalizeGuid(RequestId) })
                 );
-                console.log(`[AttendanceService] REJECTED request ${RequestId}`);
-                return result;
+                console.log(`[AttendanceService] REJECTED request ${RequestId} via CAP UPDATE`);
+                return { RequestId };
             } catch (error) {
-                const errMsg = error.response?.data?.error?.message || error.message;
-                console.warn(`[AttendanceService] Reject action failed, trying status PATCH:`, errMsg);
+                console.warn(`[AttendanceService] CAP UPDATE failed, trying sapPatch:`, error.message);
                 try {
-                    const result = await sapPatch(key, { Status: '03', RejectionReason: RejectionReason || '' });
+                    const result = await sapPatch(key, { Status: '03', RejectionReason: RejectionReason || '', SapPostStatus: 'SUCCESS' });
                     console.log(`[AttendanceService] REJECTED request ${RequestId} via status PATCH`);
                     return result;
                 } catch (patchError) {
-                    const patchMsg = patchError.response?.data?.error?.message || patchError.message;
+                    const patchMsg = patchError.response?.data?.error?.message || patchError.response?.data || patchError.message;
                     console.error(`[AttendanceService] Reject failed:`, patchMsg);
-                    return req.reject(500, patchMsg);
+                    return req.reject(500, typeof patchMsg === 'string' ? patchMsg : JSON.stringify(patchMsg));
                 }
             }
         });
