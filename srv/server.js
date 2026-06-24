@@ -100,24 +100,37 @@ cds.on('bootstrap', app => {
             const sapUser = process.env.UI5_USERNAME || 'DEV-271';
             const sapPass = process.env.UI5_PASSWORD || 'Hanoi@12345';
 
-            const profileResp = await axios.get(
+            const axiosConfig = {
+                headers: {
+                    'Authorization': 'Basic ' + Buffer.from(sapUser + ':' + sapPass).toString('base64'),
+                    'Accept': 'application/json'
+                },
+                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
+                validateStatus: (s) => s < 500 // Don't throw on 404
+            };
+
+            let profileResp = await axios.get(
                 sapUrl + "/UserProfile('" + encodeURIComponent(email) + "')",
-                {
-                    headers: {
-                        'Authorization': 'Basic ' + Buffer.from(sapUser + ':' + sapPass).toString('base64'),
-                        'Accept': 'application/json'
-                    },
-                    httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
-                    validateStatus: (s) => s < 500 // Don't throw on 404
-                }
+                axiosConfig
             );
+
+            let sapEmail = email;
+
+            // Fallback: If not found, try UPPERCASE email because SAP PA0105 might store it as uppercase
+            if (profileResp.status === 404 || (profileResp.status === 200 && (!profileResp.data || !profileResp.data.Pernr))) {
+                sapEmail = email.toUpperCase();
+                profileResp = await axios.get(
+                    sapUrl + "/UserProfile('" + encodeURIComponent(sapEmail) + "')",
+                    axiosConfig
+                );
+            }
 
             if (profileResp.status === 200 && profileResp.data && profileResp.data.Pernr) {
                 const profile = profileResp.data;
                 res.json({
                     authorized: true,
                     userId: req.user.id,
-                    email: email,
+                    email: sapEmail, // Trả về đúng email đã match (có thể là IN HOA) để UI5 binding không bị lỗi
                     name: name,
                     pernr: profile.Pernr,
                     employeeName: profile.EmployeeName || name,
