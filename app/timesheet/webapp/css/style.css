@@ -20,21 +20,16 @@
 
 /* --- Premium Table & Calendar Containers --- */
 .premiumTableContainer {
-    background: white;
+    background: var(--sapTile_Background, white);
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-    overflow: hidden; /* Ensures rounded corners clip the table header */
+    box-shadow: var(--sapContent_Shadow0, 0 4px 20px rgba(0,0,0,0.06));
+    overflow: hidden;
     margin-top: 1rem;
 }
 
 .premiumTableHeader {
-    background: linear-gradient(to right, #ffffff, #f0f4f8) !important;
-    border-bottom: 2px solid #1976d2 !important;
-}
-
-/* Ensure the background of the main page is a soft gray to contrast the white cards */
-.sapMPage {
-    background-color: #f5f6f7;
+    background: var(--sapList_HeaderBackground, linear-gradient(to right, #ffffff, #f0f4f8)) !important;
+    border-bottom: 2px solid var(--sapActiveColor, #1976d2) !important;
 }
 
 /* Calendar adjustments to fit the premium look */

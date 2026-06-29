@@ -64,13 +64,13 @@
 
 /* ========== To-Do Task Cards (FLP Style) ========== */
 .todoCard {
-    background: white;
-    border: 1px solid #e5e5e5;
+    background: var(--sapTile_Background, white);
+    border: 1px solid var(--sapTile_BorderColor, #e5e5e5);
     border-radius: 8px;
     padding: 1rem 1.25rem;
     width: 360px;
     min-height: 180px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    box-shadow: var(--sapContent_Shadow0, 0 2px 4px rgba(0,0,0,0.04));
     transition: all 0.25s ease;
     cursor: default;
     display: flex;
@@ -78,11 +78,11 @@
 }
 
 .todoCard:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: var(--sapContent_Shadow2, 0 4px 12px rgba(0,0,0,0.1));
 }
 
 .todoIconBox {
-    background-color: #f2f2f2;
+    background-color: var(--sapNeutralBackground, #f2f2f2);
     border-radius: 8px;
     width: 3rem;
     height: 3rem;
@@ -90,14 +90,14 @@
 }
 
 .todoTitle {
-    color: #333 !important;
+    color: var(--sapTile_TitleTextColor, #333) !important;
     font-size: 0.875rem !important;
     font-weight: bold !important;
     line-height: 1.2;
 }
 
 .todoPriority {
-    color: #d26d03; /* SAP Warning color */
+    color: var(--sapWarningColor, #d26d03); /* SAP Warning color */
     font-size: 0.75rem;
     font-weight: normal;
     margin-top: 0.2rem;
@@ -108,7 +108,7 @@
 }
 
 .todoLabel {
-    color: #555;
+    color: var(--sapContent_LabelColor, #555);
     font-size: 0.75rem;
     margin-bottom: 0.2rem;
 }
@@ -116,7 +116,7 @@
 .todoDateValue {
     font-weight: normal;
     font-size: 0.875rem;
-    color: #333;
+    color: var(--sapTextColor, #333);
 }
 
 .todoBtnContainer {
@@ -129,18 +129,18 @@
 
 .todoViewBtn .sapMBtnInner {
     border-radius: 1rem;
-    border: 1px solid #0854a0;
-    color: #0854a0;
+    border: 1px solid var(--sapButton_BorderColor, #0854a0);
+    color: var(--sapButton_TextColor, #0854a0);
     padding: 0 1rem;
 }
 
 .todoViewBtn .sapMBtnInner:hover {
-    background-color: #e5f0fa;
+    background-color: var(--sapButton_Hover_Background, #e5f0fa);
 }
 
 /* To-Do Tab Bar styling */
 .todoTabBar .sapMITBHead {
-    border-bottom: 1px solid #e5e5e5;
+    border-bottom: 1px solid var(--sapList_BorderColor, #e5e5e5);
 }
 .todoTabBar .sapMITBFilter {
     padding-left: 0 !important;

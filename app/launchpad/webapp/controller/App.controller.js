@@ -41,7 +41,8 @@ sap.ui.define([
                 userId: "",
                 server: window.location.hostname,
                 theme: sap.ui.getCore().getConfiguration().getTheme(),
-                shellTitle: "Nexora Employee Portal"
+                shellTitle: "Nexora Employee Portal",
+                authorized: null
             });
             this.getView().setModel(oUserModel, "user");
 
@@ -59,13 +60,15 @@ sap.ui.define([
                 method: "GET",
                 success: function (oData) {
                     if (oData && oData.authorized === false) {
+                        oUserModel.setProperty("/authorized", false);
                         // Email not mapped → show error page
                         var sMsg = oData.errorMessage || "Your email is not linked to any employee record.";
                         this.byId("errorMessage").setText(sMsg);
                         this.byId("navContainer").to(this.byId("errorPage"));
-                        // Hide ShellBar profile + notifications
                         return;
                     }
+                    oUserModel.setProperty("/authorized", true);
+                    this.byId("navContainer").to(this.byId("homePage"));
 
                     if (oData && (oData.employeeName || oData.name)) {
                         var sDisplayName = oData.employeeName || oData.name;
@@ -83,6 +86,8 @@ sap.ui.define([
                     this._loadTodos();
                 }.bind(this),
                 error: function () {
+                    oUserModel.setProperty("/authorized", true);
+                    this.byId("navContainer").to(this.byId("homePage"));
                     this.byId("welcomeGreeting").setText("Hi, great to see you!");
                     this._loadTodos();
                 }.bind(this)
@@ -241,6 +246,10 @@ sap.ui.define([
         },
 
         onNavToHome: function () {
+            var bIsAuthorized = this.getView().getModel("user").getProperty("/authorized");
+            if (bIsAuthorized === false) {
+                return;
+            }
             this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
             var oNavContainer = this.byId("navContainer");
             oNavContainer.to(this.byId("homePage"));

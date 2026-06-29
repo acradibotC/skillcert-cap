@@ -1,8 +1,6 @@
 /* Skill & Certs App - Custom Styles */
 
-.sapMPage {
-    background-color: #f5f6f7;
-}
+
 
 /* Status badges */
 .statusSubmitted {
@@ -24,7 +22,7 @@
 .summaryCard {
     border-radius: 8px;
     padding: 1rem;
-    background: white;
+    background: var(--sapTile_Background, white);
     box-shadow: 0 0 0.25rem rgba(0,0,0,0.1);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -36,7 +34,7 @@
 }
 
 .employeeHeaderCard {
-    background: white;
+    background: var(--sapTile_Background, white);
     border-radius: 8px;
     border: 1px solid #e5e5e5;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -80,7 +78,7 @@
 
 /* Rejection reason highlight */
 .rejectionBox {
-    background-color: #fff3f3;
+    background-color: var(--sapErrorBackground, #fff3f3);
     border-left: 4px solid #bb0000;
     padding: 0.75rem 1rem;
     border-radius: 4px;
@@ -103,20 +101,20 @@
     position: relative;
 }
 .premiumTableContainer {
-    background: white;
+    background: var(--sapTile_Background, white);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.06);
     overflow: hidden;
     margin-top: 1rem;
 }
 .premiumTableHeader {
-    background: linear-gradient(to right, #ffffff, #f0f4f8) !important;
-    border-bottom: 2px solid #1976d2 !important;
+    background: var(--sapList_HeaderBackground, linear-gradient(to right, #ffffff, #f0f4f8)) !important;
+    border-bottom: 2px solid var(--sapActiveColor, #1976d2) !important;
 }
 .profileAvatar {
     border: 4px solid rgba(255,255,255,0.4);
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    background-color: white !important;
+    background-color: var(--sapAvatar_1_Background, white) !important;
 }
 .profileHeroTitle {
     color: white !important;
@@ -134,7 +132,7 @@
     z-index: 10;
 }
 .profileStatCard {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--sapTile_Background, rgba(255, 255, 255, 0.95));
     backdrop-filter: blur(10px);
     border-radius: 12px;
     padding: 1.25rem;
@@ -155,11 +153,11 @@
 }
 .profileStatValue {
     font-size: 2rem !important;
-    color: #333 !important;
+    color: var(--sapTextColor, #333) !important;
     margin-top: 0.5rem;
 }
 .profileDetailCard {
-    background: white;
+    background: var(--sapTile_Background, white);
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.04);
@@ -188,5 +186,5 @@
 }
 .detailValueBold {
     font-weight: 600;
-    color: #333;
+    color: var(--sapTextColor, #333);
 }
