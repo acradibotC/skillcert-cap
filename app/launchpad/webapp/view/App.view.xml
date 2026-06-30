@@ -16,6 +16,8 @@
                     showCopilot="false"
                     showSearch="false"
                     showNotifications="{= ${user>/authorized} === true }"
+                    notificationsNumber="{notification>/unreadCount}"
+                    notificationsPressed=".onNotificationsPress"
                     showProductSwitcher="false"
                     homeIconPressed=".onNavToHome">
                     <f:profile>

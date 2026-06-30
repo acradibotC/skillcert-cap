@@ -54,6 +54,14 @@ sap.ui.define([
             });
             this.getView().setModel(oTodoModel, "todo");
 
+            // Initialize Notification model
+            var oNotifModel = new JSONModel({
+                items: [],
+                count: 0,
+                unreadCount: 0
+            });
+            this.getView().setModel(oNotifModel, "notification");
+
             // Fetch user info from Google OAuth (via our /api/currentUser endpoint)
             jQuery.ajax({
                 url: "/api/currentUser",
@@ -76,7 +84,7 @@ sap.ui.define([
                         oUserModel.setProperty("/name", sDisplayName);
                         oUserModel.setProperty("/initials", initials);
                         oUserModel.setProperty("/email", oData.email ? oData.email.toLowerCase() : "");
-                        oUserModel.setProperty("/userId", oData.userId || oData.pernr);
+                        oUserModel.setProperty("/userId", oData.pernr || oData.userId);
                         oUserModel.setProperty("/isManager", oData.isManager === true || oData.isManager === "X");
                         this.byId("welcomeGreeting").setText("Hi " + sDisplayName + ", great to see you!");
                     } else {
@@ -84,12 +92,15 @@ sap.ui.define([
                     }
                     // Load to-dos after user info is loaded
                     this._loadTodos();
+                    // Initialize notifications + WebSocket
+                    this._initNotifications();
                 }.bind(this),
                 error: function () {
                     oUserModel.setProperty("/authorized", true);
                     this.byId("navContainer").to(this.byId("homePage"));
                     this.byId("welcomeGreeting").setText("Hi, great to see you!");
                     this._loadTodos();
+                    this._initNotifications();
                 }.bind(this)
             });
         },
@@ -404,6 +415,212 @@ sap.ui.define([
 
         onLogout: function () {
             window.location.href = "/auth/logout";
+        },
+
+        // =============================================
+        // NOTIFICATIONS
+        // =============================================
+
+        /**
+         * Initialize notification system: load initial count + connect WebSocket.
+         */
+        _initNotifications: function () {
+            this._loadNotificationCount();
+            this._connectWebSocket();
+        },
+
+        /**
+         * Load notification count from REST API (used as fallback / initial load).
+         */
+        _loadNotificationCount: function () {
+            var oNotifModel = this.getView().getModel("notification");
+            jQuery.ajax({
+                url: "/api/notifications/count",
+                method: "GET",
+                success: function (oData) {
+                    oNotifModel.setProperty("/count", oData.count || 0);
+                    oNotifModel.setProperty("/unreadCount", String(oData.unreadCount || 0));
+                },
+                error: function () {
+                    oNotifModel.setProperty("/unreadCount", "0");
+                }
+            });
+        },
+
+        /**
+         * Load full notification items from REST API.
+         */
+        _loadNotifications: function () {
+            var oNotifModel = this.getView().getModel("notification");
+            jQuery.ajax({
+                url: "/api/notifications",
+                method: "GET",
+                success: function (oData) {
+                    oNotifModel.setProperty("/items", oData.items || []);
+                    oNotifModel.setProperty("/count", oData.count || 0);
+                    oNotifModel.setProperty("/unreadCount", String(oData.unreadCount || 0));
+                },
+                error: function () {
+                    oNotifModel.setProperty("/items", []);
+                }
+            });
+        },
+
+        /**
+         * Connect Socket.IO for real-time notification updates.
+         */
+        _connectWebSocket: function () {
+            var that = this;
+            // Load Socket.IO client dynamically
+            var oScript = document.createElement("script");
+            oScript.src = "/socket.io/socket.io.js";
+            oScript.onload = function () {
+                try {
+                    var socket = window.io(window.location.origin, {
+                        path: "/socket.io",
+                        transports: ["websocket", "polling"]
+                    });
+
+                    socket.on("connect", function () {
+                        console.log("[WS] Connected to notification server");
+                    });
+
+                    socket.on("notificationUpdate", function (data) {
+                        var oNotifModel = that.getView().getModel("notification");
+                        oNotifModel.setProperty("/count", data.count || 0);
+                        oNotifModel.setProperty("/unreadCount", String(data.unreadCount || 0));
+                    });
+
+                    socket.on("disconnect", function () {
+                        console.log("[WS] Disconnected from notification server");
+                    });
+
+                    that._socket = socket;
+                } catch (e) {
+                    console.warn("[WS] Socket.IO connection failed, falling back to polling:", e.message);
+                    that._startPollingFallback();
+                }
+            };
+            oScript.onerror = function () {
+                console.warn("[WS] Socket.IO client not available, falling back to polling.");
+                that._startPollingFallback();
+            };
+            document.head.appendChild(oScript);
+        },
+
+        /**
+         * Fallback: poll /api/notifications/count every 60s if WebSocket fails.
+         */
+        _startPollingFallback: function () {
+            var that = this;
+            if (this._notifPollingInterval) return;
+            this._notifPollingInterval = setInterval(function () {
+                that._loadNotificationCount();
+            }, 60000);
+        },
+
+        /**
+         * ShellBar notification bell pressed → open Notification Popover.
+         */
+        onNotificationsPress: function (oEvent) {
+            var oButton = oEvent.getParameter("button") || oEvent.getSource();
+            var oView = this.getView();
+            var that = this;
+
+            // Load full notification items
+            this._loadNotifications();
+
+            if (!this._pNotificationPopover) {
+                this._pNotificationPopover = Fragment.load({
+                    id: oView.getId(),
+                    name: "znxr09.portal.view.NotificationPopover",
+                    controller: this
+                }).then(function (oPopover) {
+                    oView.addDependent(oPopover);
+                    return oPopover;
+                });
+            }
+            this._pNotificationPopover.then(function (oPopover) {
+                oPopover.openBy(oButton);
+            });
+        },
+
+        /**
+         * Click on a notification item → mark as read + navigate.
+         */
+        onNotificationItemPress: function (oEvent) {
+            var oItem = oEvent.getSource();
+            var oCtx = oItem.getBindingContext("notification");
+            if (!oCtx) return;
+
+            var oData = oCtx.getObject();
+            var sPernr = this.getView().getModel("user").getProperty("/userId");
+
+            // Mark as read
+            if (!oData.isRead) {
+                jQuery.ajax({
+                    url: "/api/notifications/read",
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        pernr: sPernr,
+                        notifType: oData.type,
+                        requestId: oData.id
+                    }),
+                    success: function () {
+                        this._loadNotifications();
+                    }.bind(this)
+                });
+            }
+
+            // Navigate to the target app
+            if (oData.navigateTo === "timesheet") {
+                // Close popover
+                if (this.byId("notificationPopover")) {
+                    this.byId("notificationPopover").close();
+                }
+                this.onNavToTimesheet();
+            }
+        },
+
+        /**
+         * Dismiss (close button) on a notification item → mark as read.
+         */
+        onNotificationDismiss: function (oEvent) {
+            var oItem = oEvent.getSource();
+            var oCtx = oItem.getBindingContext("notification");
+            if (!oCtx) return;
+
+            var oData = oCtx.getObject();
+            var sPernr = this.getView().getModel("user").getProperty("/userId");
+
+            jQuery.ajax({
+                url: "/api/notifications/read",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    pernr: sPernr,
+                    notifType: oData.type,
+                    requestId: oData.id
+                }),
+                success: function () {
+                    this._loadNotifications();
+                }.bind(this)
+            });
+        },
+
+        /**
+         * Mark all notifications as read.
+         */
+        onMarkAllRead: function () {
+            jQuery.ajax({
+                url: "/api/notifications/read-all",
+                method: "POST",
+                contentType: "application/json",
+                success: function () {
+                    this._loadNotifications();
+                }.bind(this)
+            });
         }
     });
 });

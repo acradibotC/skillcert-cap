@@ -80,3 +80,12 @@ service WorktimeUploadService @(path: '/api/v4') {
         months  : String;
     }
 }
+
+// ============================================================
+// Notification Service — Read/Unread State (Local SQLite DB)
+// ============================================================
+using { znxr09.db as db } from '../db/schema';
+
+service NotificationService @(path: '/api/v5') {
+    entity NotificationRead as projection on db.NotificationRead;
+}

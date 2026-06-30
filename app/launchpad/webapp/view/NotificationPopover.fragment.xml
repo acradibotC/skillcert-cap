@@ -1,0 +1,61 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:notif="sap.m">
+
+    <ResponsivePopover
+        id="notificationPopover"
+        placement="Bottom"
+        contentWidth="420px"
+        contentHeight="480px"
+        class="sapUiPopupWithPadding">
+
+        <customHeader>
+            <Bar>
+                <contentLeft>
+                    <Title text="{i18n>notifTitle}" />
+                </contentLeft>
+                <contentRight>
+                    <Link
+                        id="btnMarkAllRead"
+                        text="{i18n>notifMarkAllRead}"
+                        press=".onMarkAllRead"
+                        visible="{= ${notification>/unreadCount} > 0 }" />
+                </contentRight>
+            </Bar>
+        </customHeader>
+
+        <content>
+            <IllustratedMessage 
+                visible="{= ${notification>/count} === 0 }"
+                illustrationType="sapIllus-NoNotifications" 
+                title="{i18n>notifNoData}" 
+                description="{i18n>notifCheckBack}">
+            </IllustratedMessage>
+
+            <List
+                id="notificationList"
+                items="{notification>/items}"
+                showNoData="false"
+                visible="{= ${notification>/count} > 0 }"
+                growing="true"
+                growingThreshold="20">
+                <items>
+                    <NotificationListItem
+                        title="{notification>title}"
+                        description="{notification>description}"
+                        datetime="{notification>datetimeText}"
+                        priority="{notification>priority}"
+                        unread="{= !${notification>isRead} }"
+                        showCloseButton="true"
+                        close=".onNotificationDismiss"
+                        press=".onNotificationItemPress"
+                        authorPicture="{notification>icon}"
+                        highlight="{= ${notification>isRead} ? 'None' : 'Information' }" />
+                </items>
+            </List>
+        </content>
+
+    </ResponsivePopover>
+
+</core:FragmentDefinition>
