@@ -69,7 +69,9 @@ sap.ui.define([
 
             this.getOwnerComponent().pUserLoaded.then(function (bAuthorized) {
                 if (!bAuthorized) {
-                    this._setLoadError("profileErrorUnauthorized");
+                    var sLoadState = this.getOwnerComponent().getModel("user").getProperty("/loadState");
+                    this._setLoadError(sLoadState === "error" ?
+                        "profileErrorServiceUnavailable" : "profileErrorUnauthorized");
                     return;
                 }
                 this.refresh();

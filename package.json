@@ -2,7 +2,8 @@
   "name": "skillcert-cap",
   "version": "1.0.0",
   "scripts": {
-    "start": "cds run",
+    "start": "node scripts/ensure-sqlite-schema.js && cds run",
+    "db:init": "node scripts/ensure-sqlite-schema.js",
     "watch": "cds watch",
     "test": "node --test test/profile"
   },

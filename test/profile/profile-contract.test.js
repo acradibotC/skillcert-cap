@@ -38,6 +38,9 @@ test('ProfileService metadata matches the UI contract', async () => {
     ]) {
         assert.match(uiContract, new RegExp(`/${entitySet}`));
     }
+
+    const employeeController = fs.readFileSync('app/profile/webapp/controller/MyProfile.controller.js', 'utf8');
+    assert.match(employeeController, /sLoadState === "error"[\s\S]*profileErrorServiceUnavailable/);
 });
 
 test('existing skill approval actions remain explicitly unbound', async () => {
