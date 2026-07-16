@@ -188,3 +188,43 @@
     font-weight: 600;
     color: var(--sapTextColor, #333);
 }
+
+/* MyProfile approval workflow */
+.profileHeroStatus .sapMObjStatusText,
+.profileHeroStatus .sapMObjStatusIcon {
+    color: #fff !important;
+}
+
+.profileWorkflowSummary {
+    gap: 0.5rem;
+}
+
+.profileCoreTabs {
+    background: var(--sapGroup_ContentBackground, #fff);
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.profileCoreTabs .sapMITBContent {
+    padding: 1rem;
+}
+
+@media (max-width: 600px) {
+    .profileHeroContainer {
+        padding: 1.5rem 1rem;
+        border-radius: 0.75rem;
+    }
+
+    .profileHeroContainer .profileAvatar {
+        margin-right: 1rem !important;
+    }
+
+    .profileHeroTitle {
+        font-size: 1.4rem !important;
+    }
+
+    .profileCoreTabs .sapMITBContent {
+        padding: 0.5rem;
+    }
+}

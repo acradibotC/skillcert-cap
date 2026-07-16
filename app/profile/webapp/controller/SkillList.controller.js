@@ -18,8 +18,7 @@ sap.ui.define([
                 approvedCount: 0,
                 rejectedCount: 0,
                 teamCertCount: 0,
-                selectedTab: "myProfile",
-                profileBusy: true
+                selectedTab: "myProfile"
             });
             this.getView().setModel(oViewModel, "view");
             // Attach click events to Dashboard cards using Event Delegates
@@ -40,7 +39,10 @@ sap.ui.define([
             attachCardEvent("cardRejected", "03");
 
             // Wait for user loaded to initialize filters before fetching OData
-            this.getOwnerComponent().pUserLoaded.then(function() {
+            this.getOwnerComponent().pUserLoaded.then(function(bAuthorized) {
+                if (!bAuthorized) {
+                    return;
+                }
                 var oSkillsTable = this.byId("mySkillsTable");
                 var oCertsTable = this.byId("myCertsTable");
                 if (oSkillsTable) {
@@ -54,7 +56,6 @@ sap.ui.define([
                     if (oBinding && oBinding.isSuspended && oBinding.isSuspended()) { oBinding.resume(); }
                 }
                 this._updateMyCounts();
-                this.getView().getModel("view").setProperty("/profileBusy", false);
             }.bind(this));
         },
 
@@ -533,7 +534,21 @@ sap.ui.define([
 
             var oItem = oEvent.getParameter("item");
             var sKey = oItem.getKey();
+
+            if (sKey === "profileApprovals" &&
+                    !this.getOwnerComponent().getModel("user").getProperty("/isHrAdmin")) {
+                this.getView().getModel("view").setProperty("/selectedTab", "myProfile");
+                return;
+            }
+
             this.getView().getModel("view").setProperty("/selectedTab", sKey);
+
+            if (sKey === "profileApprovals") {
+                var oInboxView = this.byId("profileApprovalInboxView");
+                if (oInboxView && oInboxView.getController && oInboxView.getController().activate) {
+                    oInboxView.getController().activate();
+                }
+            }
             
             var oTable;
             if (sKey === "mySkills") {
@@ -656,7 +671,8 @@ sap.ui.define([
                 onClose: function (sAction) {
                     if (sAction === MessageBox.Action.YES) {
                         sap.ui.core.BusyIndicator.show(0);
-                        var oAction = oContext.getModel().bindContext("com.sap.gateway.srvd.zui_nxr_skillreq_o4.v0001.approveRequest(...)", oContext);
+                        var oAction = oContext.getModel().bindContext("/approveRequest(...)");
+                        oAction.setParameter("RequestId", oContext.getProperty("RequestId"));
                         
                         oAction.execute().then(function() {
                             sap.ui.core.BusyIndicator.hide();
@@ -703,7 +719,8 @@ sap.ui.define([
                         }
                         
                         sap.ui.core.BusyIndicator.show(0);
-                        var oAction = oContext.getModel().bindContext("com.sap.gateway.srvd.zui_nxr_skillreq_o4.v0001.rejectRequest(...)", oContext);
+                        var oAction = oContext.getModel().bindContext("/rejectRequest(...)");
+                        oAction.setParameter("RequestId", oContext.getProperty("RequestId"));
                         oAction.setParameter("RejectionReason", sReason.trim());
                         
                         oAction.execute().then(function() {

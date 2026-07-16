@@ -37,6 +37,13 @@
           "localUri": "localService/mainService/metadata.xml",
           "odataVersion": "4.0"
         }
+      },
+      "profileService": {
+        "uri": "/api/profile/v1/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
       }
     }
   },
@@ -61,9 +68,10 @@
     "dependencies": {
       "minUI5Version": "1.108.33",
       "libs": {
-        "sap.m": {},
-        "sap.ui.core": {},
-        "sap.f": {},
+          "sap.m": {},
+          "sap.ui.core": {},
+          "sap.ui.layout": {},
+          "sap.f": {},
         "sap.uxap": {},
         "sap.tnt": {}
       }
@@ -95,6 +103,18 @@
           "operationMode": "Server",
           "autoExpandSelect": true,
           "earlyRequests": true
+        }
+      },
+      "profileService": {
+        "dataSource": "profileService",
+        "preload": false,
+        "settings": {
+          "synchronizationMode": "None",
+          "operationMode": "Server",
+          "autoExpandSelect": true,
+          "earlyRequests": false,
+          "groupId": "$auto",
+          "updateGroupId": "$direct"
         }
       },
       "@i18n": {

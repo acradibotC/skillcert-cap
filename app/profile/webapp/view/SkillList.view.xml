@@ -13,7 +13,7 @@
         <!-- Dynamic Page Header -->
         <tnt:header>
             <tnt:ToolHeader>
-                <Button icon="sap-icon://menu2" type="Transparent" press="onSideNavButtonPress" tooltip="Toggle Menu" />
+                <Button icon="sap-icon://menu2" type="Transparent" press="onSideNavButtonPress" tooltip="{i18n>tooltipToggleMenu}" />
                 <ToolbarSpacer />
                 <HBox alignItems="Center" class="sapUiSmallMarginEnd">
                     <core:Icon src="sap-icon://person-placeholder" class="sapUiSmallMarginEnd" color="#fff"/>
@@ -31,6 +31,7 @@
                     <tnt:NavigationListItem text="{i18n>tabMyCerts}" icon="sap-icon://badge" key="myCerts" />
                     <tnt:NavigationListItem text="{i18n>tabDashboard}" icon="sap-icon://bar-chart" key="dashboard" visible="{user>/isManager}" />
                     <tnt:NavigationListItem text="{i18n>tabTeamMgmt}" icon="sap-icon://group" key="team" visible="{user>/isManager}" />
+                    <tnt:NavigationListItem text="{i18n>tabProfileApprovals}" icon="sap-icon://approvals" key="profileApprovals" visible="{user>/isHrAdmin}" />
                 </tnt:NavigationList>
             </tnt:SideNavigation>
         </tnt:sideContent>
@@ -76,99 +77,14 @@
                     </VBox>
                 </HBox>
 
-                    <!-- Section 0: My Profile (Redesigned) -->
-                    <VBox visible="{= ${view>/selectedTab} === 'myProfile' }" busy="{view>/profileBusy}" busyIndicatorDelay="0" class="sapUiResponsiveMargin">
-                        
-                        <!-- HERO SECTION -->
-                        <VBox class="profileHeroContainer">
-                            <HBox alignItems="Center">
-                                <f:Avatar initials="{user>/initials}" displaySize="XL" class="profileAvatar sapUiLargeMarginEnd"/>
-                                <VBox>
-                                    <Title text="{user>/name}" level="H1" class="profileHeroTitle"/>
-                                    <HBox class="sapUiSmallMarginTop" wrap="Wrap">
-                                        <HBox alignItems="Center" class="sapUiMediumMarginEnd sapUiTinyMarginBottom">
-                                            <core:Icon src="sap-icon://employee" color="#fff" class="sapUiTinyMarginEnd"/>
-                                            <Text text="{user>/position}" class="profileHeroSubText"/>
-                                        </HBox>
-                                        <HBox alignItems="Center" class="sapUiTinyMarginBottom">
-                                            <core:Icon src="sap-icon://building" color="#fff" class="sapUiTinyMarginEnd"/>
-                                            <Text text="{user>/department}" class="profileHeroSubText"/>
-                                        </HBox>
-                                    </HBox>
-                                </VBox>
-                            </HBox>
-                        </VBox>
+                    <!-- Section 0: My Profile -->
+                    <VBox visible="{= ${view>/selectedTab} === 'myProfile' }" class="sapUiResponsiveMargin">
+                        <mvc:XMLView id="myProfileView" viewName="znxr09.znxr09f300.view.MyProfile"/>
+                    </VBox>
 
-                        <!-- STATS CARDS REMOVED FROM PROFILE -->
-
-                        <!-- DETAILS GRID -->
-                        <HBox wrap="Wrap" class="sapUiLargeMarginTop" justifyContent="SpaceBetween">
-                            
-                            <!-- Person Card -->
-                            <VBox class="profileDetailCard">
-                                <HBox alignItems="Center" class="sapUiMediumMarginBottom">
-                                    <core:Icon src="sap-icon://person-placeholder" size="1.5rem" class="sapUiSmallMarginEnd detailCardIcon"/>
-                                    <Title text="{i18n>cardPerson}" level="H4"/>
-                                </HBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelFullName}"/>
-                                    <Text text="{user>/name}" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelUserId}"/>
-                                    <Text text="{user>/userId}" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelFunctionPosition}"/>
-                                    <Text text="{user>/position}" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelDepartment}"/>
-                                    <Text text="{user>/department}" class="detailValueBold"/>
-                                </VBox>
-                            </VBox>
-
-                            <!-- Communication Card -->
-                            <VBox class="profileDetailCard">
-                                <HBox alignItems="Center" class="sapUiMediumMarginBottom">
-                                    <core:Icon src="sap-icon://email" size="1.5rem" class="sapUiSmallMarginEnd detailCardIcon"/>
-                                    <Title text="{i18n>cardCommunication}" level="H4"/>
-                                </HBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelEmail}"/>
-                                    <Text text="{user>/email}" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelTelephone}"/>
-                                    <Text text="{user>/phone}" class="detailValueBold"/>
-                                </VBox>
-                            </VBox>
-
-                            <!-- Defaults Card -->
-                            <VBox class="profileDetailCard">
-                                <HBox alignItems="Center" class="sapUiMediumMarginBottom">
-                                    <core:Icon src="sap-icon://settings" size="1.5rem" class="sapUiSmallMarginEnd detailCardIcon"/>
-                                    <Title text="{i18n>cardDefaults}" level="H4"/>
-                                </HBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelLogonLanguage}"/>
-                                    <Text text="EN" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelDecimalFormat}"/>
-                                    <Text text="1.234.567,89" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelDateFormat}"/>
-                                    <Text text="DD.MM.YYYY" class="detailValueBold"/>
-                                </VBox>
-                                <VBox class="detailRow">
-                                    <Label text="{i18n>labelTimeFormat}"/>
-                                    <Text text="{i18n>valTimeFormat24}" class="detailValueBold"/>
-                                </VBox>
-                            </VBox>
-
-                        </HBox>
+                    <!-- Section 5: HR Profile Approval Inbox -->
+                    <VBox visible="{= ${view>/selectedTab} === 'profileApprovals' &amp;&amp; ${user>/isHrAdmin} }" class="sapUiResponsiveMargin">
+                        <mvc:XMLView id="profileApprovalInboxView" viewName="znxr09.znxr09f300.view.ProfileApprovalInbox"/>
                     </VBox>
 
                     <!-- Section 1: My Skills -->
