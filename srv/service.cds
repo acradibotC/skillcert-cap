@@ -1,5 +1,6 @@
 using { ZUI_NXR_SKILLREQ_O4 as external } from './external/ZUI_NXR_SKILLREQ_O4';
 using { ZUI_NXR_WORKSCHEDULE_O4 as cal_external } from './external/ZUI_NXR_WORKSCHEDULE_O4';
+using { znxr09.db as profile_db } from '../db/profile';
 
 service SkillService @(path: '/api/v1') {
     entity Request as projection on external.Request;
@@ -92,4 +93,161 @@ using { znxr09.db as db } from '../db/schema';
 
 service NotificationService @(path: '/api/v5') {
     entity NotificationRead as projection on db.NotificationRead;
+}
+
+// ============================================================
+// MyProfile — local workflow contract and fail-closed SAP adapter
+// ============================================================
+service ProfileService @(path: '/api/profile/v1') {
+    @readonly @cds.persistence.skip
+    entity MyProfile {
+        key Pernr              : String(8);
+        EmployeeName           : String(120);
+        PositionName           : String(120);
+        OrgUnitName            : String(120);
+        IdNumber               : String(20);
+        Telephone              : String(30);
+        PermanentAddress       : String(60);
+        WorkEmail              : String(241);
+        CurrentAddress         : String(60);
+        TaxCode                : String(10);
+        PayMethod              : String(1);
+        PayMethodText          : String(60);
+        BankCountry            : String(3);
+        BankKey                : String(15);
+        BankAccount            : String(18);
+        BankName               : String(60);
+        JoinDate               : Date;
+        ContractType           : String(60);
+        DependentsSummary      : String(255);
+        ProfileVersion         : String(64);
+        IsSimulation           : Boolean;
+    }
+
+    @readonly entity MyProfileRequests as projection on profile_db.ProfileChangeRequests {
+        key ID,
+        requestNo as RequestNo,
+        employeePernr as Pernr,
+        employeeName as EmployeeName,
+        status as Status,
+        version as Version,
+        revisionNo as RevisionNo,
+        employeeRemark as Remark,
+        hrComment as HrComment,
+        applyState as ApplyState,
+        isSimulation as IsSimulation,
+        createdAt as SubmittedAt,
+        modifiedAt as ModifiedAt
+    };
+
+    @readonly entity MyProfileRequestItems as projection on profile_db.ProfileChangeItems {
+        key ID,
+        request.ID as RequestId,
+        request.employeePernr as Pernr,
+        sequence as Sequence,
+        revisionNo as RevisionNo,
+        fieldName as FieldCode,
+        oldValue as OldValue,
+        newValue as NewValue,
+        isCurrent as IsCurrent
+    };
+
+    @readonly entity ProfileApprovalRequests as projection on profile_db.ProfileChangeRequests {
+        key ID,
+        requestNo as RequestNo,
+        employeePernr as Pernr,
+        employeeName as EmployeeName,
+        status as Status,
+        version as Version,
+        revisionNo as RevisionNo,
+        employeeRemark as Remark,
+        hrComment as HrComment,
+        applyState as ApplyState,
+        isSimulation as IsSimulation,
+        createdAt as SubmittedAt,
+        modifiedAt as ModifiedAt
+    };
+
+    @readonly entity ProfileApprovalRequestItems as projection on profile_db.ProfileChangeItems {
+        key ID,
+        request.ID as RequestId,
+        sequence as Sequence,
+        revisionNo as RevisionNo,
+        fieldName as FieldCode,
+        fieldGroup as FieldGroup,
+        oldValue as OldValue,
+        newValue as NewValue,
+        isSensitive as IsSensitive,
+        mappingStatus as MappingStatus,
+        isCurrent as IsCurrent
+    };
+
+    @readonly entity ProfileRequestEvents as projection on profile_db.ProfileRequestEvents {
+        key ID,
+        request.ID as RequestId,
+        revisionNo as RevisionNo,
+        eventType as EventType,
+        fromStatus as FromStatus,
+        toStatus as ToStatus,
+        actorRole as ActorRole,
+        comment as Comment,
+        occurredAt as CreatedAt
+    };
+
+    @readonly @cds.persistence.skip
+    entity MyProfileFields {
+        key FieldCode          : String(30);
+        Value                  : String(500);
+        DisplayValue           : String(500);
+        FieldGroup             : String(30);
+        MaxLength              : Integer;
+        Editable               : Boolean;
+        Mandatory              : Boolean;
+        Sensitive              : Boolean;
+        Locked                 : Boolean;
+        LockRequestId          : UUID;
+        LockStatus             : String(2);
+        MappingStatus         : String(20);
+    }
+
+    @readonly @cds.persistence.skip
+    entity ProfilePaymentMethods {
+        key Code               : String(1);
+        Text                   : String(60);
+        Category               : String(30);
+        IsBankTransfer         : Boolean;
+    }
+
+    @readonly @cds.persistence.skip
+    entity ProfileBanks {
+        key BankCountry        : String(3);
+        key BankKey            : String(15);
+        BankName               : String(60);
+        IsSimulation           : Boolean;
+    }
+
+    type ProfileChangeInput {
+        FieldCode              : String(30);
+        NewValue               : String(500);
+    }
+
+    action submitProfileChange(
+        IdempotencyKey         : String(64),
+        ProfileVersion         : String(64),
+        Remark                 : String(500),
+        Changes                : array of ProfileChangeInput
+    ) returns MyProfileRequests;
+
+    action resubmitProfileChange(
+        RequestId              : UUID,
+        ExpectedVersion        : Integer,
+        IdempotencyKey         : String(64),
+        ProfileVersion         : String(64),
+        Remark                 : String(500),
+        Changes                : array of ProfileChangeInput
+    ) returns MyProfileRequests;
+
+    action requestProfileChanges(RequestId: UUID, ExpectedVersion: Integer, HrComment: String(500)) returns ProfileApprovalRequests;
+    action rejectProfileChange(RequestId: UUID, ExpectedVersion: Integer, HrComment: String(500)) returns ProfileApprovalRequests;
+    action approveProfileChange(RequestId: UUID, ExpectedVersion: Integer, HrComment: String(500)) returns ProfileApprovalRequests;
 }

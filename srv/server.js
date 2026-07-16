@@ -4,6 +4,8 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { Server: SocketIOServer } = require('socket.io');
+const crypto = require('crypto');
+const https = require('https');
 require('dotenv').config();
 
 // Global Socket.IO instance — set after CDS server starts listening
@@ -11,8 +13,52 @@ let io = null;
 // Cache for last-known notification counts per user for change detection
 const notifCountCache = new Map();
 
-// Disable TLS validation for S40 self-signed certs
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+const isProduction = process.env.NODE_ENV === 'production';
+const allowInsecureSapTls = !isProduction && process.env.ALLOW_INSECURE_SAP_TLS === 'true';
+const sapHttpsAgent = new https.Agent({ rejectUnauthorized: !allowInsecureSapTls });
+const configuredSessionSecret = process.env.SESSION_SECRET;
+
+if (isProduction && !configuredSessionSecret) {
+    throw new Error('SESSION_SECRET must be configured in production.');
+}
+
+const sessionMiddleware = session({
+    secret: configuredSessionSecret || crypto.randomBytes(48).toString('hex'),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProduction,
+        maxAge: 8 * 60 * 60 * 1000
+    }
+});
+
+function getSapCredentials() {
+    const username = process.env.UI5_USERNAME;
+    const password = process.env.UI5_PASSWORD;
+    if (!username || !password) {
+        const error = new Error('SAP technical credentials are not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+    return { username, password };
+}
+
+function isProfileHrAdmin(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    return String(process.env.PROFILE_HR_EMAILS || '')
+        .split(',')
+        .map(value => value.trim().toLowerCase())
+        .filter(Boolean)
+        .includes(normalized);
+}
+
+function sessionUserMatches(req) {
+    const sessionUserId = String(req.session?.userInfo?.userId || '').trim();
+    const passportUserId = String(req.user?.id || '').trim();
+    return Boolean(sessionUserId && passportUserId && sessionUserId === passportUserId);
+}
 
 // Module-scope references for notification functions — assigned inside cds.on('bootstrap')
 let getNotificationItems, mergeReadState, _broadcastCountUpdate, _broadcastToAllUsers;
@@ -20,18 +66,24 @@ let getNotificationItems, mergeReadState, _broadcastCountUpdate, _broadcastToAll
 cds.on('bootstrap', app => {
     // Dynamically inject credentials for OData external service
     if (cds.env.requires && cds.env.requires.ZUI_NXR_SKILLREQ_O4 && cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials) {
-        cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.username = process.env.UI5_USERNAME || 'DEV-271';
-        cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.password = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        if (process.env.UI5_USERNAME && process.env.UI5_PASSWORD) {
+            cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.username = process.env.UI5_USERNAME;
+            cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.password = process.env.UI5_PASSWORD;
+        }
     }
 
     if (cds.env.requires && cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4 && cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials) {
-        cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials.username = process.env.UI5_USERNAME || 'DEV-271';
-        cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials.password = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        if (process.env.UI5_USERNAME && process.env.UI5_PASSWORD) {
+            cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials.username = process.env.UI5_USERNAME;
+            cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials.password = process.env.UI5_PASSWORD;
+        }
     }
 
     if (cds.env.requires && cds.env.requires.ZUI_NXR_ATTREQ_O4 && cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials) {
-        cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.username = process.env.UI5_USERNAME || 'DEV-271';
-        cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.password = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        if (process.env.UI5_USERNAME && process.env.UI5_PASSWORD) {
+            cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.username = process.env.UI5_USERNAME;
+            cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.password = process.env.UI5_PASSWORD;
+        }
     }
 
     // Trust proxy to ensure secure secure cookies and proper HTTPS redirect URIs via Localtunnel
@@ -41,11 +93,7 @@ cds.on('bootstrap', app => {
     app.use(express.json());
 
     // Session setup
-    app.use(session({
-        secret: 'skillcert-secret-key',
-        resave: false,
-        saveUninitialized: false
-    }));
+    app.use(sessionMiddleware);
 
     // Passport setup
     app.use(passport.initialize());
@@ -89,91 +137,204 @@ cds.on('bootstrap', app => {
         });
 
     app.get('/auth/logout', (req, res, next) => {
+        if (req.session) delete req.session.userInfo;
         req.logout(function (err) {
             if (err) { return next(err); }
             res.redirect('/logout');
         });
     });
 
-    // Custom endpoint to get current user info for UI5
-    // Validates email → Pernr mapping against SAP UserProfile
+    // Custom endpoint to get current user info for UI5.
+    // The immutable OAuth subject -> Pernr link is validated against SAP.
+    // Email is only used to bootstrap the link because work email is editable.
     app.get('/api/currentUser', async (req, res) => {
         if (!req.isAuthenticated()) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
-        const email = req.user.emails && req.user.emails[0].value ? req.user.emails[0].value : 'unknown@domain.com';
+        const provider = 'google';
+        const subject = String(req.user.id || '').trim();
+        const email = req.user.emails && req.user.emails[0].value
+            ? String(req.user.emails[0].value).trim()
+            : '';
         const name = req.user.displayName || 'User';
 
-        if (req.session && req.session.userInfo) {
-            return res.json(req.session.userInfo);
+        if (!subject || !email) {
+            return res.status(403).json({
+                authorized: false,
+                code: 'LOGIN_IDENTITY_INCOMPLETE',
+                userId: subject || null,
+                email: email || null,
+                name,
+                pernr: null,
+                errorMessage: 'The login identity does not contain the required subject and email claims.'
+            });
+        }
+
+        if (req.session?.userInfo) {
+            if (!sessionUserMatches(req)) {
+                delete req.session.userInfo;
+            } else {
+                try {
+                    const { ProfileIdentityLinks } = cds.entities('znxr09.db');
+                    const cachedLink = ProfileIdentityLinks
+                        ? await SELECT.one.from(ProfileIdentityLinks).where({ provider, subject })
+                        : null;
+                    if (cachedLink && cachedLink.active === false) {
+                        delete req.session.userInfo;
+                        return res.status(403).json({
+                            authorized: false,
+                            code: 'IDENTITY_LINK_REVOKED',
+                            userId: subject,
+                            email,
+                            name,
+                            pernr: null,
+                            errorMessage: 'The login identity link has been revoked. Please contact your administrator.'
+                        });
+                    }
+                } catch (error) {
+                    console.error('[Auth] Cached identity-link validation failed:', error.message);
+                    return res.status(503).json({
+                        authorized: false,
+                        code: 'IDENTITY_VALIDATION_UNAVAILABLE',
+                        userId: subject,
+                        email,
+                        name,
+                        pernr: null,
+                        errorMessage: 'Unable to validate the login identity.'
+                    });
+                }
+                req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email);
+                return res.json(req.session.userInfo);
+            }
         }
 
         try {
-            // Call SAP UserProfile to validate email → Pernr mapping
             const axios = require('axios');
             const sapUrl = cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url;
-            const sapUser = process.env.UI5_USERNAME || 'DEV-271';
-            const sapPass = process.env.UI5_PASSWORD || 'Hanoi@12345';
+            const { ProfileIdentityLinks } = cds.entities('znxr09.db');
+            const identityLink = ProfileIdentityLinks
+                ? await SELECT.one.from(ProfileIdentityLinks).where({ provider, subject })
+                : null;
+            if (identityLink && identityLink.active === false) {
+                return res.status(403).json({
+                    authorized: false,
+                    code: 'IDENTITY_LINK_REVOKED',
+                    userId: subject,
+                    email,
+                    name,
+                    pernr: null,
+                    errorMessage: 'The login identity link has been revoked. Please contact your administrator.'
+                });
+            }
+            const { username: sapUser, password: sapPass } = getSapCredentials();
 
             const axiosConfig = {
                 headers: {
                     'Authorization': 'Basic ' + Buffer.from(sapUser + ':' + sapPass).toString('base64'),
                     'Accept': 'application/json'
                 },
-                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
-                validateStatus: (s) => s < 500 // Don't throw on 404
+                httpsAgent: sapHttpsAgent,
+                validateStatus: (s) => s < 500
             };
 
-            let profileResp = await axios.get(
-                sapUrl + "/UserProfile('" + encodeURIComponent(email) + "')",
-                axiosConfig
-            );
-
-            let sapEmail = email;
-
-            // Fallback: If not found, try UPPERCASE email because SAP PA0105 might store it as uppercase
-            if (profileResp.status === 404 || (profileResp.status === 200 && (!profileResp.data || !profileResp.data.Pernr))) {
-                sapEmail = email.toUpperCase();
-                profileResp = await axios.get(
-                    sapUrl + "/UserProfile('" + encodeURIComponent(sapEmail) + "')",
+            const extractProfile = (response) => {
+                if (response.status === 200 && response.data && response.data.Pernr) {
+                    return response.data;
+                }
+                const rows = normalizeODataRows(response.data);
+                return response.status === 200 && rows.length > 0 && rows[0].Pernr ? rows[0] : null;
+            };
+            const ensureSapQuerySucceeded = (response) => {
+                if (![200, 404].includes(response.status)) {
+                    const error = new Error('SAP UserProfile validation is unavailable.');
+                    error.statusCode = 503;
+                    throw error;
+                }
+            };
+            const readByEmail = async (candidateEmail) => {
+                const escaped = escapeODataString(candidateEmail);
+                const response = await axios.get(
+                    trimTrailingSlash(sapUrl) + "/UserProfile('" + encodeURIComponent(escaped) + "')",
                     axiosConfig
                 );
+                ensureSapQuerySucceeded(response);
+                return extractProfile(response);
+            };
+            const readByPernr = async (pernr) => {
+                const filter = "Pernr eq '" + escapeODataString(pernr) + "'";
+                const response = await axios.get(
+                    trimTrailingSlash(sapUrl) + '/UserProfile?$filter=' + encodeURIComponent(filter) + '&$top=1',
+                    axiosConfig
+                );
+                ensureSapQuerySucceeded(response);
+                return extractProfile(response);
+            };
+
+            let profile = await readByEmail(email);
+            if (!profile && email.toUpperCase() !== email) {
+                profile = await readByEmail(email.toUpperCase());
+            }
+            if (!profile && identityLink) {
+                profile = await readByPernr(identityLink.employeePernr);
             }
 
-            if (profileResp.status === 200 && profileResp.data && profileResp.data.Pernr) {
-                const profile = profileResp.data;
+            if (profile && identityLink && String(profile.Pernr) !== String(identityLink.employeePernr)) {
+                console.warn(`[Auth] OAuth subject "${subject}" resolved to a different Pernr than its stored identity link.`);
+                return res.status(403).json({
+                    authorized: false,
+                    code: 'IDENTITY_LINK_CONFLICT',
+                    userId: subject,
+                    email,
+                    sapUserId: profile.UserId || email,
+                    name,
+                    pernr: null,
+                    errorMessage: 'The login identity conflicts with the registered employee record. Please contact your administrator.'
+                });
+            }
+
+            if (profile && profile.Pernr) {
+                if (ProfileIdentityLinks) {
+                    await UPSERT.into(ProfileIdentityLinks).entries({
+                        provider,
+                        subject,
+                        employeePernr: String(profile.Pernr),
+                        loginEmail: email,
+                        active: true
+                    });
+                }
                 const userInfo = {
                     authorized: true,
-                    userId: req.user.id,
-                    email: sapEmail, // Trả về đúng email đã match (có thể là IN HOA) để UI5 binding không bị lỗi
-                    name: name,
+                    userId: subject,
+                    email,
+                    name,
                     pernr: profile.Pernr,
                     employeeName: profile.EmployeeName || name,
-                    isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x'
+                    isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x',
+                    isHrAdmin: isProfileHrAdmin(email)
                 };
                 if (req.session) req.session.userInfo = userInfo;
                 res.json(userInfo);
             } else {
-                // Email not found in SAP → Access Denied
-                console.warn(`[Auth] Email "${email}" not mapped to any Pernr in SAP UserProfile.`);
-                res.json({
+                console.warn(`[Auth] Login identity "${subject}" is not mapped to any Pernr in SAP UserProfile.`);
+                res.status(403).json({
                     authorized: false,
-                    userId: req.user.id,
-                    email: email,
-                    name: name,
+                    code: 'EMPLOYEE_NOT_LINKED',
+                    userId: subject,
+                    email,
+                    name,
                     pernr: null,
                     errorMessage: 'Your email (' + email + ') is not linked to any employee record. Please contact your administrator at sso@nexora.com to register your account.'
                 });
             }
         } catch (error) {
             console.error('[Auth] Error checking UserProfile:', error.message);
-            // On SAP connection failure, deny access with helpful message
-            res.json({
+            res.status(error.statusCode || 503).json({
                 authorized: false,
-                userId: req.user.id,
-                email: email,
-                name: name,
+                code: 'SAP_PROFILE_UNAVAILABLE',
+                userId: subject,
+                email,
+                name,
                 pernr: null,
                 errorMessage: 'Unable to verify your account. The system is currently unavailable. Please try again later or contact sso@nexora.com.'
             });
@@ -189,8 +350,7 @@ cds.on('bootstrap', app => {
     const escapeODataString = (value) => String(value || '').replace(/'/g, "''");
 
     const getSapAuthHeader = () => {
-        const sapUser = process.env.UI5_USERNAME || 'DEV-271';
-        const sapPass = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        const { username: sapUser, password: sapPass } = getSapCredentials();
         return 'Basic ' + Buffer.from(sapUser + ':' + sapPass).toString('base64');
     };
 
@@ -239,7 +399,7 @@ cds.on('bootstrap', app => {
 
         try {
             const axios = require('axios');
-            const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
+            const httpsAgent = sapHttpsAgent;
             const authHeader = getSapAuthHeader();
             const skillUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url);
             const attUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.url);
@@ -341,7 +501,7 @@ cds.on('bootstrap', app => {
 
         try {
             const axios = require('axios');
-            const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
+            const httpsAgent = sapHttpsAgent;
             const authHeader = getSapAuthHeader();
             const skillUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url);
             const teamResp = await axios.get(
@@ -498,6 +658,38 @@ cds.on('bootstrap', app => {
         next();
     });
 
+    // MyProfile API requires both OAuth authentication and an employee mapping.
+    app.use('/api/profile/v1', async (req, res, next) => {
+        if (!req.isAuthenticated()) {
+            return res.status(401).json({ code: 'UNAUTHENTICATED', error: 'Unauthorized. Please log in.' });
+        }
+        if (!sessionUserMatches(req) || !req.session?.userInfo?.authorized || !req.session.userInfo.pernr) {
+            if (req.session) delete req.session.userInfo;
+            return res.status(403).json({
+                code: 'IDENTITY_CONTEXT_MISMATCH',
+                error: 'The authenticated identity must be mapped again.'
+            });
+        }
+        try {
+            const { ProfileIdentityLinks } = cds.entities('znxr09.db');
+            const identityLink = ProfileIdentityLinks
+                ? await SELECT.one.from(ProfileIdentityLinks).where({
+                    provider: 'google',
+                    subject: String(req.user.id)
+                })
+                : null;
+            if (identityLink && identityLink.active === false) {
+                delete req.session.userInfo;
+                return res.status(403).json({ code: 'IDENTITY_LINK_REVOKED', error: 'The login identity link has been revoked.' });
+            }
+        } catch (error) {
+            console.error('[Auth] Identity-link validation failed:', error.message);
+            return res.status(503).json({ code: 'IDENTITY_VALIDATION_UNAVAILABLE', error: 'Unable to validate the login identity.' });
+        }
+        req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email);
+        next();
+    });
+
     // ================================================================
     // NOTIFICATION SYSTEM — API + WebSocket
     // ================================================================
@@ -524,7 +716,7 @@ cds.on('bootstrap', app => {
      */
     getNotificationItems = async function(email, pernr, isManager) {
         const axios = require('axios');
-        const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
+        const httpsAgent = sapHttpsAgent;
         const authHeader = getSapAuthHeader();
         const attUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.url);
         const skillUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url);
@@ -774,7 +966,7 @@ cds.on('bootstrap', app => {
      */
     async function _resolveUserInfo(email) {
         const axios = require('axios');
-        const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
+        const httpsAgent = sapHttpsAgent;
         const authHeader = getSapAuthHeader();
         const skillUrl = trimTrailingSlash(cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url);
 
@@ -841,17 +1033,10 @@ cds.on('bootstrap', app => {
 // ================================================================
 cds.on('listening', ({ server }) => {
     io = new SocketIOServer(server, {
-        cors: { origin: '*' },
         path: '/socket.io'
     });
 
-    // Share express-session with Socket.IO for authentication
-    const sessionMiddleware = session({
-        secret: 'skillcert-secret-key',
-        resave: false,
-        saveUninitialized: false
-    });
-
+    // Share the same express-session middleware with Socket.IO.
     io.engine.use(sessionMiddleware);
     io.engine.use(passport.initialize());
     io.engine.use(passport.session());
@@ -869,35 +1054,29 @@ cds.on('listening', ({ server }) => {
         socket.join(room);
         console.log('[WS] User joined:', email);
 
-        // Resolve and cache user info on the socket
+        // Reuse only the identity context established by /api/currentUser.
+        // Never bootstrap a separate email -> Pernr mapping on the socket path.
         try {
-            if (req.session && req.session.userInfo) {
-                socket.userInfo = {
-                    pernr: req.session.userInfo.pernr,
-                    isManager: req.session.userInfo.isManager
-                };
-            } else {
-                const axios = require('axios');
-                const httpsAgent = new (require('https').Agent)({ rejectUnauthorized: false });
-                const authHeader = 'Basic ' + Buffer.from((process.env.UI5_USERNAME || 'DEV-271') + ':' + (process.env.UI5_PASSWORD || 'Hanoi@12345')).toString('base64');
-                const skillUrl = (cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url || '').replace(/\/+$/, '');
-
-                for (const userId of [email, email.toUpperCase()]) {
-                    const resp = await axios.get(
-                        skillUrl + "/UserProfile('" + encodeURIComponent(userId) + "')",
-                        { headers: { 'Authorization': authHeader, 'Accept': 'application/json' }, httpsAgent, validateStatus: s => s < 500 }
-                    ).catch(() => null);
-                    if (resp && resp.status === 200 && resp.data && resp.data.Pernr) {
-                        socket.userInfo = {
-                            pernr: resp.data.Pernr,
-                            isManager: resp.data.IsManager === true || resp.data.IsManager === 'X'
-                        };
-                        break;
-                    }
-                }
+            if (!sessionUserMatches(req) || !req.session.userInfo.authorized || !req.session.userInfo.pernr) {
+                socket.disconnect(true);
+                return;
             }
+            const { ProfileIdentityLinks } = cds.entities('znxr09.db');
+            const identityLink = ProfileIdentityLinks
+                ? await SELECT.one.from(ProfileIdentityLinks).where({ provider: 'google', subject: String(req.user.id) })
+                : null;
+            if (identityLink && identityLink.active === false) {
+                socket.disconnect(true);
+                return;
+            }
+            socket.userInfo = {
+                pernr: req.session.userInfo.pernr,
+                isManager: req.session.userInfo.isManager
+            };
         } catch (e) {
             console.error('[WS] Error resolving user info:', e.message);
+            socket.disconnect(true);
+            return;
         }
 
         // Send initial count immediately
