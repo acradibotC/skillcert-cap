@@ -1,19 +1,22 @@
 const cds = require('@sap/cds');
+const https = require('https');
+
+const allowInsecureSapTls = process.env.NODE_ENV !== 'production'
+    && process.env.ALLOW_INSECURE_SAP_TLS === 'true';
+const sapHttpsAgent = new https.Agent({ rejectUnauthorized: !allowInsecureSapTls });
+
+function requiredCredentials(username, password, serviceName) {
+    if (!username || !password) {
+        const error = new Error(`${serviceName} technical credentials are not configured.`);
+        error.statusCode = 503;
+        throw error;
+    }
+    return { username, password };
+}
 
 module.exports = {
     SkillService: async function() {
         const external = await cds.connect.to('ZUI_NXR_SKILLREQ_O4');
-
-        // Mock Z-table for email -> pernr mapping
-    const emailToPernr = {
-        'test@gmail.com': '00000271',
-        'anhnt3@fpt.com': '00000271'
-    };
-
-    const getPernr = (req) => {
-        const email = req.user && req.user.emails && req.user.emails[0].value ? req.user.emails[0].value : 'test@gmail.com';
-        return emailToPernr[email] || '00000271';
-    };
 
     // Forwarding logic to S/4HANA OData V4 service
     this.on('READ', ['Request', 'UserProfile', 'TeamMembers', 'QualificationCatalog'], async (req) => {
@@ -76,8 +79,11 @@ module.exports = {
 
         // SAP OData V4 base URL and credentials
         const SAP_BASE_URL = cds.env.requires.ZUI_NXR_ATTREQ_O4.credentials.url;
-        const SAP_USER = process.env.UI5_USERNAME || 'DEV-271';
-        const SAP_PASS = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        const { username: SAP_USER, password: SAP_PASS } = requiredCredentials(
+            process.env.UI5_USERNAME,
+            process.env.UI5_PASSWORD,
+            'AttendanceService'
+        );
         const SAP_AUTH = 'Basic ' + Buffer.from(SAP_USER + ':' + SAP_PASS).toString('base64');
         const approverFallbacksByEmployee = {
             '90000007': {
@@ -166,7 +172,7 @@ module.exports = {
                     'x-csrf-token': 'Fetch',
                     'Accept': 'application/json'
                 },
-                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+                httpsAgent: sapHttpsAgent
             });
             const token = resp.headers['x-csrf-token'];
             const cookies = resp.headers['set-cookie'];
@@ -184,7 +190,7 @@ module.exports = {
                     'Accept': 'application/json',
                     'Cookie': cookies ? cookies.join('; ') : ''
                 },
-                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+                httpsAgent: sapHttpsAgent
             });
             return resp.data;
         }
@@ -216,7 +222,7 @@ module.exports = {
                     'Accept': 'application/json',
                     'Cookie': cookies ? cookies.join('; ') : ''
                 },
-                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+                httpsAgent: sapHttpsAgent
             });
             return resp.data;
         }
@@ -425,16 +431,18 @@ module.exports = {
     // ================================================================
     WorktimeUploadService: async function() {
         const axios = require('axios');
-        const https = require('https');
         const { randomUUID } = require('crypto');
 
         const SAP_WORKTIME_URL = (process.env.SAP_WORKTIME_URL ||
             'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload/srvd/sap/zsd_nxr_worktime_upload/0001')
             .replace(/\/+$/, '');
-        const SAP_USER = process.env.SAP_WORKTIME_USERNAME || process.env.UI5_USERNAME || 'DEV-271';
-        const SAP_PASS = process.env.SAP_WORKTIME_PASSWORD || process.env.UI5_PASSWORD || 'Hanoi@12345';
+        const { username: SAP_USER, password: SAP_PASS } = requiredCredentials(
+            process.env.SAP_WORKTIME_USERNAME || process.env.UI5_USERNAME,
+            process.env.SAP_WORKTIME_PASSWORD || process.env.UI5_PASSWORD,
+            'WorktimeUploadService'
+        );
         const SAP_AUTH = 'Basic ' + Buffer.from(SAP_USER + ':' + SAP_PASS).toString('base64');
-        const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+        const httpsAgent = sapHttpsAgent;
         const readHeaders = { 'Authorization': SAP_AUTH, 'Accept': 'application/json' };
 
         const sapErrorMessage = (error) => {
@@ -689,5 +697,7 @@ module.exports = {
                 return req.reject(502, 'Upload to SAP staging failed: ' + message);
             }
         });
-    }
+    },
+
+    ProfileService: require('./profile-service')
 };
