@@ -135,7 +135,8 @@ sap.ui.define([
             var oBundle = this._getBundle();
 
             sap.ui.core.BusyIndicator.show(0);
-            var oAction = oContext.getModel().bindContext("com.sap.gateway.srvd.zui_nxr_skillreq_o4.v0001.approveRequest(...)", oContext);
+            var oAction = oContext.getModel().bindContext("/approveRequest(...)");
+            oAction.setParameter("RequestId", oContext.getProperty("RequestId"));
             
             oAction.execute().then(function() {
                 sap.ui.core.BusyIndicator.hide();
@@ -153,7 +154,8 @@ sap.ui.define([
             var oBundle = this._getBundle();
 
             sap.ui.core.BusyIndicator.show(0);
-            var oAction = oContext.getModel().bindContext("com.sap.gateway.srvd.zui_nxr_skillreq_o4.v0001.rejectRequest(...)", oContext);
+            var oAction = oContext.getModel().bindContext("/rejectRequest(...)");
+            oAction.setParameter("RequestId", oContext.getProperty("RequestId"));
             oAction.setParameter("RejectionReason", sReason);
             
             oAction.execute().then(function() {

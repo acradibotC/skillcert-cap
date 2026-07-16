@@ -1,0 +1,162 @@
+<mvc:View
+    controllerName="znxr09.znxr09f300.controller.MyProfile"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns:form="sap.ui.layout.form">
+
+    <VBox busy="{profileUi>/busy}" busyIndicatorDelay="0" width="100%">
+        <MessageStrip
+            visible="{= ${profileUi>/errorKey} ? true : false }"
+            text="{path:'profileUi>/errorKey', formatter:'.profileErrorText'}"
+            type="Error"
+            showIcon="true"
+            showCloseButton="false"
+            class="sapUiSmallMarginBottom"/>
+        <Button
+            visible="{= ${profileUi>/errorKey} ? true : false }"
+            text="{i18n>profileRetry}"
+            icon="sap-icon://refresh"
+            press="onRefreshProfile"
+            class="sapUiSmallMarginBottom"/>
+
+        <VBox visible="{profileUi>/hasData}" width="100%">
+            <VBox class="profileHeroContainer">
+                <HBox alignItems="Center" justifyContent="SpaceBetween" wrap="Wrap">
+                    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                        <f:Avatar
+                            initials="{profile>/Initials}"
+                            displaySize="XL"
+                            displayShape="Circle"
+                            tooltip="{profile>/EmployeeName}"
+                            class="profileAvatar sapUiLargeMarginEnd"/>
+                        <VBox>
+                            <Title text="{profile>/EmployeeName}" level="H1" class="profileHeroTitle"/>
+                            <HBox class="sapUiTinyMarginTop" wrap="Wrap">
+                                <ObjectStatus
+                                    icon="sap-icon://employee"
+                                    text="{profile>/PositionName}"
+                                    class="profileHeroStatus sapUiMediumMarginEnd"/>
+                                <ObjectStatus
+                                    icon="sap-icon://building"
+                                    text="{profile>/OrgUnitName}"
+                                    class="profileHeroStatus"/>
+                            </HBox>
+                            <Text text="{i18n>profileEmployeeId}: {profile>/Pernr}" class="profileHeroSubText sapUiTinyMarginTop"/>
+                        </VBox>
+                    </HBox>
+                    <Button
+                        id="editProfileButton"
+                        text="{i18n>profileEditButton}"
+                        icon="sap-icon://edit"
+                        type="Emphasized"
+                        enabled="{profileUi>/hasEditableField}"
+                        tooltip="{i18n>profileEditTooltip}"
+                        press="onEditProfile"/>
+                </HBox>
+            </VBox>
+
+            <HBox wrap="Wrap" class="profileWorkflowSummary sapUiMediumMarginTop sapUiSmallMarginBottom">
+                <ObjectStatus
+                    text="{i18n>profilePendingCount}: {profileUi>/pendingCount}"
+                    icon="sap-icon://pending"
+                    state="Warning"
+                    inverted="true"
+                    class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
+                <ObjectStatus
+                    text="{i18n>profileRevisionCount}: {profileUi>/revisionCount}"
+                    icon="sap-icon://edit"
+                    state="Information"
+                    inverted="true"
+                    class="sapUiTinyMarginBottom"/>
+            </HBox>
+
+            <IconTabBar
+                id="profileCoreTabs"
+                expandable="false"
+                headerMode="Inline"
+                class="profileCoreTabs sapUiSmallMarginTop"
+                selectedKey="personal">
+                <items>
+                    <IconTabFilter key="personal" text="{i18n>profileTabPersonal}" icon="sap-icon://person-placeholder">
+                        <form:SimpleForm editable="false" layout="ResponsiveGridLayout" columnsXL="2" columnsL="2" columnsM="1" labelSpanXL="4" labelSpanL="4" labelSpanM="4">
+                            <Label text="{i18n>profileEmployeeId}"/><Text text="{profile>/Pernr}"/>
+                            <Label text="{i18n>profileFullName}"/><Text text="{profile>/EmployeeName}"/>
+                            <Label text="{i18n>profileIdNumber}"/>
+                            <HBox alignItems="Center" wrap="Wrap">
+                                <Text text="{path:'profile>/IdNumber', formatter:'.formatter.displayValue'}" class="sapUiTinyMarginEnd"/>
+                                <ObjectStatus visible="{= ${profile>/states/ID_NUMBER/LockStatus} ? true : false }" text="{profile>/states/ID_NUMBER/StatusText}" icon="{path:'profile>/states/ID_NUMBER/LockStatus', formatter:'.formatter.statusIcon'}" state="{path:'profile>/states/ID_NUMBER/LockStatus', formatter:'.formatter.statusState'}"/>
+                            </HBox>
+                            <Label text="{i18n>profileTaxCode}"/>
+                            <HBox alignItems="Center" wrap="Wrap">
+                                <Text text="{path:'profile>/TaxCode', formatter:'.formatter.displayValue'}" class="sapUiTinyMarginEnd"/>
+                                <ObjectStatus visible="{= ${profile>/states/TAX_CODE/LockStatus} ? true : false }" text="{profile>/states/TAX_CODE/StatusText}" icon="{path:'profile>/states/TAX_CODE/LockStatus', formatter:'.formatter.statusIcon'}" state="{path:'profile>/states/TAX_CODE/LockStatus', formatter:'.formatter.statusState'}"/>
+                            </HBox>
+                        </form:SimpleForm>
+                    </IconTabFilter>
+
+                    <IconTabFilter key="contactPayment" text="{i18n>profileTabContactPayment}" icon="sap-icon://contacts">
+                        <form:SimpleForm editable="false" layout="ResponsiveGridLayout" columnsXL="2" columnsL="2" columnsM="1" labelSpanXL="4" labelSpanL="4" labelSpanM="4">
+                            <Label text="{i18n>profileTelephone}"/>
+                            <HBox alignItems="Center" wrap="Wrap"><Text text="{path:'profile>/Telephone', formatter:'.formatter.displayValue'}" class="sapUiTinyMarginEnd"/><ObjectStatus visible="{= ${profile>/states/TELEPHONE/LockStatus} ? true : false }" text="{profile>/states/TELEPHONE/StatusText}" icon="{path:'profile>/states/TELEPHONE/LockStatus', formatter:'.formatter.statusIcon'}" state="{path:'profile>/states/TELEPHONE/LockStatus', formatter:'.formatter.statusState'}"/></HBox>
+                            <Label text="{i18n>profileWorkEmail}"/>
+                            <HBox alignItems="Center" wrap="Wrap"><Text text="{path:'profile>/WorkEmail', formatter:'.formatter.displayValue'}" class="sapUiTinyMarginEnd"/><ObjectStatus visible="{= ${profile>/states/WORK_EMAIL/LockStatus} ? true : false }" text="{profile>/states/WORK_EMAIL/StatusText}" icon="{path:'profile>/states/WORK_EMAIL/LockStatus', formatter:'.formatter.statusIcon'}" state="{path:'profile>/states/WORK_EMAIL/LockStatus', formatter:'.formatter.statusState'}"/></HBox>
+                            <Label text="{i18n>profilePermanentAddress}"/>
+                            <HBox alignItems="Center" wrap="Wrap"><Text text="{path:'profile>/PermanentAddress', formatter:'.formatter.displayValue'}" wrapping="true" class="sapUiTinyMarginEnd"/><ObjectStatus visible="{= ${profile>/states/ADDRESS/LockStatus} ? true : false }" text="{profile>/states/ADDRESS/StatusText}" icon="{path:'profile>/states/ADDRESS/LockStatus', formatter:'.formatter.statusIcon'}" state="{path:'profile>/states/ADDRESS/LockStatus', formatter:'.formatter.statusState'}"/></HBox>
+                            <Label text="{i18n>profileCurrentAddress}"/>
+                            <HBox alignItems="Center" wrap="Wrap"><Text text="{path:'profile>/CurrentAddress', formatter:'.formatter.displayValue'}" wrapping="true" class="sapUiTinyMarginEnd"/><ObjectStatus visible="{= ${profile>/states/CURR_ADDRESS/LockStatus} ? true : false }" text="{profile>/states/CURR_ADDRESS/StatusText}" icon="{path:'profile>/states/CURR_ADDRESS/LockStatus', formatter:'.formatter.statusIcon'}" state="{path:'profile>/states/CURR_ADDRESS/LockStatus', formatter:'.formatter.statusState'}"/></HBox>
+                            <Label text="{i18n>profilePaymentMethod}"/><Text text="{path:'profile>/PayMethodText', formatter:'.formatter.displayValue'}"/>
+                            <Label text="{i18n>profileBankName}"/><Text text="{path:'profile>/BankName', formatter:'.formatter.displayValue'}"/>
+                            <Label text="{i18n>profileBankAccount}"/><Text text="{path:'profile>/BankAccount', formatter:'.formatter.maskBankAccount'}"/>
+                        </form:SimpleForm>
+                    </IconTabFilter>
+
+                    <IconTabFilter key="work" text="{i18n>profileTabWork}" icon="sap-icon://employee">
+                        <form:SimpleForm editable="false" layout="ResponsiveGridLayout" columnsXL="2" columnsL="2" columnsM="1" labelSpanXL="4" labelSpanL="4" labelSpanM="4">
+                            <Label text="{i18n>profilePosition}"/><Text text="{profile>/PositionName}"/>
+                            <Label text="{i18n>profileOrgUnit}"/><Text text="{profile>/OrgUnitName}"/>
+                            <Label text="{i18n>profileJoinDate}"/><Text text="{path:'profile>/JoinDate', formatter:'.formatter.formatDate'}"/>
+                        </form:SimpleForm>
+                    </IconTabFilter>
+
+                    <IconTabFilter key="contract" text="{i18n>profileTabContract}" icon="sap-icon://document-text">
+                        <MessageStrip text="{i18n>profileContractUnavailable}" type="Information" showIcon="true"/>
+                    </IconTabFilter>
+
+                    <IconTabFilter key="dependents" text="{i18n>profileTabDependents}" icon="sap-icon://family-care">
+                        <MessageStrip text="{i18n>profileDependentsViewOnly}" type="Information" showIcon="true"/>
+                    </IconTabFilter>
+                </items>
+            </IconTabBar>
+
+            <VBox class="premiumTableContainer sapUiMediumMarginTop">
+                <Toolbar class="premiumTableHeader">
+                    <Title text="{i18n>profileRequestHistory}" level="H4"/>
+                    <ToolbarSpacer/>
+                    <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>profileRefreshHistory}" press="onRefreshProfile"/>
+                </Toolbar>
+                <Table items="{profileHistory>/rows}" growing="true" growingThreshold="10" noDataText="{i18n>profileNoRequests}">
+                    <columns>
+                        <Column><Text text="{i18n>profileRequestNo}"/></Column>
+                        <Column demandPopin="true" minScreenWidth="Tablet"><Text text="{i18n>profileSubmittedAt}"/></Column>
+                        <Column demandPopin="true" minScreenWidth="Desktop"><Text text="{i18n>profileRemark}"/></Column>
+                        <Column demandPopin="true" minScreenWidth="Desktop"><Text text="{i18n>profileHrComment}"/></Column>
+                        <Column hAlign="End"><Text text="{i18n>profileStatus}"/></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem>
+                            <cells>
+                                <ObjectIdentifier title="{profileHistory>RequestNo}" text="{profileHistory>ID}"/>
+                                <Text text="{path:'profileHistory>SubmittedAt', formatter:'.formatter.formatDateTime'}"/>
+                                <Text text="{profileHistory>Remark}" wrapping="true"/>
+                                <Text text="{profileHistory>HrComment}" wrapping="true"/>
+                                <ObjectStatus text="{profileHistory>StatusText}" icon="{path:'profileHistory>Status', formatter:'.formatter.statusIcon'}" state="{path:'profileHistory>Status', formatter:'.formatter.statusState'}" inverted="true"/>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+            </VBox>
+        </VBox>
+    </VBox>
+</mvc:View>

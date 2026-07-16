@@ -1,0 +1,66 @@
+<mvc:View
+    controllerName="znxr09.znxr09f300.controller.ProfileApprovalInbox"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <VBox busy="{hrUi>/busy}" busyIndicatorDelay="0" width="100%">
+        <Title text="{i18n>profileApprovalInboxTitle}" level="H1" class="sapUiSmallMarginBottom"/>
+        <MessageStrip
+            visible="{= ${hrUi>/errorKey} ? true : false }"
+            text="{path:'hrUi>/errorKey', formatter:'.hrErrorText'}"
+            type="Error"
+            showIcon="true"
+            class="sapUiSmallMarginBottom"/>
+
+        <OverflowToolbar class="premiumTableHeader">
+            <ObjectStatus
+                text="{i18n>profilePendingCount}: {hrUi>/pendingCount}"
+                icon="sap-icon://pending"
+                state="Warning"
+                inverted="true"
+                class="sapUiTinyMarginEnd"/>
+            <ToolbarSpacer/>
+            <SearchField
+                width="20rem"
+                placeholder="{i18n>profileApprovalSearchPlaceholder}"
+                liveChange="onInboxSearch"/>
+            <Select selectedKey="{hrUi>/status}" change="onInboxStatusChange" tooltip="{i18n>profileStatusFilter}">
+                <core:Item key="01" text="{i18n>profileStatusPending}"/>
+                <core:Item key="04" text="{i18n>profileStatusRevision}"/>
+                <core:Item key="02" text="{i18n>profileStatusApproved}"/>
+                <core:Item key="03" text="{i18n>profileStatusRejected}"/>
+                <core:Item key="ALL" text="{i18n>profileStatusAll}"/>
+            </Select>
+            <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>profileRefreshInbox}" press="onRefreshInbox"/>
+        </OverflowToolbar>
+
+        <Table
+            id="profileApprovalTable"
+            items="{hrInbox>/rows}"
+            itemPress="onOpenApprovalDetail"
+            growing="true"
+            growingThreshold="20"
+            alternateRowColors="true"
+            sticky="ColumnHeaders"
+            noDataText="{i18n>profileNoApprovalRequests}">
+            <columns>
+                <Column><Text text="{i18n>profileRequestNo}"/></Column>
+                <Column><Text text="{i18n>profileEmployee}"/></Column>
+                <Column demandPopin="true" minScreenWidth="Tablet"><Text text="{i18n>profileEmployeeId}"/></Column>
+                <Column demandPopin="true" minScreenWidth="Desktop"><Text text="{i18n>profileSubmittedAt}"/></Column>
+                <Column hAlign="End"><Text text="{i18n>profileStatus}"/></Column>
+            </columns>
+            <items>
+                <ColumnListItem type="Navigation">
+                    <cells>
+                        <ObjectIdentifier title="{hrInbox>RequestNo}" text="{hrInbox>ID}"/>
+                        <Text text="{hrInbox>EmployeeName}"/>
+                        <Text text="{hrInbox>Pernr}"/>
+                        <Text text="{path:'hrInbox>SubmittedAt', formatter:'.formatter.formatDateTime'}"/>
+                        <ObjectStatus text="{hrInbox>StatusText}" icon="{path:'hrInbox>Status', formatter:'.formatter.statusIcon'}" state="{path:'hrInbox>Status', formatter:'.formatter.statusState'}" inverted="true"/>
+                    </cells>
+                </ColumnListItem>
+            </items>
+        </Table>
+    </VBox>
+</mvc:View>

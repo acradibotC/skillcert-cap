@@ -1,0 +1,95 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form">
+    <Dialog
+        id="profileApprovalDetailDialog"
+        title="{i18n>profileApprovalDetailTitle}"
+        contentWidth="72rem"
+        contentHeight="48rem"
+        stretchOnPhone="true"
+        draggable="true"
+        resizable="true"
+        busy="{hrDetail>/busy}"
+        busyIndicatorDelay="0">
+        <subHeader>
+            <Toolbar>
+                <ObjectStatus
+                    text="{hrDetail>/request/StatusText}"
+                    icon="{path:'hrDetail>/request/Status', formatter:'.formatter.statusIcon'}"
+                    state="{path:'hrDetail>/request/Status', formatter:'.formatter.statusState'}"
+                    inverted="true"/>
+                <ToolbarSpacer/>
+                <Button
+                    text="{= ${hrUi>/revealSensitive} ? ${i18n>profileHideSensitive} : ${i18n>profileShowSensitive} }"
+                    icon="{= ${hrUi>/revealSensitive} ? 'sap-icon://hide' : 'sap-icon://show' }"
+                    type="Transparent"
+                    press="onToggleSensitiveValues"/>
+            </Toolbar>
+        </subHeader>
+        <content>
+            <VBox class="sapUiResponsiveContentPadding">
+                <form:SimpleForm editable="false" layout="ResponsiveGridLayout" columnsXL="2" columnsL="2" columnsM="1" labelSpanXL="4" labelSpanL="4" labelSpanM="4">
+                    <Label text="{i18n>profileRequestNo}"/><Text text="{hrDetail>/request/RequestNo}"/>
+                    <Label text="{i18n>profileEmployee}"/><Text text="{hrDetail>/request/EmployeeName}"/>
+                    <Label text="{i18n>profileEmployeeId}"/><Text text="{hrDetail>/request/Pernr}"/>
+                    <Label text="{i18n>profileSubmittedAt}"/><Text text="{path:'hrDetail>/request/SubmittedAt', formatter:'.formatter.formatDateTime'}"/>
+                    <Label text="{i18n>profileEmployeeRemark}"/><Text text="{hrDetail>/request/Remark}" wrapping="true"/>
+                    <Label text="{i18n>profileRevisionNumber}"/><Text text="{hrDetail>/request/RevisionNo}"/>
+                </form:SimpleForm>
+
+                <Title text="{i18n>profileChangeComparison}" level="H4" class="sapUiMediumMarginTop sapUiSmallMarginBottom"/>
+                <Table items="{hrDetail>/items}" alternateRowColors="true" noDataText="{i18n>profileNoChangeItems}">
+                    <columns>
+                        <Column><Text text="{i18n>profileField}"/></Column>
+                        <Column demandPopin="true" minScreenWidth="Tablet"><Text text="{i18n>profileOldValue}"/></Column>
+                        <Column><Text text="{i18n>profileNewValue}"/></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem>
+                            <cells>
+                                <ObjectIdentifier title="{hrDetail>FieldCode}" text="{hrDetail>FieldGroup}"/>
+                                <Text text="{parts:['hrDetail>OldDisplayValue','hrDetail>OldValue','hrDetail>FieldCode','hrUi>/revealSensitive'], formatter:'.formatter.profileItemValue'}" wrapping="true"/>
+                                <Text text="{parts:['hrDetail>NewDisplayValue','hrDetail>NewValue','hrDetail>FieldCode','hrUi>/revealSensitive'], formatter:'.formatter.profileItemValue'}" wrapping="true"/>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+
+                <Label text="{i18n>profileHrComment}" labelFor="profileHrCommentInput" class="sapUiMediumMarginTop"/>
+                <TextArea
+                    id="profileHrCommentInput"
+                    value="{hrDetail>/comment}"
+                    maxLength="500"
+                    rows="4"
+                    growing="true"
+                    growingMaxLines="6"
+                    editable="{= ${hrDetail>/request/Status} === '01' }"
+                    placeholder="{i18n>profileHrCommentPlaceholder}"/>
+            </VBox>
+        </content>
+        <buttons>
+            <Button
+                text="{i18n>profileRequestChangesButton}"
+                icon="sap-icon://edit"
+                visible="{= ${hrDetail>/request/Status} === '01' }"
+                enabled="{= !${hrDetail>/busy} }"
+                press="onRequestProfileChanges"/>
+            <Button
+                text="{i18n>btnReject}"
+                icon="sap-icon://decline"
+                type="Reject"
+                visible="{= ${hrDetail>/request/Status} === '01' }"
+                enabled="{= !${hrDetail>/busy} }"
+                press="onRejectProfileChange"/>
+            <Button
+                text="{i18n>btnApprove}"
+                icon="sap-icon://accept"
+                type="Accept"
+                visible="{= ${hrDetail>/request/Status} === '01' }"
+                enabled="{= !${hrDetail>/busy} }"
+                press="onApproveProfileChange"/>
+            <Button text="{i18n>profileClose}" press="onCloseApprovalDetail"/>
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>
