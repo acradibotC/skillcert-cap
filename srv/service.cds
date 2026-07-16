@@ -53,15 +53,16 @@ service AttendanceService @(path: '/api/v3') {
 // Worktime Upload Service — HR Bulk Upload
 // ============================================================
 service WorktimeUploadService @(path: '/api/v4') {
-    // Custom actions for upload workflow
-    action uploadBatch(records: array of WorktimePayload) returns UploadResult;
+    // Uploads validated rows into SAP staging. The 05:00 SAP job posts
+    // queued rows to HR infotypes; this action never writes PA2002 directly.
+    action uploadBatch(records: array of WorktimePayload, sourceFileName: String(128)) returns UploadResult;
     action checkExisting(months: array of String)          returns ExistingResult;
 
     type WorktimePayload {
         Pernr         : String(8);
-        WorkDate      : String(8);
-        FirstEntry    : String(6);
-        LastExit      : String(6);
+        WorkDate      : Date;
+        FirstEntry    : Time;
+        LastExit      : Time;
         Iot           : Decimal(5,2);
         Iotwf         : Decimal(5,2);
         Iwa           : Decimal(5,2);
@@ -70,7 +71,10 @@ service WorktimeUploadService @(path: '/api/v4') {
     }
 
     type UploadResult {
+        batchId : String(36);
         success : Integer;
+        created : Integer;
+        updated : Integer;
         failed  : Integer;
         message : String;
     }

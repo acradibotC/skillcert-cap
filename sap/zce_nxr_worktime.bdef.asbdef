@@ -1,0 +1,48 @@
+managed implementation in class zcl_nxr_worktime_save unique;
+
+define behavior for ZCE_NXR_WORKTIME alias WorktimeRecord
+persistent table ztb_nxr_wt_stage
+lock master
+etag master LocalLastChangedAt
+{
+  create;
+  update;
+
+  field ( mandatory ) Pernr, WorkDate, FirstEntry, LastExit;
+  field ( readonly ) SyncMessage,
+                     AttemptCount,
+                     NextRetryAt,
+                     SapDocumentKey,
+                     CreatedBy,
+                     CreatedAt,
+                     LastChangedBy,
+                     LastChangedAt,
+                     LocalLastChangedAt;
+
+  mapping for ztb_nxr_wt_stage
+  {
+    Pernr                 = pernr;
+    WorkDate              = work_date;
+    FirstEntry            = first_entry;
+    LastExit              = last_exit;
+    Iot                   = iot;
+    Iotwf                 = iotwf;
+    Iwa                   = iwa;
+    NumberOfEntry         = number_of_entry;
+    NumberOfExit          = number_of_exit;
+    RequestType           = request_type;
+    RequestStatus         = request_status;
+    ImportBatchId         = import_batch_id;
+    SourceFileName        = source_file_name;
+    SyncStatus            = sync_status;
+    SyncMessage           = sync_message;
+    AttemptCount          = attempt_count;
+    NextRetryAt           = next_retry_at;
+    SapDocumentKey        = sap_document_key;
+    CreatedBy             = created_by;
+    CreatedAt             = created_at;
+    LastChangedBy         = last_changed_by;
+    LastChangedAt         = last_changed_at;
+    LocalLastChangedAt    = local_last_changed_at;
+  }
+}

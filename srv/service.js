@@ -425,112 +425,268 @@ module.exports = {
     // ================================================================
     WorktimeUploadService: async function() {
         const axios = require('axios');
+        const https = require('https');
+        const { randomUUID } = require('crypto');
 
-        // SAP OData base URL for worktime service
-        // NOTE: This URL needs to be updated once ZUI_NXR_WORKTIME_UPLOAD_O4 is published
-        const SAP_WORKTIME_URL = 'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload/srvd/sap/zsd_nxr_worktime_upload/0001';
-        const SAP_USER = process.env.UI5_USERNAME || 'DEV-271';
-        const SAP_PASS = process.env.UI5_PASSWORD || 'Hanoi@12345';
+        const SAP_WORKTIME_URL = (process.env.SAP_WORKTIME_URL ||
+            'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload/srvd/sap/zsd_nxr_worktime_upload/0001')
+            .replace(/\/+$/, '');
+        const SAP_USER = process.env.SAP_WORKTIME_USERNAME || process.env.UI5_USERNAME || 'DEV-271';
+        const SAP_PASS = process.env.SAP_WORKTIME_PASSWORD || process.env.UI5_PASSWORD || 'Hanoi@12345';
         const SAP_AUTH = 'Basic ' + Buffer.from(SAP_USER + ':' + SAP_PASS).toString('base64');
+        const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+        const readHeaders = { 'Authorization': SAP_AUTH, 'Accept': 'application/json' };
+
+        const sapErrorMessage = (error) => {
+            const sapMessage = error.response?.data?.error?.message;
+            return typeof sapMessage === 'string'
+                ? sapMessage
+                : sapMessage?.value || error.message || 'Unknown SAP error';
+        };
+
+        const normalizePernr = (value) => {
+            const digits = String(value || '').trim();
+            if (!/^\d{1,8}$/.test(digits)) throw new Error('Pernr must contain 1 to 8 digits');
+            return digits.padStart(8, '0');
+        };
+
+        const normalizeDate = (value) => {
+            const text = value instanceof Date
+                ? value.toISOString().slice(0, 10)
+                : String(value || '').trim();
+            const match = text.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+            if (!match) throw new Error('WorkDate must use YYYY-MM-DD');
+
+            const year = Number(match[1]);
+            const month = Number(match[2]);
+            const day = Number(match[3]);
+            const parsed = new Date(Date.UTC(year, month - 1, day));
+            if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
+                throw new Error('WorkDate is not a valid calendar date');
+            }
+            return `${match[1]}-${match[2]}-${match[3]}`;
+        };
+
+        const normalizeTime = (value, fieldName) => {
+            const digits = String(value || '').trim().replace(/:/g, '');
+            if (!/^\d{4}(\d{2})?$/.test(digits)) throw new Error(`${fieldName} must use HH:mm or HH:mm:ss`);
+            const normalized = digits.length === 4 ? digits + '00' : digits;
+            const hours = Number(normalized.slice(0, 2));
+            const minutes = Number(normalized.slice(2, 4));
+            const seconds = Number(normalized.slice(4, 6));
+            if (hours > 23 || minutes > 59 || seconds > 59) throw new Error(`${fieldName} is not a valid time`);
+            return `${normalized.slice(0, 2)}:${normalized.slice(2, 4)}:${normalized.slice(4, 6)}`;
+        };
+
+        const normalizeDecimal = (value, fieldName) => {
+            const number = Number(value || 0);
+            if (!Number.isFinite(number) || number < 0 || number > 999.99) {
+                throw new Error(`${fieldName} must be between 0 and 999.99`);
+            }
+            return Number(number.toFixed(2));
+        };
+
+        const normalizeInteger = (value, fieldName) => {
+            const number = Number(value || 0);
+            if (!Number.isInteger(number) || number < 0 || number > 32767) {
+                throw new Error(`${fieldName} must be an integer between 0 and 32767`);
+            }
+            return number;
+        };
+
+        const normalizeRecord = (record) => {
+            const firstEntry = normalizeTime(record.FirstEntry, 'FirstEntry');
+            const lastExit = normalizeTime(record.LastExit, 'LastExit');
+            if (firstEntry === lastExit) throw new Error('FirstEntry and LastExit cannot be identical');
+
+            return {
+                Pernr: normalizePernr(record.Pernr),
+                WorkDate: normalizeDate(record.WorkDate),
+                FirstEntry: firstEntry,
+                LastExit: lastExit,
+                Iot: normalizeDecimal(record.Iot, 'Iot'),
+                Iotwf: normalizeDecimal(record.Iotwf, 'Iotwf'),
+                Iwa: normalizeDecimal(record.Iwa, 'Iwa'),
+                NumberOfEntry: normalizeInteger(record.NumberOfEntry, 'NumberOfEntry'),
+                NumberOfExit: normalizeInteger(record.NumberOfExit, 'NumberOfExit')
+            };
+        };
+
+        const normalizeMonths = (months) => Array.from(new Set((months || []).map(String))).map((month) => {
+            if (!/^\d{6}$/.test(month)) throw new Error(`Invalid month ${month}; expected YYYYMM`);
+            const monthNumber = Number(month.slice(4, 6));
+            if (monthNumber < 1 || monthNumber > 12) throw new Error(`Invalid month ${month}`);
+            return month;
+        });
+
+        const monthRange = (month) => {
+            const year = Number(month.slice(0, 4));
+            const monthNumber = Number(month.slice(4, 6));
+            const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+            return {
+                from: `${month.slice(0, 4)}-${month.slice(4, 6)}-01`,
+                to: `${month.slice(0, 4)}-${month.slice(4, 6)}-${String(lastDay).padStart(2, '0')}`
+            };
+        };
+
+        const recordKey = (record) => `${record.Pernr}|${record.WorkDate}`;
+        const odataString = (value) => String(value).replace(/'/g, "''");
+        const recordPath = (record) =>
+            `/WorktimeRecord(Pernr='${odataString(record.Pernr)}',WorkDate=${record.WorkDate})`;
 
         async function fetchCsrfToken() {
-            const resp = await axios.get(SAP_WORKTIME_URL + '/', {
-                headers: {
-                    'Authorization': SAP_AUTH,
-                    'x-csrf-token': 'Fetch',
-                    'Accept': 'application/json'
-                },
-                httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
+            const response = await axios.get(SAP_WORKTIME_URL + '/', {
+                headers: { ...readHeaders, 'x-csrf-token': 'Fetch' },
+                httpsAgent
             });
             return {
-                token: resp.headers['x-csrf-token'],
-                cookies: resp.headers['set-cookie']
+                token: response.headers['x-csrf-token'],
+                cookie: (response.headers['set-cookie'] || []).join('; ')
             };
+        }
+
+        async function fetchExistingRows(months) {
+            const rowsByKey = new Map();
+            for (const month of normalizeMonths(months)) {
+                const range = monthRange(month);
+                const filter = `WorkDate ge ${range.from} and WorkDate le ${range.to}`;
+                let url = SAP_WORKTIME_URL + '/WorktimeRecord' +
+                    `?$filter=${encodeURIComponent(filter)}` +
+                    '&$select=Pernr,WorkDate,SyncStatus&$top=5000';
+
+                while (url) {
+                    const response = await axios.get(url, { headers: readHeaders, httpsAgent });
+                    const rows = Array.isArray(response.data?.value) ? response.data.value : [];
+                    rows.forEach((row) => {
+                        const normalized = {
+                            ...row,
+                            Pernr: normalizePernr(row.Pernr),
+                            WorkDate: normalizeDate(row.WorkDate)
+                        };
+                        rowsByKey.set(recordKey(normalized), normalized);
+                    });
+                    const nextLink = response.data?.['@odata.nextLink'];
+                    url = nextLink ? new URL(nextLink, SAP_WORKTIME_URL + '/').toString() : '';
+                }
+            }
+            return rowsByKey;
         }
 
         // ---- ACTION: checkExisting ----
         this.on('checkExisting', async (req) => {
-            const { months } = req.data;
-            if (!months || months.length === 0) return { count: 0, months: '' };
-
             try {
-                // Build filter: WorkDate ge 'YYYYMM01' and WorkDate le 'YYYYMM31' for each month
-                let totalCount = 0;
-                for (const month of months) {
-                    const from = month + '01';
-                    const to = month + '31';
-                    const url = `${SAP_WORKTIME_URL}/WorktimeRecord?$filter=WorkDate ge '${from}' and WorkDate le '${to}'&$count=true&$top=0`;
-                    try {
-                        const resp = await axios.get(url, {
-                            headers: {
-                                'Authorization': SAP_AUTH,
-                                'Accept': 'application/json'
-                            },
-                            httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
-                        });
-                        totalCount += (resp.data['@odata.count'] || 0);
-                    } catch (e) {
-                        console.warn(`[WorktimeUpload] Check failed for month ${month}:`, e.message);
-                    }
-                }
-
-                const sMonthList = months.map(m => m.substring(4,6) + '/' + m.substring(0,4)).join(', ');
-                return { count: totalCount, months: sMonthList };
+                const months = normalizeMonths(req.data.months);
+                if (months.length === 0) return { count: 0, months: '' };
+                const existing = await fetchExistingRows(months);
+                return {
+                    count: existing.size,
+                    months: months.map((month) => month.slice(4, 6) + '/' + month.slice(0, 4)).join(', ')
+                };
             } catch (error) {
-                console.error('[WorktimeUpload] checkExisting error:', error.message);
-                return { count: 0, months: '' };
+                const message = sapErrorMessage(error);
+                console.error('[WorktimeUpload] checkExisting failed:', message);
+                return req.reject(502, 'Cannot check SAP staging data: ' + message);
             }
         });
 
         // ---- ACTION: uploadBatch ----
         this.on('uploadBatch', async (req) => {
-            const { records } = req.data;
-            if (!records || records.length === 0) {
-                return req.reject(400, 'No records provided');
+            const records = req.data.records;
+            if (!Array.isArray(records) || records.length === 0) return req.reject(400, 'No records provided');
+            if (records.length > 5000) return req.reject(400, 'A batch cannot contain more than 5000 records');
+
+            const validationErrors = [];
+            const normalizedRecords = [];
+            const keys = new Set();
+
+            records.forEach((record, index) => {
+                try {
+                    const normalized = normalizeRecord(record);
+                    const key = recordKey(normalized);
+                    if (keys.has(key)) throw new Error('Duplicate Pernr and WorkDate in the same file');
+                    keys.add(key);
+                    normalizedRecords.push(normalized);
+                } catch (error) {
+                    validationErrors.push(`row ${index + 1}: ${error.message}`);
+                }
+            });
+
+            if (validationErrors.length > 0) {
+                const preview = validationErrors.slice(0, 5).join('; ');
+                const suffix = validationErrors.length > 5 ? `; and ${validationErrors.length - 5} more` : '';
+                return req.reject(400, 'Upload validation failed: ' + preview + suffix);
             }
 
-            console.log(`[WorktimeUpload] Uploading ${records.length} records...`);
+            const batchId = randomUUID();
+            const sourceFileName = String(req.data.sourceFileName || 'HR_UPLOAD')
+                .split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g, '').slice(0, 128);
+            const months = Array.from(new Set(normalizedRecords.map((record) => record.WorkDate.slice(0, 7).replace('-', ''))));
 
-            let success = 0;
+            let created = 0;
+            let updated = 0;
             let failed = 0;
 
             try {
-                const { token, cookies } = await fetchCsrfToken();
+                const existingRows = await fetchExistingRows(months);
+                const { token, cookie } = await fetchCsrfToken();
+                const writeHeaders = {
+                    ...readHeaders,
+                    'x-csrf-token': token,
+                    'Content-Type': 'application/json',
+                    'Cookie': cookie
+                };
 
-                for (const rec of records) {
-                    try {
-                        await axios.post(SAP_WORKTIME_URL + '/WorktimeRecord', {
-                            Pernr: rec.Pernr,
-                            WorkDate: rec.WorkDate,
-                            FirstEntry: rec.FirstEntry,
-                            LastExit: rec.LastExit,
-                            Iot: rec.Iot,
-                            Iotwf: rec.Iotwf,
-                            Iwa: rec.Iwa,
-                            NumberOfEntry: rec.NumberOfEntry,
-                            NumberOfExit: rec.NumberOfExit
-                        }, {
-                            headers: {
-                                'Authorization': SAP_AUTH,
-                                'x-csrf-token': token,
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'Cookie': cookies ? cookies.join('; ') : ''
-                            },
-                            httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false })
-                        });
-                        success++;
-                    } catch (e) {
+                for (const record of normalizedRecords) {
+                    const existing = existingRows.get(recordKey(record));
+                    if (existing?.SyncStatus === 'PROCESSING') {
                         failed++;
-                        console.error(`[WorktimeUpload] Failed record PERNR=${rec.Pernr} DATE=${rec.WorkDate}:`, e.response?.data?.error?.message || e.message);
+                        console.error(`[WorktimeUpload] Skipped ${recordKey(record)} because it is being processed.`);
+                        continue;
+                    }
+
+                    const payload = {
+                        ...record,
+                        RequestType: 'HR_UPLOAD',
+                        RequestStatus: 'IMPORTED',
+                        ImportBatchId: batchId,
+                        SourceFileName: sourceFileName,
+                        SyncStatus: 'QUEUED'
+                    };
+
+                    try {
+                        if (existing) {
+                            await axios.patch(SAP_WORKTIME_URL + recordPath(record), payload, {
+                                headers: { ...writeHeaders, 'If-Match': '*' },
+                                httpsAgent
+                            });
+                            updated++;
+                        } else {
+                            await axios.post(SAP_WORKTIME_URL + '/WorktimeRecord', payload, {
+                                headers: writeHeaders,
+                                httpsAgent
+                            });
+                            created++;
+                        }
+                    } catch (error) {
+                        failed++;
+                        console.error(`[WorktimeUpload] Failed ${recordKey(record)}:`, sapErrorMessage(error));
                     }
                 }
 
-                console.log(`[WorktimeUpload] Done: ${success} success, ${failed} failed.`);
-                return { success, failed, message: `${success} records saved, ${failed} failed.` };
+                const success = created + updated;
+                console.log(`[WorktimeUpload] Batch ${batchId}: ${created} created, ${updated} updated, ${failed} failed.`);
+                return {
+                    batchId,
+                    success,
+                    created,
+                    updated,
+                    failed,
+                    message: `${success} records queued for SAP HR sync (${created} created, ${updated} updated, ${failed} failed).`
+                };
             } catch (error) {
-                console.error('[WorktimeUpload] CSRF/upload error:', error.message);
-                return req.reject(500, 'Upload failed: ' + error.message);
+                const message = sapErrorMessage(error);
+                console.error(`[WorktimeUpload] Batch ${batchId} failed:`, message);
+                return req.reject(502, 'Upload to SAP staging failed: ' + message);
             }
         });
     }

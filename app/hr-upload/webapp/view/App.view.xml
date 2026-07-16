@@ -102,13 +102,15 @@
                 <Panel id="panelActions" headerText="{i18n>panelActions}" visible="{uploadModel>/dataParsed}">
                     <Toolbar>
                         <Button id="btnDeleteSelected" text="{i18n>btnDeleteSelected}" icon="sap-icon://delete"
-                            type="Reject" press=".onDeleteSelected" class="sapUiTinyMarginEnd" />
+                            type="Reject" press=".onDeleteSelected" class="sapUiTinyMarginEnd"
+                            enabled="{= !${uploadModel>/uploading}}" />
                         <ToolbarSpacer />
                         <Button id="btnCheckExisting" text="{i18n>btnCheckExisting}" icon="sap-icon://inspect"
-                            type="Default" press=".onCheckExisting" class="sapUiTinyMarginEnd" />
-                        <Button id="btnUpload" text="{i18n>btnUploadToSAP}" icon="sap-icon://upload-to-cloud"
+                            type="Default" press=".onCheckExisting" class="sapUiTinyMarginEnd"
+                            enabled="{= ${uploadModel>/totalRows} > 0 &amp;&amp; ${uploadModel>/errorRows} === 0 &amp;&amp; !${uploadModel>/uploading}}" />
+                        <Button id="btnUpload" text="{i18n>btnUploadToSAP}" icon="sap-icon://pending"
                             type="Emphasized" press=".onUploadToSAP"
-                            enabled="{= ${uploadModel>/totalRows} > 0 &amp;&amp; ${uploadModel>/errorRows} === 0}" />
+                            enabled="{= ${uploadModel>/totalRows} > 0 &amp;&amp; ${uploadModel>/errorRows} === 0 &amp;&amp; !${uploadModel>/uploading}}" />
                     </Toolbar>
                     <!-- Progress -->
                     <VBox visible="{uploadModel>/uploading}" class="sapUiSmallMargin">

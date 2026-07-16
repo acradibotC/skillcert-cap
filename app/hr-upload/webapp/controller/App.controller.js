@@ -117,7 +117,6 @@ sap.ui.define([
 
             // Skip header row (row 0)
             var aRecords = [];
-            var iErrors = 0;
 
             for (var i = 1; i < rawData.length; i++) {
                 var row = rawData[i];
@@ -125,9 +124,14 @@ sap.ui.define([
                 if (!row || row.every(function(cell) { return cell === "" || cell === null || cell === undefined; })) continue;
 
                 var record = this._convertRow(row, i + 1);
-                if (record._hasError) iErrors++;
                 aRecords.push(record);
             }
+
+            // The SAP staging key is PERNR + WorkDate. Flag duplicates before
+            // the user can submit the batch so an overwrite is never ambiguous.
+            this._markDuplicateRows(aRecords);
+
+            var iErrors = aRecords.filter(function (record) { return record._hasError; }).length;
 
             var oModel = this.getView().getModel("uploadModel");
             oModel.setProperty("/records", aRecords);
@@ -154,6 +158,8 @@ sap.ui.define([
             var sPernr = String(row[0] || "").trim();
             if (!sPernr) {
                 errors.push(oBundle.getText("errPernrEmpty"));
+            } else if (!/^\d{1,8}$/.test(sPernr)) {
+                errors.push(oBundle.getText("errPernrInvalid"));
             } else {
                 while (sPernr.length < 8) sPernr = "0" + sPernr;
             }
@@ -171,9 +177,27 @@ sap.ui.define([
             // --- Time conversion ---
             var sEntry = this._parseTimeUpload(row[2]);
             var sExit = this._parseTimeUpload(row[3]);
+            if (!sEntry) errors.push(oBundle.getText("errFirstEntryInvalid"));
+            if (!sExit) errors.push(oBundle.getText("errLastExitInvalid"));
+            if (sEntry && sExit && sEntry === sExit) errors.push(oBundle.getText("errTimeRangeInvalid"));
 
             var sEntryDisplay = sEntry ? sEntry.substring(0,2) + ":" + sEntry.substring(2,4) + ":" + sEntry.substring(4,6) : "";
             var sExitDisplay = sExit ? sExit.substring(0,2) + ":" + sExit.substring(2,4) + ":" + sExit.substring(4,6) : "";
+
+            var fIot = Number(row[4] || 0);
+            var fIotwf = Number(row[5] || 0);
+            var fIwa = Number(row[6] || 0);
+            var iEntryCount = Number(row[7] || 0);
+            var iExitCount = Number(row[8] || 0);
+            if (!Number.isFinite(fIot) || fIot < 0 || fIot > 999.99 ||
+                !Number.isFinite(fIotwf) || fIotwf < 0 || fIotwf > 999.99 ||
+                !Number.isFinite(fIwa) || fIwa < 0 || fIwa > 999.99) {
+                errors.push(oBundle.getText("errHoursInvalid"));
+            }
+            if (!Number.isInteger(iEntryCount) || iEntryCount < 0 || iEntryCount > 32767 ||
+                !Number.isInteger(iExitCount) || iExitCount < 0 || iExitCount > 32767) {
+                errors.push(oBundle.getText("errCountsInvalid"));
+            }
 
             return {
                 _rowIndex: rowIndex,
@@ -186,40 +210,55 @@ sap.ui.define([
                 FirstEntryDisplay: sEntryDisplay,
                 LastExit: sExit,
                 LastExitDisplay: sExitDisplay,
-                Iot: parseFloat(row[4]) || 0,
-                Iotwf: parseFloat(row[5]) || 0,
-                Iwa: parseFloat(row[6]) || 0,
-                NumberOfEntry: parseInt(row[7]) || 0,
-                NumberOfExit: parseInt(row[8]) || 0
+                Iot: Number.isFinite(fIot) ? fIot : 0,
+                Iotwf: Number.isFinite(fIotwf) ? fIotwf : 0,
+                Iwa: Number.isFinite(fIwa) ? fIwa : 0,
+                NumberOfEntry: Number.isInteger(iEntryCount) ? iEntryCount : 0,
+                NumberOfExit: Number.isInteger(iExitCount) ? iExitCount : 0
             };
         },
 
         _parseTimeUpload: function (sTime) {
             if (!sTime && sTime !== 0) return "";
             var s = String(sTime).trim();
-            
+
             // If it's a decimal (fraction of a day from Excel raw format)
             if (!isNaN(s) && Number(s) >= 0 && Number(s) < 1 && s.indexOf(":") === -1) {
                 var totalSeconds = Math.round(Number(s) * 86400);
+                if (totalSeconds >= 86400) return "";
                 var h = Math.floor(totalSeconds / 3600);
                 var m = Math.floor((totalSeconds % 3600) / 60);
                 var sec = totalSeconds % 60;
                 return ("0" + h).slice(-2) + ("0" + m).slice(-2) + ("0" + sec).slice(-2);
             }
-            
+
             // If it contains ":"
             if (s.indexOf(":") !== -1) {
                 var parts = s.split(":");
-                var h = ("0" + (parts[0] || "0")).slice(-2);
-                var m = ("0" + (parts[1] || "0")).slice(-2);
-                var sec = ("0" + (parts[2] || "0")).slice(-2);
-                return h + m + sec;
+                if (parts.length < 2 || parts.length > 3) return "";
+                var iHour = Number(parts[0]);
+                var iMinute = Number(parts[1]);
+                var iSecond = Number(parts[2] || 0);
+                if (!Number.isInteger(iHour) || iHour < 0 || iHour > 23 ||
+                    !Number.isInteger(iMinute) || iMinute < 0 || iMinute > 59 ||
+                    !Number.isInteger(iSecond) || iSecond < 0 || iSecond > 59) return "";
+                return ("0" + iHour).slice(-2) + ("0" + iMinute).slice(-2) + ("0" + iSecond).slice(-2);
             }
-            
-            // If it's already HHMMSS or HMMSS (numbers only)
-            var sClean = s.replace(/\D/g, "");
-            while (sClean.length > 0 && sClean.length < 6) sClean = "0" + sClean;
-            return sClean;
+
+            // Numeric HHMM or HHMMSS.
+            if (!/^\d{1,6}$/.test(s)) return "";
+            var sClean;
+            if (s.length <= 2) {
+                sClean = ("00" + s).slice(-2) + "0000";
+            } else if (s.length <= 4) {
+                sClean = ("0000" + s).slice(-4) + "00";
+            } else {
+                sClean = ("000000" + s).slice(-6);
+            }
+            var iHours = Number(sClean.substring(0, 2));
+            var iMinutes = Number(sClean.substring(2, 4));
+            var iSeconds = Number(sClean.substring(4, 6));
+            return iHours <= 23 && iMinutes <= 59 && iSeconds <= 59 ? sClean : "";
         },
 
         /**
@@ -235,23 +274,67 @@ sap.ui.define([
                 var d = new Date(excelEpoch.getTime() + Number(sDate) * 86400000);
                 var mm = ("0" + (d.getMonth() + 1)).slice(-2);
                 var dd = ("0" + d.getDate()).slice(-2);
-                return d.getFullYear() + mm + dd;
+                var sExcelDate = d.getFullYear() + mm + dd;
+                return this._isValidDateUpload(sExcelDate) ? sExcelDate : null;
             }
 
             var s = String(sDate).trim();
 
             // DD.MM.YYYY or DD/MM/YYYY
             var m1 = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
-            if (m1) return m1[3] + ("0" + m1[2]).slice(-2) + ("0" + m1[1]).slice(-2);
+            if (m1) {
+                var sEuropeanDate = m1[3] + ("0" + m1[2]).slice(-2) + ("0" + m1[1]).slice(-2);
+                return this._isValidDateUpload(sEuropeanDate) ? sEuropeanDate : null;
+            }
 
             // YYYY-MM-DD
             var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (m2) return m2[1] + m2[2] + m2[3];
+            if (m2) {
+                var sIsoDate = m2[1] + m2[2] + m2[3];
+                return this._isValidDateUpload(sIsoDate) ? sIsoDate : null;
+            }
 
             // YYYYMMDD
-            if (/^\d{8}$/.test(s)) return s;
+            if (/^\d{8}$/.test(s)) return this._isValidDateUpload(s) ? s : null;
 
             return null;
+        },
+
+        _isValidDateUpload: function (sDate) {
+            if (!/^\d{8}$/.test(sDate)) return false;
+            var iYear = Number(sDate.substring(0, 4));
+            var iMonth = Number(sDate.substring(4, 6));
+            var iDay = Number(sDate.substring(6, 8));
+            var oDate = new Date(Date.UTC(iYear, iMonth - 1, iDay));
+            return oDate.getUTCFullYear() === iYear &&
+                oDate.getUTCMonth() === iMonth - 1 &&
+                oDate.getUTCDate() === iDay;
+        },
+
+        _markDuplicateRows: function (aRecords) {
+            var sDuplicateError = this.getView().getModel("i18n").getResourceBundle().getText("errDuplicateKey");
+            var oSeenKeys = {};
+
+            aRecords.forEach(function (record) {
+                var aErrors = String(record._errorMsg || "").split("; ").filter(function (message) {
+                    return message && message !== sDuplicateError;
+                });
+                record._errorMsg = aErrors.join("; ");
+                record._hasError = aErrors.length > 0;
+            });
+
+            aRecords.forEach(function (record) {
+                if (!record.Pernr || !record.WorkDate) return;
+                var sKey = record.Pernr + "|" + record.WorkDate;
+                if (oSeenKeys[sKey]) {
+                    record._hasError = true;
+                    record._errorMsg = [record._errorMsg, sDuplicateError].filter(Boolean).join("; ");
+                    oSeenKeys[sKey]._hasError = true;
+                    oSeenKeys[sKey]._errorMsg = [oSeenKeys[sKey]._errorMsg, sDuplicateError].filter(Boolean).join("; ");
+                } else {
+                    oSeenKeys[sKey] = record;
+                }
+            });
         },
 
         // ======================== Delete Selected Rows ========================
@@ -276,7 +359,9 @@ sap.ui.define([
             aIndices.sort(function(a, b) { return b - a; });
             aIndices.forEach(function(idx) { aRecords.splice(idx, 1); });
 
-            // Recount errors
+            // Re-evaluate duplicates because deleting one side of a duplicate
+            // pair must clear the error on the remaining row.
+            this._markDuplicateRows(aRecords);
             var iErrors = aRecords.filter(function(r) { return r._hasError; }).length;
 
             oModel.setProperty("/records", aRecords);
@@ -292,6 +377,15 @@ sap.ui.define([
             var oModel = this.getView().getModel("uploadModel");
             var aRecords = oModel.getProperty("/records");
             var oBundle = this.getView().getModel("i18n").getResourceBundle();
+
+            if (!aRecords || aRecords.length === 0) {
+                MessageToast.show("No data to check.");
+                return;
+            }
+            if (oModel.getProperty("/errorRows") > 0) {
+                MessageBox.error(oBundle.getText("msgFixErrors"));
+                return;
+            }
 
             // Collect unique YYYYMM months
             var oMonths = {};
@@ -353,6 +447,10 @@ sap.ui.define([
                 MessageToast.show("No data to upload.");
                 return;
             }
+            if (oModel.getProperty("/errorRows") > 0) {
+                MessageBox.error(oBundle.getText("msgFixErrors"));
+                return;
+            }
 
             // Final confirmation
             var that = this;
@@ -380,9 +478,9 @@ sap.ui.define([
             var aPayload = aRecords.map(function (rec) {
                 return {
                     Pernr: rec.Pernr,
-                    WorkDate: rec.WorkDate,
-                    FirstEntry: rec.FirstEntry,
-                    LastExit: rec.LastExit,
+                    WorkDate: rec.WorkDate.substring(0, 4) + "-" + rec.WorkDate.substring(4, 6) + "-" + rec.WorkDate.substring(6, 8),
+                    FirstEntry: rec.FirstEntry.substring(0, 2) + ":" + rec.FirstEntry.substring(2, 4) + ":" + rec.FirstEntry.substring(4, 6),
+                    LastExit: rec.LastExit.substring(0, 2) + ":" + rec.LastExit.substring(2, 4) + ":" + rec.LastExit.substring(4, 6),
                     Iot: rec.Iot,
                     Iotwf: rec.Iotwf,
                     Iwa: rec.Iwa,
@@ -391,12 +489,15 @@ sap.ui.define([
                 };
             });
 
-            var that = this;
+            var sSourceFileName = this._rawFile ? this._rawFile.name : "HR_UPLOAD";
             jQuery.ajax({
                 url: "/api/v4/uploadBatch",
                 method: "POST",
                 contentType: "application/json",
-                data: JSON.stringify({ records: aPayload }),
+                data: JSON.stringify({
+                    records: aPayload,
+                    sourceFileName: sSourceFileName
+                }),
                 success: function (result) {
                     oModel.setProperty("/uploading", false);
                     oModel.setProperty("/uploadProgress", 100);
@@ -405,15 +506,20 @@ sap.ui.define([
                     var iSuccess = result.success || 0;
                     var iFailed = result.failed || 0;
                     if (iFailed === 0) {
-                        MessageBox.success(oBundle.getText("msgUploadSuccess", [iSuccess]));
+                        MessageBox.success(oBundle.getText("msgUploadSuccess", [iSuccess, result.batchId || "-"]));
                     } else {
-                        MessageBox.warning(oBundle.getText("msgUploadPartial", [iSuccess, iFailed]));
+                        MessageBox.warning(oBundle.getText("msgUploadPartial", [iSuccess, iFailed, result.batchId || "-"]));
                     }
                 },
                 error: function (xhr) {
                     oModel.setProperty("/uploading", false);
                     var sErr = "";
-                    try { sErr = JSON.parse(xhr.responseText).error || xhr.statusText; } catch(e) { sErr = xhr.statusText; }
+                    try {
+                        var oError = JSON.parse(xhr.responseText).error;
+                        sErr = typeof oError === "string" ? oError : (oError && oError.message) || xhr.statusText;
+                    } catch(e) {
+                        sErr = xhr.statusText;
+                    }
                     MessageBox.error(oBundle.getText("msgUploadFailed") + "\n" + sErr);
                 }
             });
