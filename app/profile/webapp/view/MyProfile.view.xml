@@ -46,31 +46,8 @@
                             <Text text="{i18n>profileEmployeeId}: {profile>/Pernr}" class="profileHeroSubText sapUiTinyMarginTop"/>
                         </VBox>
                     </HBox>
-                    <Button
-                        id="editProfileButton"
-                        text="{i18n>profileEditButton}"
-                        icon="sap-icon://edit"
-                        type="Emphasized"
-                        enabled="{profileUi>/hasEditableField}"
-                        tooltip="{i18n>profileEditTooltip}"
-                        press="onEditProfile"/>
                 </HBox>
             </VBox>
-
-            <HBox wrap="Wrap" class="profileWorkflowSummary sapUiMediumMarginTop sapUiSmallMarginBottom">
-                <ObjectStatus
-                    text="{i18n>profilePendingCount}: {profileUi>/pendingCount}"
-                    icon="sap-icon://pending"
-                    state="Warning"
-                    inverted="true"
-                    class="sapUiTinyMarginEnd sapUiTinyMarginBottom"/>
-                <ObjectStatus
-                    text="{i18n>profileRevisionCount}: {profileUi>/revisionCount}"
-                    icon="sap-icon://edit"
-                    state="Information"
-                    inverted="true"
-                    class="sapUiTinyMarginBottom"/>
-            </HBox>
 
             <IconTabBar
                 id="profileCoreTabs"
@@ -130,33 +107,6 @@
                 </items>
             </IconTabBar>
 
-            <VBox class="premiumTableContainer sapUiMediumMarginTop">
-                <Toolbar class="premiumTableHeader">
-                    <Title text="{i18n>profileRequestHistory}" level="H4"/>
-                    <ToolbarSpacer/>
-                    <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>profileRefreshHistory}" press="onRefreshProfile"/>
-                </Toolbar>
-                <Table items="{profileHistory>/rows}" growing="true" growingThreshold="10" noDataText="{i18n>profileNoRequests}">
-                    <columns>
-                        <Column><Text text="{i18n>profileRequestNo}"/></Column>
-                        <Column demandPopin="true" minScreenWidth="Tablet"><Text text="{i18n>profileSubmittedAt}"/></Column>
-                        <Column demandPopin="true" minScreenWidth="Desktop"><Text text="{i18n>profileRemark}"/></Column>
-                        <Column demandPopin="true" minScreenWidth="Desktop"><Text text="{i18n>profileHrComment}"/></Column>
-                        <Column hAlign="End"><Text text="{i18n>profileStatus}"/></Column>
-                    </columns>
-                    <items>
-                        <ColumnListItem>
-                            <cells>
-                                <ObjectIdentifier title="{profileHistory>RequestNo}" text="{profileHistory>ID}"/>
-                                <Text text="{path:'profileHistory>SubmittedAt', formatter:'.formatter.formatDateTime'}"/>
-                                <Text text="{profileHistory>Remark}" wrapping="true"/>
-                                <Text text="{profileHistory>HrComment}" wrapping="true"/>
-                                <ObjectStatus text="{profileHistory>StatusText}" icon="{path:'profileHistory>Status', formatter:'.formatter.statusIcon'}" state="{path:'profileHistory>Status', formatter:'.formatter.statusState'}" inverted="true"/>
-                            </cells>
-                        </ColumnListItem>
-                    </items>
-                </Table>
-            </VBox>
         </VBox>
     </VBox>
 </mvc:View>

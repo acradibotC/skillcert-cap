@@ -307,9 +307,12 @@ cds.on('bootstrap', app => {
                     authorized: true,
                     userId: subject,
                     email,
+                    sapUserId: profile.UserId || email,
                     name,
                     pernr: profile.Pernr,
                     employeeName: profile.EmployeeName || name,
+                    position: profile.PositionName || profile.PositionId || '',
+                    department: profile.OrgUnitName || profile.OrgUnitId || '',
                     isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x',
                     isHrAdmin: isProfileHrAdmin(email)
                 };

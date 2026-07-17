@@ -28,19 +28,17 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(edmx, /Action Name="approveProfileChange" IsBound="false"/);
     assert.match(edmx, /Parameter Name="ExpectedVersion"/);
 
-    const uiContract = [
-        fs.readFileSync('app/profile/webapp/controller/MyProfile.controller.js', 'utf8'),
-        fs.readFileSync('app/profile/webapp/controller/ProfileApprovalInbox.controller.js', 'utf8')
-    ].join('\n');
-    for (const entitySet of [
-        'MyProfile', 'MyProfileFields', 'MyProfileRequests', 'MyProfileRequestItems', 'ProfileApprovalRequests',
-        'ProfileApprovalRequestItems', 'ProfileRequestEvents', 'ProfilePaymentMethods', 'ProfileBanks'
-    ]) {
-        assert.match(uiContract, new RegExp(`/${entitySet}`));
-    }
-
     const employeeController = fs.readFileSync('app/profile/webapp/controller/MyProfile.controller.js', 'utf8');
+    assert.match(employeeController, /\/MyProfile/);
+    assert.match(employeeController, /\/MyProfileFields/);
+    assert.doesNotMatch(employeeController, /\/MyProfileRequests/);
+    assert.doesNotMatch(employeeController, /\/ProfilePaymentMethods/);
+    assert.doesNotMatch(employeeController, /\/ProfileBanks/);
     assert.match(employeeController, /sLoadState === "error"[\s\S]*profileErrorServiceUnavailable/);
+
+    const employeeView = fs.readFileSync('app/profile/webapp/view/MyProfile.view.xml', 'utf8');
+    assert.doesNotMatch(employeeView, /editProfileButton/);
+    assert.doesNotMatch(employeeView, /profileRequestHistory/);
 });
 
 test('existing skill approval actions remain explicitly unbound', async () => {
