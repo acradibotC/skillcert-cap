@@ -91,12 +91,16 @@
     color: white;
 }
 
-/* --- Modern Profile Hero Redesign --- */
+/* --- MyProfile SAP preview --- */
+.profilePageSurface {
+    background: var(--sapBackgroundColor, #f5f6f7);
+}
+
 .profileHeroContainer {
-    background: linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%);
-    border-radius: 16px;
-    padding: 2.5rem 2rem 2.5rem 2rem; /* reduced bottom padding since cards are removed */
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    background: linear-gradient(135deg, #0861bd 0%, #1d82df 55%, #35a1ee 100%);
+    border-radius: 0.75rem 0.75rem 0 0;
+    padding: 1.5rem 2rem 1.25rem;
+    box-shadow: 0 0.35rem 1rem rgba(13, 71, 161, 0.16);
     color: white;
     position: relative;
 }
@@ -112,19 +116,19 @@
     border-bottom: 2px solid var(--sapActiveColor, #1976d2) !important;
 }
 .profileAvatar {
-    border: 4px solid rgba(255,255,255,0.4);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border: 0.25rem solid rgba(255,255,255,0.85);
+    box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
     background-color: var(--sapAvatar_1_Background, white) !important;
 }
 .profileHeroTitle {
     color: white !important;
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
-    font-size: 1.8rem !important;
+    text-shadow: 0 0.0625rem 0.2rem rgba(0,0,0,0.24);
+    font-size: 1.45rem !important;
 }
 .profileHeroSubText {
-    color: rgba(255,255,255,0.9) !important;
+    color: rgba(255,255,255,0.95) !important;
     font-weight: 500;
-    font-size: 1rem !important;
+    font-size: 0.875rem !important;
 }
 .profileStatsRow {
     margin-top: -3.5rem; /* Overlap hero */
@@ -189,7 +193,6 @@
     color: var(--sapTextColor, #333);
 }
 
-/* MyProfile approval workflow */
 .profileHeroStatus .sapMObjStatusText,
 .profileHeroStatus .sapMObjStatusIcon {
     color: #fff !important;
@@ -202,29 +205,120 @@
 .profileCoreTabs {
     background: var(--sapGroup_ContentBackground, #fff);
     border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
-    border-radius: 0.75rem;
+    border-top: 0;
+    border-radius: 0 0 0.75rem 0.75rem;
     overflow: hidden;
 }
 
+.profileCoreTabs .sapMITBHead {
+    padding: 0 0.5rem;
+}
+
+.profileCoreTabs .sapMITBFilter {
+    min-width: 8.5rem;
+}
+
 .profileCoreTabs .sapMITBContent {
-    padding: 1rem;
+    padding: 1.25rem;
+    background: #fff;
+}
+
+.profileInfoGrid {
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.profileInfoCard {
+    flex: 1 1 24rem;
+    min-width: 0;
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.5rem;
+    background: var(--sapGroup_ContentBackground, #fff);
+    padding: 1.25rem;
+    box-sizing: border-box;
+}
+
+.profileSingleCard {
+    border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    background: var(--sapGroup_ContentBackground, #fff);
+}
+
+.profileSectionTitle {
+    color: var(--sapTitleColor, #0a4a8a) !important;
+    font-size: 1rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+.profileInfoCard .sapUiFormResGrid,
+.profileInfoCard .sapUiFormResGridCont {
+    padding: 0 !important;
+}
+
+.profileInfoCard .sapMLabel {
+    color: var(--sapContent_LabelColor, #556b82);
+    font-size: 0.75rem;
+    padding-top: 0.45rem;
+}
+
+.profileReadOnlyInput .sapMInputBaseContentWrapper {
+    background: var(--sapField_ReadOnly_Background, #f5f6f7) !important;
+    border-color: var(--sapField_ReadOnly_BorderColor, #d5dadd) !important;
+}
+
+.profileSapInput .sapMInputBaseContentWrapper {
+    border-left: 0.2rem solid var(--sapInformationColor, #0a6ed1) !important;
+}
+
+.profileFieldHint {
+    color: var(--sapContent_LabelColor, #556b82);
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.profilePaymentChoice {
+    min-height: 2rem;
+    padding: 0.25rem 0;
+}
+
+.profileEditRow {
+    border-top: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+    .profileInfoGrid {
+        gap: 1rem;
+    }
+
+    .profileInfoCard {
+        flex-basis: 100%;
+    }
 }
 
 @media (max-width: 600px) {
     .profileHeroContainer {
         padding: 1.5rem 1rem;
-        border-radius: 0.75rem;
-    }
-
-    .profileHeroContainer .profileAvatar {
-        margin-right: 1rem !important;
     }
 
     .profileHeroTitle {
-        font-size: 1.4rem !important;
+        font-size: 1.25rem !important;
     }
 
     .profileCoreTabs .sapMITBContent {
-        padding: 0.5rem;
+        padding: 0.75rem;
+    }
+
+    .profileInfoCard,
+    .profileSingleCard {
+        padding: 0.875rem;
+    }
+
+    .profileCoreTabs .sapMITBFilter {
+        min-width: auto;
     }
 }

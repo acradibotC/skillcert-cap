@@ -103,6 +103,10 @@ service ProfileService @(path: '/api/profile/v1') {
     entity MyProfile {
         key Pernr              : String(8);
         EmployeeName           : String(120);
+        DateOfBirth            : Date;
+        Gender                 : String(20);
+        Nationality            : String(60);
+        MaritalStatus          : String(60);
         PositionName           : String(120);
         OrgUnitName            : String(120);
         IdNumber               : String(20);

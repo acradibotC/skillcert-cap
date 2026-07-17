@@ -27,6 +27,9 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(edmx, /Action Name="resubmitProfileChange" IsBound="false"[\s\S]*?Parameter Name="IdempotencyKey"/);
     assert.match(edmx, /Action Name="approveProfileChange" IsBound="false"/);
     assert.match(edmx, /Parameter Name="ExpectedVersion"/);
+    for (const property of ['DateOfBirth', 'Gender', 'Nationality', 'MaritalStatus']) {
+        assert.match(edmx, new RegExp(`Property Name="${property}"`));
+    }
 
     const employeeController = fs.readFileSync('app/profile/webapp/controller/MyProfile.controller.js', 'utf8');
     assert.match(employeeController, /\/MyProfile/);
@@ -37,7 +40,10 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(employeeController, /sLoadState === "error"[\s\S]*profileErrorServiceUnavailable/);
 
     const employeeView = fs.readFileSync('app/profile/webapp/view/MyProfile.view.xml', 'utf8');
-    assert.doesNotMatch(employeeView, /editProfileButton/);
+    assert.match(employeeView, /profilePreviewEditButton/);
+    assert.match(employeeView, /profilePreviewEditButton[\s\S]*?enabled="false"/);
+    assert.match(employeeView, /visible="\{profile>\/HasBankTransfer\}"/);
+    assert.match(employeeView, /profileReadOnlySap/);
     assert.doesNotMatch(employeeView, /profileRequestHistory/);
 });
 

@@ -73,6 +73,11 @@ sap.ui.define([
                     });
                 });
                 oProfile.Initials = this._initials(oProfile.EmployeeName);
+                oProfile.PaymentMethodDisplay = this._paymentMethodText(oProfile.PayMethod, oProfile.PayMethodText);
+                oProfile.HasBankTransfer = this._isBankTransfer(oProfile.PayMethod, oProfile.PayMethodText);
+                oProfile.IsCashPayment = String(oProfile.PayMethod || "").trim().toUpperCase() === "C";
+                oProfile.HeroMeta = [oProfile.PositionName, oProfile.OrgUnitName].filter(Boolean)
+                    .concat([this._bundle().getText("profileEmployeeId") + ": " + oProfile.Pernr]).join(" | ");
                 this.getView().getModel("profile").setData(oProfile);
 
                 var oUserModel = this.getOwnerComponent().getModel("user");
@@ -92,6 +97,26 @@ sap.ui.define([
         _initials: function (sName) {
             return String(sName || "").trim().split(/\s+/).filter(Boolean).slice(-2)
                 .map(function (sPart) { return sPart.charAt(0).toUpperCase(); }).join("");
+        },
+
+        _isBankTransfer: function (sCode, sText) {
+            var sNormalizedCode = String(sCode || "").trim().toUpperCase();
+            var sNormalizedText = String(sText || "").trim().toLowerCase();
+            return ["T", "5"].indexOf(sNormalizedCode) >= 0 ||
+                /bank|transfer|chuyển khoản/.test(sNormalizedText);
+        },
+
+        _paymentMethodText: function (sCode, sText) {
+            if (sText) {
+                return sText;
+            }
+            if (this._isBankTransfer(sCode, sText)) {
+                return this._bundle().getText("profilePaymentBankTransfer");
+            }
+            if (String(sCode || "").trim().toUpperCase() === "C") {
+                return this._bundle().getText("profilePaymentCash");
+            }
+            return "";
         },
 
         profileErrorText: function (sKey) {
