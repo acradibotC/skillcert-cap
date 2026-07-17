@@ -37,7 +37,7 @@
         "kind": "odata-v4",
         "model": "srv/external/ZUI_NXR_SKILLREQ_O4",
         "credentials": {
-          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_skillreq_o4_bind/srvd/sap/zui_nxr_skillreq_o4/0001/",
+          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_skillreq_o4_bind/srvd/sap/zui_nxr_skillreq_o4/0001",
           "authentication": "BasicAuthentication",
           "csrf": true
         }
@@ -46,7 +46,7 @@
         "kind": "odata-v4",
         "model": "srv/external/ZUI_NXR_WORKSCHEDULE_O4",
         "credentials": {
-          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_workschedule_o4/srvd/sap/zsd_nxr_workschedule/0001/",
+          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_workschedule_o4/srvd/sap/zsd_nxr_workschedule/0001",
           "authentication": "BasicAuthentication",
           "csrf": true
         }
