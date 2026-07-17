@@ -31,6 +31,10 @@ test.before(async () => {
                     UserId: 'HAONGUYEN022202@GMAIL.COM',
                     Pernr: '90000005',
                     EmployeeName: 'Ta Nam Son',
+                    DateOfBirth: '1990-09-15',
+                    Gender: 'Male',
+                    Nationality: 'Vietnamese',
+                    MaritalStatus: 'Married',
                     PositionId: '00001234',
                     PositionName: 'SAP Developer',
                     OrgUnitId: '00005678',
@@ -61,6 +65,10 @@ test('MyProfile is mapped from SAP UserProfile without ProfileSnapshots', async 
     assert.equal(profile.PositionName, 'SAP Developer');
     assert.equal(profile.OrgUnitName, 'Technology');
     assert.equal(profile.WorkEmail, 'haonguyen022202@gmail.com');
+    assert.equal(profile.DateOfBirth, '1990-09-15');
+    assert.equal(profile.Gender, 'Male');
+    assert.equal(profile.Nationality, 'Vietnamese');
+    assert.equal(profile.MaritalStatus, 'Married');
     assert.equal(profile.IsSimulation, false);
     assert.equal(profile.IdNumber, '');
     assert.ok(profile.ProfileVersion);
