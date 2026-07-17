@@ -233,9 +233,12 @@ sap.ui.define([
                         return;
                     }
 
-                    var sEmail = oLocalUser.email;
-                    if (!sEmail) {
+                    var sEmail = String(oLocalUser.email || "").trim();
+                    var sPernr = String(oLocalUser.pernr || "").trim();
+                    var sSapUserId = String(oLocalUser.sapUserId || sEmail).trim();
+                    if (!sPernr && !sSapUserId) {
                         oViewModel.setProperty("/calendarBusy", false);
+                        this.byId("userInfoText").setText(this.getText("dataLoadUnavailable"));
                         return;
                     }
                     this._sCurrentUserEmail = sEmail;
@@ -250,31 +253,39 @@ sap.ui.define([
                         // Keep default request mode when session storage is unavailable.
                     }
 
-                    // 2. Fetch real Pernr from SAP UserProfile via /api/v1/ (SkillService)
+                    // /api/currentUser already resolves the authenticated identity to a
+                    // personnel number. Start the independent schedule/request reads
+                    // immediately so a secondary profile lookup cannot block all tabs.
+                    if (sPernr) {
+                        this._startEmployeeDataLoad(sPernr, {
+                            Pernr: sPernr,
+                            EmployeeName: oLocalUser.employeeName || oLocalUser.name || "",
+                            DepartmentName: oLocalUser.department || ""
+                        });
+                        return;
+                    }
+
+                    // Compatibility fallback for an older currentUser response without
+                    // Pernr. SAP UserProfile keys are case-sensitive; use sapUserId,
+                    // never the lower-case OAuth e-mail address.
                     jQuery.ajax({
-                        url: "/api/v1/UserProfile('" + sEmail + "')",
+                        url: "/api/v1/UserProfile('" +
+                            encodeURIComponent(sSapUserId.replace(/'/g, "''")) + "')",
                         method: "GET",
                         success: function(oProfile) {
-                            var sPernr = oProfile.Pernr;
-                            if (!sPernr) {
+                            var sResolvedPernr = String(oProfile.Pernr || "").trim();
+                            if (!sResolvedPernr) {
                                 oViewModel.setProperty("/calendarBusy", false);
+                                this.byId("userInfoText").setText(this.getText("dataLoadUnavailable"));
                                 return;
                             }
-
-                        // 3. Fetch WorkSchedule with real Pernr filter for FULL YEAR
-                        this._sCurrentPernr = sPernr;
-                        var iYear = new Date().getFullYear();
-                        this._iLoadedYear = iYear;
-                        console.log("[WorkCalendar] Loading data for Pernr:", sPernr, "Year:", iYear);
-                        
-                        this._fetchWorkSchedule(sPernr, iYear, oProfile);
-                        this._loadRequests();
-
+                            this._startEmployeeDataLoad(sResolvedPernr, oProfile);
                         }.bind(this),
                         error: function(err) {
                             oViewModel.setProperty("/calendarBusy", false);
+                            this.byId("userInfoText").setText(this.getText("dataLoadUnavailable"));
                             console.error("[WorkCalendar] Failed to fetch UserProfile", err);
-                        }
+                        }.bind(this)
                     });
 
                 }.bind(this),
@@ -283,6 +294,20 @@ sap.ui.define([
                     console.error("[WorkCalendar] Failed to fetch currentUser", err);
                 }
             });
+        },
+
+        _startEmployeeDataLoad: function (sPernr, oProfile) {
+            this._sCurrentPernr = sPernr;
+            var iYear = new Date().getFullYear();
+            this._iLoadedYear = iYear;
+
+            var sName = oProfile.EmployeeName || "Employee";
+            var sDepartment = oProfile.DepartmentName || oProfile.OrgUnitName || "";
+            this.byId("userInfoText").setText(sName + (sDepartment ? " | " + sDepartment : ""));
+
+            console.log("[WorkCalendar] Loading data for Pernr:", sPernr, "Year:", iYear);
+            this._fetchWorkSchedule(sPernr, iYear, oProfile);
+            this._loadRequests();
         },
 
         _fetchWorkSchedule: function (sPernr, iYear, oProfile) {
