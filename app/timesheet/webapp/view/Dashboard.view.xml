@@ -1,0 +1,59 @@
+<mvc:View
+    controllerName="znxr09.timesheet.controller.Dashboard"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:layout="sap.ui.layout"
+    xmlns:viz="sap.viz.ui5.controls"
+    xmlns:vizdata="sap.viz.ui5.data"
+    xmlns:feed="sap.viz.ui5.controls.common.feeds">
+    <VBox busy="{dashboard>/busy}">
+        <OverflowToolbar class="premiumTableContainer sapUiSmallMarginBottom sapUiSmallMargin">
+            <Label text="{i18n>dashboardPeriod}" />
+            <DatePicker id="dashboardFrom" value="{dashboard>/periodFrom}" valueFormat="yyyy-MM-dd" displayFormat="MMM yyyy" width="9rem" />
+            <Text text="–" class="sapUiTinyMarginBegin sapUiTinyMarginEnd" />
+            <DatePicker id="dashboardTo" value="{dashboard>/periodTo}" valueFormat="yyyy-MM-dd" displayFormat="MMM yyyy" width="9rem" />
+            <ToolbarSpacer />
+            <Button text="{i18n>btnRefresh}" icon="sap-icon://refresh" type="Emphasized" press="onSearch" />
+            <MenuButton text="{i18n>btnExport}" icon="sap-icon://excel-attachment">
+                <menu>
+                    <Menu itemSelect="onExport">
+                        <MenuItem key="xlsx" text="Excel (.xlsx)" icon="sap-icon://excel-attachment" />
+                        <MenuItem key="pdf" text="PDF" icon="sap-icon://pdf-attachment" />
+                    </Menu>
+                </menu>
+            </MenuButton>
+        </OverflowToolbar>
+
+        <layout:Grid defaultSpan="XL3 L3 M6 S12" hSpacing="1" vSpacing="1">
+            <GenericTile header="{i18n>dashboardTotalEmployees}" class="dashboardKpiTile"><TileContent><NumericContent value="{dashboard>/summary/totalEmployees}" valueColor="Neutral" /></TileContent></GenericTile>
+            <GenericTile header="{i18n>dashboardAvgHours}" class="dashboardKpiTile"><TileContent><NumericContent value="{dashboard>/summary/avgActualHours}" scale="h" valueColor="Good" /></TileContent></GenericTile>
+            <GenericTile header="{i18n>dashboardFullAttendance}" class="dashboardKpiTile"><TileContent><NumericContent value="{dashboard>/summary/fullAttendanceRate}" scale="%" valueColor="Good" /></TileContent></GenericTile>
+            <GenericTile header="{i18n>dashboardAbsent}" class="dashboardKpiTile"><TileContent><NumericContent value="{dashboard>/summary/absentRate}" scale="%" valueColor="Error" /></TileContent></GenericTile>
+        </layout:Grid>
+
+        <layout:Grid defaultSpan="XL8 L8 M12 S12" hSpacing="1" vSpacing="1" class="sapUiMediumMarginTop">
+            <Panel headerText="{i18n>dashboardActualVsTarget}" class="premiumTableContainer">
+                <viz:VizFrame id="departmentChart" vizType="column" width="100%" height="20rem">
+                    <viz:dataset><vizdata:FlattenedDataset data="{dashboard>/byOrgUnit}"><vizdata:dimensions><vizdata:DimensionDefinition name="Department" value="{OrgUnitName}" /></vizdata:dimensions><vizdata:measures><vizdata:MeasureDefinition name="Actual" value="{ActualHours}" /><vizdata:MeasureDefinition name="Target" value="{TargetHours}" /></vizdata:measures></vizdata:FlattenedDataset></viz:dataset>
+                    <viz:feeds><feed:FeedItem uid="valueAxis" type="Measure" values="Actual,Target" /><feed:FeedItem uid="categoryAxis" type="Dimension" values="Department" /></viz:feeds>
+                </viz:VizFrame>
+            </Panel>
+            <VBox><layoutData><layout:GridData span="XL4 L4 M12 S12" /></layoutData>
+                <Panel headerText="{i18n>dashboardAttendanceRate}" class="premiumTableContainer sapUiResponsiveContentPadding">
+                    <Label text="{i18n>dashboardFullAttendance}" /><ProgressIndicator percentValue="{dashboard>/summary/fullAttendanceRate}" displayValue="{dashboard>/summary/fullAttendanceRate}%" state="Success" />
+                    <Label text="{i18n>dashboardLateEarly}" class="sapUiSmallMarginTop" /><ProgressIndicator percentValue="{dashboard>/summary/lateEarlyRate}" displayValue="{dashboard>/summary/lateEarlyRate}%" state="Warning" />
+                    <Label text="{i18n>dashboardAbsent}" class="sapUiSmallMarginTop" /><ProgressIndicator percentValue="{dashboard>/summary/absentRate}" displayValue="{dashboard>/summary/absentRate}%" state="Error" />
+                    <Text text="{dashboard>/dataAsOf}" class="sapUiSmallMarginTop" />
+                </Panel>
+            </VBox>
+        </layout:Grid>
+
+        <Panel headerText="{i18n>dashboardEmployeeDetails}" class="premiumTableContainer sapUiMediumMarginTop">
+            <Table items="{dashboard>/employees}" growing="true" growingThreshold="100" alternateRowColors="true" class="sapUiSizeCompact" noDataText="{i18n>txtNoDataReq}">
+                <columns><Column><Text text="{i18n>lblPernr}" /></Column><Column><Text text="{i18n>colEmployee}" /></Column><Column><Text text="{i18n>lblDepartment}" /></Column><Column hAlign="End"><Text text="{i18n>dashboardActualHours}" /></Column><Column hAlign="End"><Text text="{i18n>dashboardTargetHours}" /></Column><Column hAlign="End"><Text text="{i18n>dashboardVariance}" /></Column><Column hAlign="End"><Text text="{i18n>dashboardAchievement}" /></Column></columns>
+                <items><ColumnListItem><Text text="{dashboard>Pernr}" /><Text text="{dashboard>EmployeeName}" /><Text text="{dashboard>OrgUnitName}" /><Text text="{dashboard>ActualHours}" /><Text text="{dashboard>TargetHours}" /><ObjectNumber number="{dashboard>VarianceHours}" state="{dashboard>VarianceState}" /><ObjectNumber number="{dashboard>AchievementRate}" unit="%" /></ColumnListItem></items>
+            </Table>
+        </Panel>
+    </VBox>
+</mvc:View>

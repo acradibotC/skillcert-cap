@@ -44,9 +44,7 @@
                             <core:Icon src="sap-icon://bar-chart" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
                             <Title text="{i18n>navDashboard}" class="timesheetHeaderTitle" level="H2" />
                         </HBox>
-                        <VBox class="premiumTableContainer sapUiMediumMarginBottom sapUiResponsiveContentPadding">
-                            <Text text="{i18n>txtDashboardComing}" />
-                        </VBox>
+                        <mvc:XMLView viewName="znxr09.timesheet.view.Dashboard" />
                     </VBox>
 
                     <!-- ============================================ -->

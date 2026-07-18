@@ -60,7 +60,8 @@
         "sap.tnt": {},
         "sap.ui.unified": {},
         "sap.ui.layout": {},
-        "sap.f": {}
+        "sap.f": {},
+        "sap.viz": {}
       }
     },
     "rootView": {

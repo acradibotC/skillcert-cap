@@ -367,6 +367,86 @@ cds.on('bootstrap', app => {
 
     const trimTrailingSlash = (url) => String(url || '').replace(/\/+$/, '');
 
+    const dashboardScopeFor = (req) => {
+        const user = req.session && req.session.userInfo;
+        if (!sessionUserMatches(req) || !user || !user.authorized || !user.pernr) return null;
+        if (user.isHrAdmin) return 'HR';
+        if (user.isManager) return 'MANAGER';
+        return 'EMPLOYEE';
+    };
+
+    const dashboardDateRange = (req) => {
+        const from = String(req.query.periodFrom || '');
+        const to = String(req.query.periodTo || '');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) return null;
+        const days = Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000) + 1;
+        return days >= 1 && days <= 31 ? { from, to } : null;
+    };
+
+    // Dashboard is intentionally a CAP BFF: client filters are validated against
+    // the authenticated session and the S40 binding is never exposed to browsers.
+    app.get('/api/v6/dashboard', async (req, res) => {
+        const scope = dashboardScopeFor(req);
+        const range = dashboardDateRange(req);
+        if (!scope) return res.status(401).json({ error: 'Unauthorized' });
+        if (!range) return res.status(400).json({ error: 'Select a period from 1 to 31 days.' });
+
+        const dashboardUrl = trimTrailingSlash(process.env.DASHBOARD_API_URL || '');
+        if (!dashboardUrl) {
+            return res.status(503).json({ error: 'Dashboard backend is not configured.' });
+        }
+
+        try {
+            const axios = require('axios');
+            const requester = req.session.userInfo;
+            const commonFilter = [
+                "PeriodFrom eq '" + escapeODataString(range.from) + "'",
+                "PeriodTo eq '" + escapeODataString(range.to) + "'",
+                "RequesterPernr eq '" + escapeODataString(requester.pernr) + "'",
+                "RequesterScope eq '" + scope + "'"
+            ].join(' and ');
+            const config = { headers: { Authorization: getSapAuthHeader(), Accept: 'application/json' }, httpsAgent: sapHttpsAgent };
+            const [summaryResponse, orgResponse, employeeResponse] = await Promise.all([
+                axios.get(dashboardUrl + '/DashboardKpi?$filter=' + encodeURIComponent(commonFilter), config),
+                axios.get(dashboardUrl + '/DashboardOrgUnit?$filter=' + encodeURIComponent(commonFilter), config),
+                axios.get(dashboardUrl + '/DashboardEmployee?$filter=' + encodeURIComponent(commonFilter), config)
+            ]);
+            const summary = normalizeODataRows(summaryResponse.data)[0] || {};
+            const employees = normalizeODataRows(employeeResponse.data).map(row => ({
+                ...row,
+                VarianceState: Number(row.VarianceHours) < 0 ? 'Error' : 'Success'
+            }));
+            res.json({
+                summary: {
+                    totalEmployees: Number(summary.TotalEmployees || 0),
+                    avgActualHours: Number(summary.AvgActualHours || 0),
+                    fullAttendanceRate: Number(summary.FullAttendanceRate || 0),
+                    lateEarlyRate: Number(summary.LateEarlyRate || 0),
+                    absentRate: Number(summary.AbsentRate || 0)
+                },
+                byOrgUnit: normalizeODataRows(orgResponse.data),
+                employees,
+                dataAsOf: summary.DataAsOf ? 'Data as of ' + summary.DataAsOf : ''
+            });
+        } catch (error) {
+            const status = error.response && error.response.status ? error.response.status : 502;
+            const message = error.response?.data?.error?.message || error.message;
+            console.error('[Dashboard] S40 query failed:', message);
+            res.status(status).json({ error: 'Unable to load dashboard data.' });
+        }
+    });
+
+    app.get('/api/v6/dashboard/export', (req, res) => {
+        const scope = dashboardScopeFor(req);
+        const range = dashboardDateRange(req);
+        const format = String(req.query.format || '').toLowerCase();
+        if (!scope) return res.status(401).json({ error: 'Unauthorized' });
+        if (!range || !['xlsx', 'pdf'].includes(format)) return res.status(400).json({ error: 'Invalid dashboard export request.' });
+        // Export is enabled with the same S40 contract after the dashboard binding
+        // is transportable. Until then, do not generate an unscoped client export.
+        return res.status(503).json({ error: 'Dashboard export is not configured.' });
+    });
+
     // Training-system fallback: ZI_NXR_HR_TEAM_MEMBERS currently misses some
     // position-based reporting lines because PA0001-ORGEH is not populated.
     // Keep this map narrow and remove it once the SAP CDS view is fixed.
