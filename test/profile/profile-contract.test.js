@@ -35,15 +35,19 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(employeeController, /\/MyProfile/);
     assert.match(employeeController, /\/MyProfileFields/);
     assert.doesNotMatch(employeeController, /\/MyProfileRequests/);
-    assert.doesNotMatch(employeeController, /\/ProfilePaymentMethods/);
-    assert.doesNotMatch(employeeController, /\/ProfileBanks/);
+    assert.match(employeeController, /Fragment\.load/);
+    assert.match(employeeController, /validator\.validateProfileChange/);
+    assert.match(employeeController, /hasPreviewChanges/);
+    assert.doesNotMatch(employeeController, /executeAction/);
     assert.match(employeeController, /sLoadState === "error"[\s\S]*profileErrorServiceUnavailable/);
 
     const employeeView = fs.readFileSync('app/profile/webapp/view/MyProfile.view.xml', 'utf8');
     assert.match(employeeView, /profilePreviewEditButton/);
-    assert.match(employeeView, /profilePreviewEditButton[\s\S]*?enabled="false"/);
+    assert.match(employeeView, /profilePreviewEditButton[\s\S]*?enabled="\{profileUi>\/hasEditableField\}"/);
+    assert.match(employeeView, /press="onEditProfile"/);
     assert.match(employeeView, /visible="\{profile>\/HasBankTransfer\}"/);
-    assert.match(employeeView, /profileReadOnlySap/);
+    assert.match(employeeView, /profileSapPreviewStatus/);
+    assert.match(employeeView, /profileFrontendPreview/);
     assert.doesNotMatch(employeeView, /profileRequestHistory/);
 });
 

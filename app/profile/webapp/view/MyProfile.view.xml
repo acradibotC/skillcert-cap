@@ -36,7 +36,7 @@
                     class="profileHeroSubText sapUiTinyMarginTop"/>
                 <ObjectStatus
                     icon="sap-icon://cloud"
-                    text="{i18n>profileReadOnlySap}"
+                    text="{i18n>profileSapPreviewStatus}"
                     class="profileHeroStatus sapUiTinyMarginTop"/>
             </VBox>
 
@@ -96,9 +96,15 @@
                             </VBox>
                         </HBox>
                         <HBox justifyContent="SpaceBetween" alignItems="Center" wrap="Wrap" class="profileEditRow">
-                            <ObjectStatus icon="sap-icon://locked" text="{i18n>profileReadOnlySap}" state="Information"/>
-                            <Button id="profilePreviewEditButton" text="{i18n>profileEditButton}" icon="sap-icon://edit" type="Emphasized" enabled="false" tooltip="{i18n>profileEditRapPending}"/>
+                            <ObjectStatus icon="sap-icon://edit" text="{i18n>profileFrontendPreview}" state="Information"/>
+                            <Button id="profilePreviewEditButton" text="{i18n>profileEditButton}" icon="sap-icon://edit" type="Emphasized" enabled="{profileUi>/hasEditableField}" tooltip="{i18n>profileEditTooltip}" press="onEditProfile"/>
                         </HBox>
+                        <MessageStrip
+                            visible="{profileUi>/hasPreviewChanges}"
+                            text="{i18n>profilePreviewUnsaved}"
+                            type="Warning"
+                            showIcon="true"
+                            class="sapUiSmallMarginTop"/>
                     </IconTabFilter>
 
                     <IconTabFilter key="contactPayment" text="{i18n>profileTabContactPayment}">

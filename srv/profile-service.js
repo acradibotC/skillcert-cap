@@ -90,7 +90,9 @@ function fieldRows(profile) {
             DisplayValue: value,
             FieldGroup: definition.group,
             MaxLength: definition.maxLength,
-            Editable: false,
+            // FE preview mode: expose the FS-approved editable field set while
+            // keeping all workflow actions fail-closed until RAP is available.
+            Editable: true,
             Mandatory: false,
             Sensitive: Boolean(definition.sensitive),
             Locked: false,

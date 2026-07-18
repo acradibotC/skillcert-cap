@@ -74,7 +74,7 @@ test('MyProfile is mapped from SAP UserProfile without ProfileSnapshots', async 
     assert.ok(profile.ProfileVersion);
 });
 
-test('MyProfileFields is read-only until the SAP RAP profile contract is available', async () => {
+test('MyProfileFields exposes the frontend-preview editable field catalog', async () => {
     const fields = await service.send(new cds.Request({
         event: 'READ',
         query: SELECT.from('ProfileService.MyProfileFields'),
@@ -82,11 +82,12 @@ test('MyProfileFields is read-only until the SAP RAP profile contract is availab
     }));
 
     assert.ok(fields.length >= 10);
-    assert.ok(fields.every(field => field.Editable === false));
+    assert.ok(fields.every(field => field.Editable === true));
+    assert.ok(fields.every(field => field.Locked === false));
     assert.equal(fields.find(field => field.FieldCode === 'WORK_EMAIL').Value, 'haonguyen022202@gmail.com');
 });
 
-test('preview does not query workflow persistence and disables change actions', async () => {
+test('frontend preview does not query workflow persistence and keeps change actions disabled', async () => {
     const requests = await service.send(new cds.Request({
         event: 'READ',
         query: SELECT.from('ProfileService.MyProfileRequests'),

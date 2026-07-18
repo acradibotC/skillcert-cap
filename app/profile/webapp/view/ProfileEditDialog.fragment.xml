@@ -16,20 +16,8 @@
         <content>
             <VBox class="sapUiResponsiveContentPadding">
                 <MessageStrip
-                    visible="{profileEdit>/isRevision}"
-                    text="{i18n>profileRevisionInstruction}"
-                    type="Information"
-                    showIcon="true"
-                    class="sapUiSmallMarginBottom"/>
-                <MessageStrip
-                    visible="{= ${profileEdit>/isRevision} &amp;&amp; !!${profileEdit>/hrComment} }"
-                    text="{profileEdit>/hrComment}"
+                    text="{i18n>profileEditPreviewNotice}"
                     type="Warning"
-                    showIcon="true"
-                    class="sapUiSmallMarginBottom"/>
-                <MessageStrip
-                    text="{i18n>profileEditWorkflowNotice}"
-                    type="Information"
                     showIcon="true"
                     class="sapUiSmallMarginBottom"/>
 
@@ -69,24 +57,23 @@
                         <core:Item key="{profileCatalog>Code}" text="{profileCatalog>DisplayText}"/>
                     </Select>
 
-                    <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankName}" labelFor="profileBankSelect" required="true"/>
-                    <Select visible="{profileEdit>/isBankTransfer}" id="profileBankSelect" selectedKey="{profileEdit>/selectedBank}" enabled="{= ${profileEdit>/states/BANK_COUNTRY/EffectiveEditable} || ${profileEdit>/states/BANK_KEY/EffectiveEditable} }" change="onBankSelectionChange" forceSelection="false" items="{profileCatalog>/banks}">
-                        <core:Item key="{profileCatalog>SelectionKey}" text="{profileCatalog>DisplayText}"/>
-                    </Select>
+                    <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankCountry}" labelFor="profileBankCountryInput" required="true"/>
+                    <Input visible="{profileEdit>/isBankTransfer}" id="profileBankCountryInput" value="{profileEdit>/values/BANK_COUNTRY}" enabled="{profileEdit>/states/BANK_COUNTRY/EffectiveEditable}" maxLength="3" change="onProfileFieldChange"/>
+
+                    <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankKey}" labelFor="profileBankKeyInput" required="true"/>
+                    <Input visible="{profileEdit>/isBankTransfer}" id="profileBankKeyInput" value="{profileEdit>/values/BANK_KEY}" enabled="{profileEdit>/states/BANK_KEY/EffectiveEditable}" maxLength="15" change="onProfileFieldChange"/>
 
                     <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankAccount}" labelFor="profileBankAccountInput" required="true"/>
                     <Input visible="{profileEdit>/isBankTransfer}" id="profileBankAccountInput" value="{profileEdit>/values/BANK_ACCT}" enabled="{profileEdit>/states/BANK_ACCT/EffectiveEditable}" maxLength="18" type="Text" change="onProfileFieldChange"/>
 
-                    <Label text="{i18n>profileRemark}" labelFor="profileRemarkInput"/>
-                    <TextArea id="profileRemarkInput" value="{profileEdit>/remark}" maxLength="500" rows="3" growing="true" growingMaxLines="5"/>
                 </form:SimpleForm>
             </VBox>
         </content>
         <beginButton>
             <Button
-                text="{= ${profileEdit>/isRevision} ? ${i18n>profileResubmitButton} : ${i18n>profileSubmitButton} }"
+                text="{i18n>profileApplyPreviewButton}"
                 type="Emphasized"
-                icon="sap-icon://paper-plane"
+                icon="sap-icon://accept"
                 enabled="{= !${profileEdit>/busy} }"
                 press="onSubmitProfileEdit"/>
         </beginButton>
