@@ -47,13 +47,9 @@ sap.ui.define([
                 var oCertsTable = this.byId("myCertsTable");
                 if (oSkillsTable) {
                     this._applyTableFilters(oSkillsTable, "");
-                    var oBinding = oSkillsTable.getBinding("items");
-                    if (oBinding && oBinding.isSuspended && oBinding.isSuspended()) { oBinding.resume(); }
                 }
                 if (oCertsTable) {
                     this._applyTableFilters(oCertsTable, "");
-                    var oBinding = oCertsTable.getBinding("items");
-                    if (oBinding && oBinding.isSuspended && oBinding.isSuspended()) { oBinding.resume(); }
                 }
                 this._updateMyCounts();
             }.bind(this));
@@ -99,6 +95,8 @@ sap.ui.define([
             if (oSearchField) {
                 // Fire liveChange manually to trigger onSearchCerts
                 oSearchField.fireLiveChange({ newValue: oSearchField.getValue() });
+            } else {
+                this._applyTableFilters(oTable, "");
             }
         },
 
@@ -206,6 +204,42 @@ sap.ui.define([
             } else {
                 oBinding.filter([]);
             }
+
+            this._activateTableBinding(oTable);
+        },
+
+        _activateTableBinding: function (oTable, bForceRefresh) {
+            if (!oTable) {
+                return;
+            }
+
+            var oBinding = oTable.getBinding("items");
+            if (!oBinding) {
+                return;
+            }
+
+            if (oBinding.isSuspended && oBinding.isSuspended()) {
+                oBinding.resume();
+                return;
+            }
+
+            if (bForceRefresh && oBinding.refresh) {
+                oBinding.refresh();
+            }
+        },
+
+        _refreshPersonalTable: function (sTableId, bForceRefresh) {
+            var oTable = this.byId(sTableId);
+            if (!oTable) {
+                return;
+            }
+
+            var oSearchField = oTable.getHeaderToolbar().getContent().find(function(c) {
+                return c.isA("sap.m.SearchField");
+            });
+            var sQuery = oSearchField ? oSearchField.getValue() : "";
+            this._applyTableFilters(oTable, sQuery);
+            this._activateTableBinding(oTable, !!bForceRefresh);
         },
 
 
@@ -473,12 +507,8 @@ sap.ui.define([
                     MessageToast.show(sMsg);
                     that._updateMyCounts();
 
-                    var aTableIds = ["mySkillsTable", "myCertsTable", "myPendingTable"];
-                    aTableIds.forEach(function (sId) {
-                        var oT = that.byId(sId);
-                        if (oT && oT.getBinding("items")) {
-                            oT.getBinding("items").refresh();
-                        }
+                    ["mySkillsTable", "myCertsTable"].forEach(function (sId) {
+                        that._refreshPersonalTable(sId, true);
                     });
 
                     if (fnCancel) fnCancel();

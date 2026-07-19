@@ -10,14 +10,6 @@
         <Page id="mainPage" showHeader="false" enableScrolling="false" class="flpMainPage">
             <content>
                 <VBox id="flpRoot" class="flpRoot">
-                    <OverflowToolbar id="systemStrip" class="flpSystemStrip" visible="{= ${user>/authorized} === true }">
-                        <ToolbarSpacer/>
-                        <core:Icon src="sap-icon://syntax" size="1rem" class="flpSystemIcon"/>
-                        <Text text="{i18n>systemMode}" class="flpSystemText"/>
-                        <Text text="{i18n>systemClient}" class="flpSystemText flpSystemClient"/>
-                        <ToolbarSpacer/>
-                    </OverflowToolbar>
-
                     <OverflowToolbar id="shellHeader" class="flpShellHeader" visible="{= ${user>/authorized} === true }">
                         <Button id="btnMenu" icon="sap-icon://menu2" type="Transparent" class="flpShellIconButton"/>
                         <Image id="sapLogo" src="https://upload.wikimedia.org/wikipedia/commons/5/59/SAP_2011_logo.svg" press=".onNavToHome" decorative="false" class="flpSapLogo"/>
