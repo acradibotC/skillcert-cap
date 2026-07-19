@@ -25,14 +25,11 @@
                         <ToolbarSeparator class="flpShellSeparator"/>
                         <Button text="{i18n>navHome}" icon="sap-icon://slim-arrow-down" iconFirst="false" type="Transparent" press=".onNavToHome" class="flpHomeSelector"/>
                         <ToolbarSpacer/>
-                        <Button icon="sap-icon://search" type="Transparent" class="flpShellIconButton"/>
                         <Button id="notificationButton" icon="sap-icon://bell" type="Transparent" visible="{= ${user>/authorized} === true }" press=".onNotificationsPress" class="flpShellIconButton">
                             <customData>
                                 <core:CustomData key="badge" value="{notification>/unreadCount}" writeToDom="true"/>
                             </customData>
                         </Button>
-                        <Button icon="sap-icon://headset" type="Transparent" class="flpShellIconButton"/>
-                        <Button icon="sap-icon://sys-help" type="Transparent" class="flpShellIconButton"/>
                         <f:Avatar id="userAvatar" initials="{user>/initials}" press=".onAvatarPress" visible="{= ${user>/authorized} === true }" class="flpProfileAvatar"/>
                     </OverflowToolbar>
 
@@ -44,7 +41,6 @@
                         <Button id="navTime" text="{i18n>navTimeManagement}" type="Transparent" press=".onNavToTimesheet" class="flpNavButton"/>
                         <Button id="navHr" text="{i18n>navHrTools}" type="Transparent" press=".onNavToHrTools" class="flpNavButton"/>
                         <ToolbarSpacer/>
-                        <Button text="{i18n>navAdd}" icon="sap-icon://slim-arrow-down" iconFirst="false" type="Transparent" class="flpAddButton"/>
                     </OverflowToolbar>
 
                     <NavContainer id="navContainer" initialPage="loadingPage" class="flpContentNav">
@@ -74,12 +70,22 @@
                                 <HBox justifyContent="SpaceBetween" alignItems="Center" class="launchpadSectionHeader">
                                     <HBox alignItems="Center">
                                         <Title text="{i18n>titleToDos}" level="H2" class="launchpadSectionTitle"/>
+                                        <Button
+                                            icon="{= ${user>/sections/todosExpanded} ? 'sap-icon://slim-arrow-down' : 'sap-icon://slim-arrow-right' }"
+                                            type="Transparent"
+                                            tooltip="{i18n>tooltipToggleSection}"
+                                            press=".onToggleHomeSection"
+                                            class="launchpadSectionToggle">
+                                            <customData>
+                                                <core:CustomData key="section" value="todosExpanded"/>
+                                            </customData>
+                                        </Button>
                                     </HBox>
                                     <Button id="btnRefreshTodos" text="{todo>/lastRefresh}" icon="sap-icon://refresh" type="Transparent" press=".onRefreshTodos"/>
                                 </HBox>
 
                                 <!-- Tabs: Tasks / Situations -->
-                                <IconTabBar id="todoTabBar" selectedKey="tasks" class="todoTabBar">
+                                <IconTabBar id="todoTabBar" selectedKey="tasks" class="todoTabBar" visible="{user>/sections/todosExpanded}">
                                     <items>
                                         <IconTabFilter key="tasks" text="{= ${i18n>tabTasks}.replace('{0}', ${todo>/taskCount}) }">
                                             <!-- Task Cards -->
@@ -106,9 +112,18 @@
                                 <VBox id="newsSection" class="launchpadNewsColumn">
                                     <HBox alignItems="Center" class="launchpadSectionHeader">
                                         <Title text="{i18n>titleNews}" level="H2" class="launchpadSectionTitle"/>
-                                        <core:Icon src="sap-icon://slim-arrow-down" size="0.875rem" class="launchpadSectionChevron"/>
+                                        <Button
+                                            icon="{= ${user>/sections/newsExpanded} ? 'sap-icon://slim-arrow-down' : 'sap-icon://slim-arrow-right' }"
+                                            type="Transparent"
+                                            tooltip="{i18n>tooltipToggleSection}"
+                                            press=".onToggleHomeSection"
+                                            class="launchpadSectionToggle">
+                                            <customData>
+                                                <core:CustomData key="section" value="newsExpanded"/>
+                                            </customData>
+                                        </Button>
                                     </HBox>
-                                    <VBox class="newsCard">
+                                    <VBox class="newsCard" visible="{user>/sections/newsExpanded}">
                                         <VBox class="newsCardImage"/>
                                         <VBox class="newsCardBody">
                                             <Title text="{i18n>newsNoUpdateTitle}" level="H5" class="newsCardTitle"/>
@@ -120,9 +135,18 @@
                                 <VBox id="pagesSection" class="launchpadPagesColumn">
                                     <HBox alignItems="Center" class="launchpadSectionHeader">
                                         <Title text="{i18n>titlePages}" level="H2" class="launchpadSectionTitle"/>
-                                        <core:Icon src="sap-icon://slim-arrow-down" size="0.875rem" class="launchpadSectionChevron"/>
+                                        <Button
+                                            icon="{= ${user>/sections/pagesExpanded} ? 'sap-icon://slim-arrow-down' : 'sap-icon://slim-arrow-right' }"
+                                            type="Transparent"
+                                            tooltip="{i18n>tooltipToggleSection}"
+                                            press=".onToggleHomeSection"
+                                            class="launchpadSectionToggle">
+                                            <customData>
+                                                <core:CustomData key="section" value="pagesExpanded"/>
+                                            </customData>
+                                        </Button>
                                     </HBox>
-                                    <HBox wrap="Wrap" class="launchpadTileGrid">
+                                    <HBox wrap="Wrap" class="launchpadTileGrid" visible="{user>/sections/pagesExpanded}">
                                         <GenericTile
                                             class="tileLayout tileAccentBlue"
                                             header="{i18n>tileMyProfile}"

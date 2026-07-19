@@ -165,14 +165,6 @@
     box-shadow: inset 0 -0.1875rem var(--nxrAccentColor);
 }
 
-.flpAddButton .sapMBtnInner {
-    border-radius: 1rem !important;
-    border: 1px solid var(--sapButton_BorderColor, var(--nxrBorderColor)) !important;
-    background: var(--sapButton_Background, var(--nxrCardBackground)) !important;
-    color: var(--sapButton_TextColor, var(--nxrTextColor)) !important;
-    height: 2.25rem;
-}
-
 .launchpadHomePage {
     background: var(--nxrPageBackground) !important;
 }
@@ -200,9 +192,25 @@
     color: var(--nxrTitleColor) !important;
 }
 
-.launchpadSectionChevron {
-    margin-left: 0.5rem;
-    color: var(--nxrAccentColor);
+.launchpadSectionToggle.sapMBtn {
+    height: 2rem;
+    margin-left: 0.25rem;
+}
+
+.launchpadSectionToggle .sapMBtnInner {
+    min-width: 2rem;
+    height: 2rem;
+    border: none !important;
+    background: transparent !important;
+}
+
+.launchpadSectionToggle .sapMBtnIcon {
+    color: var(--nxrAccentColor) !important;
+    font-size: 0.875rem;
+}
+
+.launchpadSectionToggle:hover .sapMBtnInner {
+    background: var(--nxrHoverBackground) !important;
 }
 
 .welcomeBanner {
@@ -464,19 +472,28 @@
 }
 
 .tileLayout .sapMGTHdrContent {
-    padding-top: 1rem !important;
+    padding: 1rem !important;
+    min-height: 4rem;
+    border-radius: 0.75rem 0.75rem 0 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0));
 }
 
-.tileLayout .sapMGTTitle {
+.tileLayout .sapMGTTitle,
+.tileLayout .sapMGTTitle .sapMText {
     font-size: 0.9375rem !important;
     line-height: 1.25 !important;
     color: var(--nxrContrastTextColor) !important;
     font-weight: 700 !important;
+    text-shadow: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.35);
 }
 
-.tileLayout .sapMGTSubHdrTxt {
+.tileLayout .sapMGTSubHdrTxt,
+.tileLayout .sapMGTSubHdrTxt .sapMText,
+.tileLayout .sapMGTSubHdrTxt span {
     color: var(--nxrContrastTextColor) !important;
-    opacity: 0.92;
+    opacity: 1 !important;
+    font-weight: 600;
+    text-shadow: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.35);
 }
 
 .tileLayout .sapMImageContentImageIcon.sapUiIcon {

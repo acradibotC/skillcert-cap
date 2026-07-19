@@ -44,6 +44,11 @@ sap.ui.define([
                 shellTitle: "Nexora Employee Portal",
                 activeNav: "home",
                 isHomeContext: true,
+                sections: {
+                    todosExpanded: true,
+                    newsExpanded: true,
+                    pagesExpanded: true
+                },
                 authorized: null
             });
             this.getView().setModel(oUserModel, "user");
@@ -173,6 +178,17 @@ sap.ui.define([
 
         onRefreshTodos: function () {
             this._loadTodos();
+        },
+
+        onToggleHomeSection: function (oEvent) {
+            var sSection = oEvent.getSource().data("section");
+            if (!sSection) {
+                return;
+            }
+
+            var oUserModel = this.getView().getModel("user");
+            var sPath = "/sections/" + sSection;
+            oUserModel.setProperty(sPath, !oUserModel.getProperty(sPath));
         },
 
         _renderTodoCards: function (aTasks) {
