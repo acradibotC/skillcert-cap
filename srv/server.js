@@ -367,6 +367,337 @@ cds.on('bootstrap', app => {
 
     const trimTrailingSlash = (url) => String(url || '').replace(/\/+$/, '');
 
+    const roundDashboardNumber = (value, digits = 2) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return 0;
+        const factor = Math.pow(10, digits);
+        return Math.round((number + Number.EPSILON) * factor) / factor;
+    };
+
+    const normalizePernr = (value) => String(value || '').trim();
+
+    const normalizeSapDate = (value) => {
+        if (!value) return '';
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value.toISOString().slice(0, 10);
+        }
+        const raw = String(value).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+        if (/^\d{8}$/.test(raw)) return raw.slice(0, 4) + '-' + raw.slice(4, 6) + '-' + raw.slice(6, 8);
+        const match = /\/Date\((\d+)\)\//.exec(raw);
+        if (match) return new Date(Number(match[1])).toISOString().slice(0, 10);
+        return '';
+    };
+
+    const normalizeSapTime = (value) => {
+        if (value === null || value === undefined || value === '') return '';
+        if (typeof value === 'object' && value.ms !== undefined) {
+            const totalSeconds = Math.floor(Number(value.ms) / 1000);
+            const hours = Math.floor(totalSeconds / 3600) % 24;
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return [hours, minutes, seconds].map(part => String(part).padStart(2, '0')).join(':');
+        }
+        const raw = String(value).trim();
+        const duration = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i.exec(raw);
+        if (duration) {
+            const hours = Number(duration[1] || 0);
+            const minutes = Number(duration[2] || 0);
+            const seconds = Math.floor(Number(duration[3] || 0));
+            return [hours, minutes, seconds].map(part => String(part).padStart(2, '0')).join(':');
+        }
+        const time = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+        if (time) {
+            return [
+                String(Number(time[1])).padStart(2, '0'),
+                time[2],
+                time[3] || '00'
+            ].join(':');
+        }
+        if (/^\d{6}$/.test(raw)) return raw.slice(0, 2) + ':' + raw.slice(2, 4) + ':' + raw.slice(4, 6);
+        return '';
+    };
+
+    const timeToMinutes = (value) => {
+        const normalized = normalizeSapTime(value);
+        const match = /^(\d{2}):(\d{2}):(\d{2})$/.exec(normalized);
+        if (!match) return null;
+        const minutes = Number(match[1]) * 60 + Number(match[2]) + Number(match[3]) / 60;
+        return minutes === 0 ? null : minutes;
+    };
+
+    const grossHoursBetween = (start, end) => {
+        const startMinutes = timeToMinutes(start);
+        const endMinutes = timeToMinutes(end);
+        if (startMinutes === null || endMinutes === null) return 0;
+        const diffMinutes = endMinutes >= startMinutes
+            ? endMinutes - startMinutes
+            : (24 * 60 - startMinutes) + endMinutes;
+        return diffMinutes / 60;
+    };
+
+    const breakHoursFor = (grossHours) => {
+        if (grossHours > 12) return 2;
+        if (grossHours > 8) return 1.5;
+        if (grossHours > 4) return 1;
+        return 0;
+    };
+
+    const netHoursBetween = (start, end) => {
+        const grossHours = grossHoursBetween(start, end);
+        if (grossHours <= 0) return 0;
+        return Math.max(0, grossHours - breakHoursFor(grossHours));
+    };
+
+    const sapBoolean = (value) => {
+        if (value === true) return true;
+        const raw = String(value || '').trim().toUpperCase();
+        return raw === 'X' || raw === 'TRUE' || raw === '1';
+    };
+
+    const fetchODataRows = async (axios, initialUrl, config, maxPages = 20) => {
+        const rows = [];
+        let nextUrl = initialUrl;
+        let page = 0;
+        while (nextUrl && page < maxPages) {
+            const response = await axios.get(nextUrl, config);
+            rows.push(...normalizeODataRows(response.data));
+            const nextLink = response.data && (response.data['@odata.nextLink'] || response.data.d?.__next);
+            nextUrl = nextLink ? new URL(nextLink, nextUrl).toString() : '';
+            page += 1;
+        }
+        return rows;
+    };
+
+    const resolveDashboardTeamFromSap = async (axios, requester, scope, config) => {
+        const currentEmployee = {
+            Pernr: normalizePernr(requester.pernr),
+            EmployeeName: requester.employeeName || requester.name || '',
+            OrgUnitName: requester.department || ''
+        };
+        if (scope === 'EMPLOYEE' || !requester.email) return [currentEmployee];
+
+        const skillCredentials = cds.env.requires?.ZUI_NXR_SKILLREQ_O4?.credentials;
+        const skillUrl = trimTrailingSlash(skillCredentials?.url || '');
+        if (!skillUrl) return [currentEmployee];
+
+        const managerIds = Array.from(new Set([
+            requester.email,
+            String(requester.email || '').toUpperCase(),
+            requester.sapUserId
+        ].filter(Boolean)));
+        const teamFilter = managerIds.map(id => "ManagerUserId eq '" + escapeODataString(id) + "'").join(' or ');
+        let teamRows = [];
+        if (teamFilter) {
+            try {
+                teamRows = await fetchODataRows(
+                    axios,
+                    skillUrl + "/TeamMembers?$filter=" + encodeURIComponent(teamFilter) + "&$top=500",
+                    config,
+                    5
+                );
+            } catch (error) {
+                console.warn('[Dashboard] TeamMembers lookup failed, using current employee fallback:', error.message);
+            }
+        }
+
+        const employeeByPernr = new Map();
+        teamRows.forEach(row => {
+            const pernr = normalizePernr(row.EmployeePernr || row.Pernr);
+            if (!pernr) return;
+            employeeByPernr.set(pernr, {
+                Pernr: pernr,
+                EmployeeName: row.EmployeeName || row.FullName || '',
+                OrgUnitName: row.OrgUnitName || row.DepartmentName || row.OrgUnitText || ''
+            });
+        });
+
+        if (employeeByPernr.size === 0 && managerSubordinateFallbacks[currentEmployee.Pernr]) {
+            managerSubordinateFallbacks[currentEmployee.Pernr].forEach(row => {
+                const pernr = normalizePernr(row.pernr);
+                if (pernr) {
+                    employeeByPernr.set(pernr, {
+                        Pernr: pernr,
+                        EmployeeName: row.name || '',
+                        OrgUnitName: ''
+                    });
+                }
+            });
+        }
+
+        if (scope === 'HR' && employeeByPernr.size === 0) {
+            console.warn('[Dashboard] HR-wide employee source is not available yet; using current employee fallback.');
+        }
+
+        return employeeByPernr.size > 0 ? Array.from(employeeByPernr.values()) : [currentEmployee];
+    };
+
+    const classifyAttendanceStatus = (row) => {
+        const status = String(row.AttendanceStatus || '').trim().toUpperCase();
+        if (status === '1' || status === '01' || status.includes('FULL')) return 'FULL';
+        if (status === '2' || status === '02' || status.includes('LATE') || status.includes('EARLY')) return 'LATE_EARLY';
+        if (status === '3' || status === '03' || status.includes('ABSENT')) return 'ABSENT';
+        if (status === '4' || status === '04' || status === '5' || status === '05' || row.LeaveType || row.LeaveName) return 'LEAVE';
+        return '';
+    };
+
+    const isScheduledWorkDay = (row) => {
+        if (sapBoolean(row.IsHoliday)) return false;
+        const shift = String(row.ShiftCode || '').trim().toUpperCase();
+        if (!shift || ['OFF', 'REST', 'FREE', 'HOLIDAY', 'NONWORK'].includes(shift)) return false;
+        return Boolean(timeToMinutes(row.StartTime) && timeToMinutes(row.EndTime));
+    };
+
+    const aggregateDashboardRows = (teamMembers, workScheduleRows, range) => {
+        const memberByPernr = new Map(teamMembers.map(member => [member.Pernr, { ...member }]));
+        const statsByPernr = new Map();
+        teamMembers.forEach(member => {
+            statsByPernr.set(member.Pernr, {
+                Pernr: member.Pernr,
+                EmployeeName: member.EmployeeName || '',
+                OrgUnitName: member.OrgUnitName || '',
+                actualHours: 0,
+                targetHours: 0,
+                workingDays: 0,
+                fullDays: 0,
+                lateEarlyDays: 0,
+                absentDays: 0
+            });
+        });
+
+        workScheduleRows.forEach(row => {
+            const pernr = normalizePernr(row.Pernr);
+            const workDate = normalizeSapDate(row.WorkDate);
+            if (!pernr || !workDate || workDate < range.from || workDate > range.to) return;
+            if (!statsByPernr.has(pernr)) {
+                const member = memberByPernr.get(pernr) || {};
+                statsByPernr.set(pernr, {
+                    Pernr: pernr,
+                    EmployeeName: member.EmployeeName || row.EmployeeName || '',
+                    OrgUnitName: member.OrgUnitName || row.DepartmentName || row.OrgUnitName || '',
+                    actualHours: 0,
+                    targetHours: 0,
+                    workingDays: 0,
+                    fullDays: 0,
+                    lateEarlyDays: 0,
+                    absentDays: 0
+                });
+            }
+            const stats = statsByPernr.get(pernr);
+            if (!stats.EmployeeName && row.EmployeeName) stats.EmployeeName = row.EmployeeName;
+            if (!stats.OrgUnitName && (row.DepartmentName || row.OrgUnitName)) stats.OrgUnitName = row.DepartmentName || row.OrgUnitName;
+
+            const scheduled = isScheduledWorkDay(row);
+            if (!scheduled) return;
+
+            const targetHours = netHoursBetween(row.StartTime, row.EndTime) || 8;
+            const actualHours = netHoursBetween(row.ActualStartTime, row.ActualEndTime);
+            const status = classifyAttendanceStatus(row);
+
+            stats.workingDays += 1;
+            stats.targetHours += targetHours;
+            stats.actualHours += actualHours;
+            if (status === 'FULL') stats.fullDays += 1;
+            if (status === 'LATE_EARLY') stats.lateEarlyDays += 1;
+            if (status === 'ABSENT') stats.absentDays += 1;
+        });
+
+        const employees = Array.from(statsByPernr.values()).map(stats => {
+            const actual = roundDashboardNumber(stats.actualHours);
+            const target = roundDashboardNumber(stats.targetHours);
+            const variance = roundDashboardNumber(actual - target);
+            return {
+                Pernr: stats.Pernr,
+                EmployeeName: stats.EmployeeName || stats.Pernr,
+                OrgUnitName: stats.OrgUnitName || 'Unassigned',
+                ActualHours: actual,
+                TargetHours: target,
+                VarianceHours: variance,
+                VarianceState: variance < 0 ? 'Error' : 'Success',
+                AchievementRate: target > 0 ? roundDashboardNumber((actual / target) * 100) : 0
+            };
+        });
+
+        const totalEmployees = employees.length;
+        const totals = Array.from(statsByPernr.values()).reduce((acc, stats) => {
+            acc.actualHours += stats.actualHours;
+            acc.targetHours += stats.targetHours;
+            acc.workingDays += stats.workingDays;
+            acc.fullDays += stats.fullDays;
+            acc.lateEarlyDays += stats.lateEarlyDays;
+            acc.absentDays += stats.absentDays;
+            return acc;
+        }, { actualHours: 0, targetHours: 0, workingDays: 0, fullDays: 0, lateEarlyDays: 0, absentDays: 0 });
+
+        const orgGroups = new Map();
+        employees.forEach(employee => {
+            const orgUnit = employee.OrgUnitName || 'Unassigned';
+            if (!orgGroups.has(orgUnit)) {
+                orgGroups.set(orgUnit, {
+                    OrgUnitName: orgUnit,
+                    EmployeeCount: 0,
+                    ActualHours: 0,
+                    TargetHours: 0
+                });
+            }
+            const group = orgGroups.get(orgUnit);
+            group.EmployeeCount += 1;
+            group.ActualHours += Number(employee.ActualHours || 0);
+            group.TargetHours += Number(employee.TargetHours || 0);
+        });
+
+        return {
+            summary: {
+                totalEmployees,
+                avgActualHours: totalEmployees > 0 ? roundDashboardNumber(totals.actualHours / totalEmployees) : 0,
+                fullAttendanceRate: totals.workingDays > 0 ? roundDashboardNumber((totals.fullDays / totals.workingDays) * 100) : 0,
+                lateEarlyRate: totals.workingDays > 0 ? roundDashboardNumber((totals.lateEarlyDays / totals.workingDays) * 100) : 0,
+                absentRate: totals.workingDays > 0 ? roundDashboardNumber((totals.absentDays / totals.workingDays) * 100) : 0
+            },
+            byOrgUnit: Array.from(orgGroups.values()).map(group => ({
+                ...group,
+                ActualHours: roundDashboardNumber(group.ActualHours),
+                TargetHours: roundDashboardNumber(group.TargetHours)
+            })),
+            employees,
+            dataAsOf: 'Data as of ' + new Date().toISOString()
+        };
+    };
+
+    const loadDashboardFromWorkSchedule = async (req, scope, range) => {
+        const axios = require('axios');
+        const workScheduleCredentials = cds.env.requires?.ZUI_NXR_WORKSCHEDULE_O4?.credentials;
+        const workScheduleUrl = trimTrailingSlash(workScheduleCredentials?.url || '');
+        if (!workScheduleUrl) {
+            const error = new Error('Work schedule service is not configured.');
+            error.statusCode = 503;
+            throw error;
+        }
+
+        const config = {
+            headers: { Authorization: getSapAuthHeader(), Accept: 'application/json' },
+            httpsAgent: sapHttpsAgent
+        };
+        const requester = req.session.userInfo;
+        const teamMembers = await resolveDashboardTeamFromSap(axios, requester, scope, config);
+        const workRows = [];
+
+        for (const member of teamMembers) {
+            const pernr = normalizePernr(member.Pernr);
+            if (!pernr) continue;
+            const filter = "Pernr eq '" + escapeODataString(pernr) + "'";
+            const rows = await fetchODataRows(
+                axios,
+                workScheduleUrl + "/WorkSchedule?$filter=" + encodeURIComponent(filter) + "&$top=500",
+                config,
+                5
+            );
+            workRows.push(...rows);
+        }
+
+        return aggregateDashboardRows(teamMembers, workRows, range);
+    };
+
     const dashboardScopeFor = (req) => {
         const user = req.session && req.session.userInfo;
         if (!sessionUserMatches(req) || !user || !user.authorized || !user.pernr) return null;
@@ -393,7 +724,14 @@ cds.on('bootstrap', app => {
 
         const dashboardUrl = trimTrailingSlash(process.env.DASHBOARD_API_URL || '');
         if (!dashboardUrl) {
-            return res.status(503).json({ error: 'Dashboard backend is not configured.' });
+            try {
+                return res.json(await loadDashboardFromWorkSchedule(req, scope, range));
+            } catch (error) {
+                const status = error.statusCode || error.response?.status || 502;
+                const message = error.response?.data?.error?.message || error.message;
+                console.error('[Dashboard] WorkSchedule fallback failed:', message);
+                return res.status(status).json({ error: 'Unable to load dashboard data.' });
+            }
         }
 
         try {
