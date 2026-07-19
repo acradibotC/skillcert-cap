@@ -42,6 +42,7 @@ sap.ui.define([
                 server: window.location.hostname,
                 theme: sap.ui.getCore().getConfiguration().getTheme(),
                 shellTitle: "Nexora Employee Portal",
+                activeNav: "home",
                 authorized: null
             });
             this.getView().setModel(oUserModel, "user");
@@ -77,6 +78,7 @@ sap.ui.define([
                     }
                     oUserModel.setProperty("/authorized", true);
                     this.byId("navContainer").to(this.byId("homePage"));
+                    this._setLaunchpadNavActive("home");
 
                     if (oData && (oData.employeeName || oData.name)) {
                         var sDisplayName = oData.employeeName || oData.name;
@@ -98,6 +100,7 @@ sap.ui.define([
                 error: function () {
                     oUserModel.setProperty("/authorized", true);
                     this.byId("navContainer").to(this.byId("homePage"));
+                    this._setLaunchpadNavActive("home");
                     this.byId("welcomeGreeting").setText("Hi, great to see you!");
                     this._loadTodos();
                     this._initNotifications();
@@ -262,21 +265,88 @@ sap.ui.define([
                 return;
             }
             this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
+            this._setLaunchpadNavActive("home");
             var oNavContainer = this.byId("navContainer");
             oNavContainer.to(this.byId("homePage"));
+            this._scrollHomePageTo("homeHero");
             this._loadTodos(); // Ensure To-Dos refresh when returning to home
         },
 
+        onNavToTodos: function () {
+            this._goHomeAndScrollTo("todoSection", "todos");
+        },
+
+        onNavToEmployeeServices: function () {
+            this._goHomeAndScrollTo("homeTilesSection", "employee");
+        },
+
+        onNavToHrTools: function () {
+            this._goHomeAndScrollTo("hrSection", "hr");
+        },
+
         onNavToProfile: function () {
+            this._setLaunchpadNavActive("employee");
             this._navigateToApp("profilePage", "znxr09.znxr09f300", "/profile/webapp");
         },
 
         onNavToTimesheet: function () {
+            this._setLaunchpadNavActive("time");
             this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
         },
 
         onNavToHrUpload: function () {
+            this._setLaunchpadNavActive("hr");
             this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
+        },
+
+        _setLaunchpadNavActive: function (sKey) {
+            var oModel = this.getView().getModel("user");
+            if (oModel) {
+                oModel.setProperty("/activeNav", sKey);
+            }
+
+            var mNavButtons = {
+                home: "navHome",
+                todos: "navTodos",
+                employee: "navEmployee",
+                time: "navTime",
+                hr: "navHr"
+            };
+
+            Object.keys(mNavButtons).forEach(function (sNavKey) {
+                var oButton = this.byId(mNavButtons[sNavKey]);
+                if (oButton) {
+                    oButton.toggleStyleClass("isActive", sNavKey === sKey);
+                }
+            }.bind(this));
+        },
+
+        _goHomeAndScrollTo: function (sSectionId, sNavKey) {
+            var bIsAuthorized = this.getView().getModel("user").getProperty("/authorized");
+            if (bIsAuthorized === false) {
+                return;
+            }
+
+            this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
+            this._setLaunchpadNavActive(sNavKey);
+
+            var oNavContainer = this.byId("navContainer");
+            var oHomePage = this.byId("homePage");
+            if (oNavContainer && oHomePage && oNavContainer.getCurrentPage() !== oHomePage) {
+                oNavContainer.to(oHomePage);
+            }
+
+            this._scrollHomePageTo(sSectionId);
+        },
+
+        _scrollHomePageTo: function (sSectionId) {
+            setTimeout(function () {
+                var oSection = this.byId(sSectionId);
+                var oDomRef = oSection && oSection.getDomRef();
+                if (oDomRef && oDomRef.scrollIntoView) {
+                    oDomRef.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }.bind(this), 250);
         },
 
         _navigateToApp: function (sPageId, sComponentName, sComponentUrl) {

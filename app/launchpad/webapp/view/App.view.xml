@@ -3,7 +3,6 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m"
     xmlns:f="sap.f"
-    xmlns:layout="sap.ui.layout"
     xmlns:core="sap.ui.core"
     displayBlock="true">
     
@@ -11,6 +10,7 @@
         <Page id="mainPage" showHeader="true" enableScrolling="false">
             <customHeader>
                 <f:ShellBar
+                    class="flpShellBar"
                     title="{user>/shellTitle}"
                     homeIcon="https://upload.wikimedia.org/wikipedia/commons/5/59/SAP_2011_logo.svg"
                     showCopilot="false"
@@ -25,6 +25,17 @@
                     </f:profile>
                 </f:ShellBar>
             </customHeader>
+            <subHeader>
+                <OverflowToolbar id="launchpadNavigation" class="flpNavigationBar" visible="{= ${user>/authorized} === true }">
+                    <Button id="navHome" text="{i18n>navHome}" icon="sap-icon://home" type="Transparent" press=".onNavToHome" class="flpNavButton isActive"/>
+                    <Button id="navTodos" text="{i18n>navTodos}" icon="sap-icon://task" type="Transparent" press=".onNavToTodos" class="flpNavButton"/>
+                    <Button id="navEmployee" text="{i18n>navEmployeeServices}" icon="sap-icon://employee" type="Transparent" press=".onNavToEmployeeServices" class="flpNavButton"/>
+                    <Button id="navTime" text="{i18n>navTimeManagement}" icon="sap-icon://timesheet" type="Transparent" press=".onNavToTimesheet" class="flpNavButton"/>
+                    <Button id="navHr" text="{i18n>navHrTools}" icon="sap-icon://manager" type="Transparent" press=".onNavToHrTools" class="flpNavButton"/>
+                    <ToolbarSpacer/>
+                    <Text text="{user>/name}" class="flpNavUser"/>
+                </OverflowToolbar>
+            </subHeader>
 
             <content>
                 <NavContainer id="navContainer" initialPage="loadingPage">
@@ -36,86 +47,89 @@
                     </Page>
 
                     <!-- Home Page with Tiles -->
-                    <Page id="homePage" showHeader="false" class="sapUiContentPadding" enableScrolling="true">
-                        
-                        <!-- Welcome Banner -->
-                        <HBox class="welcomeBanner" justifyContent="SpaceBetween" alignItems="Center">
-                            <VBox>
-                                <Text id="welcomeDate" text="Tuesday, June 16, 2026" class="welcomeDate"/>
-                                <Title id="welcomeGreeting" text="Hi Nguyen, great to see you!" level="H3" class="welcomeGreeting"/>
-                            </VBox>
-                        </HBox>
-
-                        <!-- ========== To-Dos Section ========== -->
-                        <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiMediumMarginTop sapUiSmallMarginBottom">
-                            <HBox alignItems="Center">
-                                <Title text="{i18n>titleToDos}" level="H2" class="sapUiTinyMarginEnd"/>
-                                <core:Icon src="sap-icon://slim-arrow-down" size="0.875rem"/>
+                    <Page id="homePage" showHeader="false" class="launchpadHomePage" enableScrolling="true">
+                        <VBox id="homeContent" class="launchpadPageContent">
+                            <!-- Welcome Banner -->
+                            <HBox id="homeHero" class="welcomeBanner" justifyContent="SpaceBetween" alignItems="Center">
+                                <VBox>
+                                    <Text id="welcomeDate" text="Tuesday, June 16, 2026" class="welcomeDate"/>
+                                    <Title id="welcomeGreeting" text="Hi Nguyen, great to see you!" level="H3" class="welcomeGreeting"/>
+                                </VBox>
                             </HBox>
-                            <Button id="btnRefreshTodos" text="{todo>/lastRefresh}" icon="sap-icon://refresh" type="Transparent" press=".onRefreshTodos"/>
-                        </HBox>
 
-                        <!-- Tabs: Tasks / Situations -->
-                        <IconTabBar id="todoTabBar" selectedKey="tasks" class="sapUiSmallMarginBottom todoTabBar">
-                            <items>
-                                <IconTabFilter key="tasks" text="{= ${i18n>tabTasks}.replace('{0}', ${todo>/taskCount}) }">
-                                    <!-- Task Cards -->
-                                    <HBox id="todoCardsContainer" wrap="Wrap" class="sapUiSmallMarginTop">
-                                        <!-- Cards will be rendered dynamically by the controller -->
+                            <!-- ========== To-Dos Section ========== -->
+                            <VBox id="todoSection" class="launchpadSection">
+                                <HBox justifyContent="SpaceBetween" alignItems="Center" class="launchpadSectionHeader">
+                                    <HBox alignItems="Center">
+                                        <Title text="{i18n>titleToDos}" level="H2" class="launchpadSectionTitle"/>
                                     </HBox>
-                                    <VBox id="noTodosPlaceholder" visible="{= ${todo>/taskCount} === 0}" alignItems="Center" class="sapUiLargeMarginTop sapUiLargeMarginBottom">
-                                        <core:Icon src="sap-icon://task" size="3rem" class="sapUiSmallMarginBottom"/>
-                                        <Text text="{i18n>noPendingTasks}" class="sapUiSmallMarginBottom"/>
-                                    </VBox>
-                                </IconTabFilter>
-                                <IconTabFilter key="situations" text="{i18n>tabSituations}">
-                                    <VBox alignItems="Center" class="sapUiLargeMarginTop sapUiLargeMarginBottom">
-                                        <core:Icon src="sap-icon://alert" size="3rem" class="sapUiSmallMarginBottom"/>
-                                        <Text text="{i18n>noSituations}"/>
-                                    </VBox>
-                                </IconTabFilter>
-                            </items>
-                        </IconTabBar>
+                                    <Button id="btnRefreshTodos" text="{todo>/lastRefresh}" icon="sap-icon://refresh" type="Transparent" press=".onRefreshTodos"/>
+                                </HBox>
 
-                        <!-- ========== My Home Section ========== -->
-                        <Title text="{i18n>titleMyHome}" level="H2" class="sapUiSmallMarginBottom sapUiMediumMarginTop"/>
-                        
-                        <layout:Grid containerQuery="true" defaultSpan="XL2 L3 M4 S6" class="sapUiSmallMarginTop">
-                            <GenericTile 
-                                class="sapUiTinyMarginBegin sapUiTinyMarginTop tileLayout" 
-                                header="{i18n>tileMyProfile}" 
-                                subheader="{i18n>tileSkillsCerts}" 
-                                press=".onNavToProfile">
-                                <TileContent>
-                                    <ImageContent src="sap-icon://employee" />
-                                </TileContent>
-                            </GenericTile>
+                                <!-- Tabs: Tasks / Situations -->
+                                <IconTabBar id="todoTabBar" selectedKey="tasks" class="todoTabBar">
+                                    <items>
+                                        <IconTabFilter key="tasks" text="{= ${i18n>tabTasks}.replace('{0}', ${todo>/taskCount}) }">
+                                            <!-- Task Cards -->
+                                            <HBox id="todoCardsContainer" wrap="Wrap" class="todoCardsContainer">
+                                                <!-- Cards will be rendered dynamically by the controller -->
+                                            </HBox>
+                                            <VBox id="noTodosPlaceholder" visible="{= ${todo>/taskCount} === 0}" alignItems="Center" class="todoEmptyState">
+                                                <core:Icon src="sap-icon://task" size="2.5rem" class="sapUiTinyMarginBottom"/>
+                                                <Text text="{i18n>noPendingTasks}"/>
+                                            </VBox>
+                                        </IconTabFilter>
+                                        <IconTabFilter key="situations" text="{i18n>tabSituations}">
+                                            <VBox alignItems="Center" class="todoEmptyState">
+                                                <core:Icon src="sap-icon://alert" size="2.5rem" class="sapUiTinyMarginBottom"/>
+                                                <Text text="{i18n>noSituations}"/>
+                                            </VBox>
+                                        </IconTabFilter>
+                                    </items>
+                                </IconTabBar>
+                            </VBox>
 
-                            <GenericTile 
-                                class="sapUiTinyMarginBegin sapUiTinyMarginTop tileLayout" 
-                                header="{i18n>tileMyTimesheet}" 
-                                subheader="{i18n>tileLogHours}" 
-                                press=".onNavToTimesheet">
-                                <TileContent>
-                                    <ImageContent src="sap-icon://timesheet" />
-                                </TileContent>
-                            </GenericTile>
-                        </layout:Grid>
+                            <!-- ========== My Home Section ========== -->
+                            <VBox id="homeTilesSection" class="launchpadSection">
+                                <Title text="{i18n>titleMyHome}" level="H2" class="launchpadSectionTitle"/>
+                                <HBox wrap="Wrap" class="launchpadTileGrid">
+                                    <GenericTile 
+                                        class="tileLayout" 
+                                        header="{i18n>tileMyProfile}" 
+                                        subheader="{i18n>tileSkillsCerts}" 
+                                        press=".onNavToProfile">
+                                        <TileContent>
+                                            <ImageContent src="sap-icon://employee" />
+                                        </TileContent>
+                                    </GenericTile>
 
-                        <!-- ========== HR Tools Section (visible for managers) ========== -->
-                        <VBox id="hrSection" visible="true"> <!-- TODO: restore {= ${user>/isManager} === true} after testing -->
-                            <Title text="{i18n>sectionHrTools}" level="H2" class="sapUiSmallMarginBottom sapUiMediumMarginTop"/>
-                            <layout:Grid containerQuery="true" defaultSpan="XL2 L3 M4 S6" class="sapUiSmallMarginTop">
-                                <GenericTile 
-                                    class="sapUiTinyMarginBegin sapUiTinyMarginTop tileLayout" 
-                                    header="{i18n>tileHrUpload}" 
-                                    subheader="{i18n>tileHrUploadSub}" 
-                                    press=".onNavToHrUpload">
-                                    <TileContent>
-                                        <ImageContent src="sap-icon://upload-to-cloud" />
-                                    </TileContent>
-                                </GenericTile>
-                            </layout:Grid>
+                                    <GenericTile 
+                                        class="tileLayout" 
+                                        header="{i18n>tileMyTimesheet}" 
+                                        subheader="{i18n>tileLogHours}" 
+                                        press=".onNavToTimesheet">
+                                        <TileContent>
+                                            <ImageContent src="sap-icon://timesheet" />
+                                        </TileContent>
+                                    </GenericTile>
+                                </HBox>
+                            </VBox>
+
+                            <!-- ========== HR Tools Section (visible for managers) ========== -->
+                            <VBox id="hrSection" visible="true" class="launchpadSection"> <!-- TODO: restore {= ${user>/isManager} === true} after testing -->
+                                <Title text="{i18n>sectionHrTools}" level="H2" class="launchpadSectionTitle"/>
+                                <HBox wrap="Wrap" class="launchpadTileGrid">
+                                    <GenericTile 
+                                        class="tileLayout" 
+                                        header="{i18n>tileHrUpload}" 
+                                        subheader="{i18n>tileHrUploadSub}" 
+                                        press=".onNavToHrUpload">
+                                        <TileContent>
+                                            <ImageContent src="sap-icon://upload-to-cloud" />
+                                        </TileContent>
+                                    </GenericTile>
+                                </HBox>
+                            </VBox>
                         </VBox>
                     </Page>
 
