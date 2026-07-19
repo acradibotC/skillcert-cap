@@ -7,38 +7,50 @@
     displayBlock="true">
     
     <App id="app">
-        <Page id="mainPage" showHeader="true" enableScrolling="false">
-            <customHeader>
-                <f:ShellBar
-                    class="flpShellBar"
-                    title="{user>/shellTitle}"
-                    homeIcon="https://upload.wikimedia.org/wikipedia/commons/5/59/SAP_2011_logo.svg"
-                    showCopilot="false"
-                    showSearch="false"
-                    showNotifications="{= ${user>/authorized} === true }"
-                    notificationsNumber="{notification>/unreadCount}"
-                    notificationsPressed=".onNotificationsPress"
-                    showProductSwitcher="false"
-                    homeIconPressed=".onNavToHome">
-                    <f:profile>
-                        <f:Avatar id="userAvatar" initials="{user>/initials}" press=".onAvatarPress" visible="{= ${user>/authorized} === true }" />
-                    </f:profile>
-                </f:ShellBar>
-            </customHeader>
-            <subHeader>
-                <OverflowToolbar id="launchpadNavigation" class="flpNavigationBar" visible="{= ${user>/authorized} === true }">
-                    <Button id="navHome" text="{i18n>navHome}" icon="sap-icon://home" type="Transparent" press=".onNavToHome" class="flpNavButton isActive"/>
-                    <Button id="navTodos" text="{i18n>navTodos}" icon="sap-icon://task" type="Transparent" press=".onNavToTodos" class="flpNavButton"/>
-                    <Button id="navEmployee" text="{i18n>navEmployeeServices}" icon="sap-icon://employee" type="Transparent" press=".onNavToEmployeeServices" class="flpNavButton"/>
-                    <Button id="navTime" text="{i18n>navTimeManagement}" icon="sap-icon://timesheet" type="Transparent" press=".onNavToTimesheet" class="flpNavButton"/>
-                    <Button id="navHr" text="{i18n>navHrTools}" icon="sap-icon://manager" type="Transparent" press=".onNavToHrTools" class="flpNavButton"/>
-                    <ToolbarSpacer/>
-                    <Text text="{user>/name}" class="flpNavUser"/>
-                </OverflowToolbar>
-            </subHeader>
-
+        <Page id="mainPage" showHeader="false" enableScrolling="false" class="flpMainPage">
             <content>
-                <NavContainer id="navContainer" initialPage="loadingPage">
+                <VBox id="flpRoot" class="flpRoot">
+                    <OverflowToolbar id="systemStrip" class="flpSystemStrip" visible="{= ${user>/authorized} === true }">
+                        <ToolbarSpacer/>
+                        <core:Icon src="sap-icon://syntax" size="1rem" class="flpSystemIcon"/>
+                        <Text text="{i18n>systemMode}" class="flpSystemText"/>
+                        <Text text="{i18n>systemClient}" class="flpSystemText flpSystemClient"/>
+                        <ToolbarSpacer/>
+                    </OverflowToolbar>
+
+                    <OverflowToolbar id="shellHeader" class="flpShellHeader" visible="{= ${user>/authorized} === true }">
+                        <Button id="btnMenu" icon="sap-icon://menu2" type="Transparent" class="flpShellIconButton"/>
+                        <Image id="sapLogo" src="https://upload.wikimedia.org/wikipedia/commons/5/59/SAP_2011_logo.svg" press=".onNavToHome" decorative="false" class="flpSapLogo"/>
+                        <Title text="{user>/shellTitle}" level="H2" class="flpProductTitle"/>
+                        <ToolbarSeparator class="flpShellSeparator"/>
+                        <Button text="{i18n>navHome}" icon="sap-icon://slim-arrow-down" iconFirst="false" type="Transparent" press=".onNavToHome" class="flpHomeSelector"/>
+                        <ToolbarSpacer/>
+                        <Button icon="sap-icon://search" type="Transparent" class="flpShellIconButton"/>
+                        <Button id="notificationButton" icon="sap-icon://bell" type="Transparent" visible="{= ${user>/authorized} === true }" press=".onNotificationsPress" class="flpShellIconButton">
+                            <customData>
+                                <core:CustomData key="badge" value="{notification>/unreadCount}" writeToDom="true"/>
+                            </customData>
+                        </Button>
+                        <Button icon="sap-icon://headset" type="Transparent" class="flpShellIconButton"/>
+                        <Button icon="sap-icon://sys-help" type="Transparent" class="flpShellIconButton"/>
+                        <f:Avatar id="userAvatar" initials="{user>/initials}" press=".onAvatarPress" visible="{= ${user>/authorized} === true }" class="flpProfileAvatar"/>
+                    </OverflowToolbar>
+
+                    <OverflowToolbar id="launchpadNavigation" class="flpNavigationBar" visible="{= ${user>/authorized} === true &amp;&amp; ${user>/isHomeContext} === true }">
+                        <Button id="navHome" text="{i18n>navHome}" type="Transparent" press=".onNavToHome" class="flpNavButton isActive"/>
+                        <ToolbarSeparator/>
+                        <Button id="navTodos" text="{i18n>navTodos}" type="Transparent" press=".onNavToTodos" class="flpNavButton"/>
+                        <Button id="navEmployee" text="{i18n>navEmployeeServices}" type="Transparent" press=".onNavToEmployeeServices" class="flpNavButton"/>
+                        <Button id="navTime" text="{i18n>navTimeManagement}" type="Transparent" press=".onNavToTimesheet" class="flpNavButton"/>
+                        <Button id="navHr" text="{i18n>navHrTools}" type="Transparent" press=".onNavToHrTools" class="flpNavButton"/>
+                        <ToolbarSpacer/>
+                        <Button text="{i18n>navAdd}" icon="sap-icon://slim-arrow-down" iconFirst="false" type="Transparent" class="flpAddButton"/>
+                    </OverflowToolbar>
+
+                    <NavContainer id="navContainer" initialPage="loadingPage" class="flpContentNav">
+                        <layoutData>
+                            <FlexItemData growFactor="1" baseSize="0"/>
+                        </layoutData>
                     <!-- Loading Page -->
                     <Page id="loadingPage" showHeader="false">
                         <VBox alignItems="Center" justifyContent="Center" height="100%" class="sapUiLargeMarginTop">
@@ -89,47 +101,60 @@
                                 </IconTabBar>
                             </VBox>
 
-                            <!-- ========== My Home Section ========== -->
-                            <VBox id="homeTilesSection" class="launchpadSection">
-                                <Title text="{i18n>titleMyHome}" level="H2" class="launchpadSectionTitle"/>
-                                <HBox wrap="Wrap" class="launchpadTileGrid">
-                                    <GenericTile 
-                                        class="tileLayout" 
-                                        header="{i18n>tileMyProfile}" 
-                                        subheader="{i18n>tileSkillsCerts}" 
-                                        press=".onNavToProfile">
-                                        <TileContent>
-                                            <ImageContent src="sap-icon://employee" />
-                                        </TileContent>
-                                    </GenericTile>
+                            <!-- ========== News + Pages Section ========== -->
+                            <HBox id="homeTilesSection" wrap="Wrap" class="launchpadWorkArea">
+                                <VBox id="newsSection" class="launchpadNewsColumn">
+                                    <HBox alignItems="Center" class="launchpadSectionHeader">
+                                        <Title text="{i18n>titleNews}" level="H2" class="launchpadSectionTitle"/>
+                                        <core:Icon src="sap-icon://slim-arrow-down" size="0.875rem" class="launchpadSectionChevron"/>
+                                    </HBox>
+                                    <VBox class="newsCard">
+                                        <VBox class="newsCardImage"/>
+                                        <VBox class="newsCardBody">
+                                            <Title text="{i18n>newsNoUpdateTitle}" level="H5" class="newsCardTitle"/>
+                                            <Text text="{i18n>newsNoUpdateText}" class="newsCardText"/>
+                                        </VBox>
+                                    </VBox>
+                                </VBox>
 
-                                    <GenericTile 
-                                        class="tileLayout" 
-                                        header="{i18n>tileMyTimesheet}" 
-                                        subheader="{i18n>tileLogHours}" 
-                                        press=".onNavToTimesheet">
-                                        <TileContent>
-                                            <ImageContent src="sap-icon://timesheet" />
-                                        </TileContent>
-                                    </GenericTile>
-                                </HBox>
-                            </VBox>
+                                <VBox id="pagesSection" class="launchpadPagesColumn">
+                                    <HBox alignItems="Center" class="launchpadSectionHeader">
+                                        <Title text="{i18n>titlePages}" level="H2" class="launchpadSectionTitle"/>
+                                        <core:Icon src="sap-icon://slim-arrow-down" size="0.875rem" class="launchpadSectionChevron"/>
+                                    </HBox>
+                                    <HBox wrap="Wrap" class="launchpadTileGrid">
+                                        <GenericTile
+                                            class="tileLayout tileAccentBlue"
+                                            header="{i18n>tileMyProfile}"
+                                            subheader="{i18n>tileSkillsCerts}"
+                                            press=".onNavToProfile">
+                                            <TileContent>
+                                                <ImageContent src="sap-icon://employee" />
+                                            </TileContent>
+                                        </GenericTile>
 
-                            <!-- ========== HR Tools Section (visible for managers) ========== -->
-                            <VBox id="hrSection" visible="true" class="launchpadSection"> <!-- TODO: restore {= ${user>/isManager} === true} after testing -->
-                                <Title text="{i18n>sectionHrTools}" level="H2" class="launchpadSectionTitle"/>
-                                <HBox wrap="Wrap" class="launchpadTileGrid">
-                                    <GenericTile 
-                                        class="tileLayout" 
-                                        header="{i18n>tileHrUpload}" 
-                                        subheader="{i18n>tileHrUploadSub}" 
-                                        press=".onNavToHrUpload">
-                                        <TileContent>
-                                            <ImageContent src="sap-icon://upload-to-cloud" />
-                                        </TileContent>
-                                    </GenericTile>
-                                </HBox>
-                            </VBox>
+                                        <GenericTile
+                                            class="tileLayout tileAccentTeal"
+                                            header="{i18n>tileMyTimesheet}"
+                                            subheader="{i18n>tileLogHours}"
+                                            press=".onNavToTimesheet">
+                                            <TileContent>
+                                                <ImageContent src="sap-icon://timesheet" />
+                                            </TileContent>
+                                        </GenericTile>
+
+                                        <GenericTile
+                                            class="tileLayout tileAccentGreen"
+                                            header="{i18n>tileHrUpload}"
+                                            subheader="{i18n>tileHrUploadSub}"
+                                            press=".onNavToHrUpload">
+                                            <TileContent>
+                                                <ImageContent src="sap-icon://upload-to-cloud" />
+                                            </TileContent>
+                                        </GenericTile>
+                                    </HBox>
+                                </VBox>
+                            </HBox>
                         </VBox>
                     </Page>
 
@@ -152,7 +177,8 @@
                             </HBox>
                         </VBox>
                     </Page>
-                </NavContainer>
+                    </NavContainer>
+                </VBox>
             </content>
         </Page>
     </App>

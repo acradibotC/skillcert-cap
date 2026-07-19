@@ -43,6 +43,7 @@ sap.ui.define([
                 theme: sap.ui.getCore().getConfiguration().getTheme(),
                 shellTitle: "Nexora Employee Portal",
                 activeNav: "home",
+                isHomeContext: true,
                 authorized: null
             });
             this.getView().setModel(oUserModel, "user");
@@ -77,6 +78,7 @@ sap.ui.define([
                         return;
                     }
                     oUserModel.setProperty("/authorized", true);
+                    oUserModel.setProperty("/isHomeContext", true);
                     this.byId("navContainer").to(this.byId("homePage"));
                     this._setLaunchpadNavActive("home");
 
@@ -99,6 +101,7 @@ sap.ui.define([
                 }.bind(this),
                 error: function () {
                     oUserModel.setProperty("/authorized", true);
+                    oUserModel.setProperty("/isHomeContext", true);
                     this.byId("navContainer").to(this.byId("homePage"));
                     this._setLaunchpadNavActive("home");
                     this.byId("welcomeGreeting").setText("Hi, great to see you!");
@@ -265,6 +268,7 @@ sap.ui.define([
                 return;
             }
             this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
+            this.getView().getModel("user").setProperty("/isHomeContext", true);
             this._setLaunchpadNavActive("home");
             var oNavContainer = this.byId("navContainer");
             oNavContainer.to(this.byId("homePage"));
@@ -281,7 +285,7 @@ sap.ui.define([
         },
 
         onNavToHrTools: function () {
-            this._goHomeAndScrollTo("hrSection", "hr");
+            this._goHomeAndScrollTo("pagesSection", "hr");
         },
 
         onNavToProfile: function () {
@@ -328,6 +332,7 @@ sap.ui.define([
             }
 
             this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
+            this.getView().getModel("user").setProperty("/isHomeContext", true);
             this._setLaunchpadNavActive(sNavKey);
 
             var oNavContainer = this.byId("navContainer");
@@ -352,6 +357,7 @@ sap.ui.define([
         _navigateToApp: function (sPageId, sComponentName, sComponentUrl) {
             var oNavContainer = this.byId("navContainer");
             var oPage = this.byId(sPageId);
+            this.getView().getModel("user").setProperty("/isHomeContext", false);
 
             if (!oPage) {
                 sap.ui.getCore().loadLibrary("sap.m");
@@ -367,6 +373,7 @@ sap.ui.define([
                     showHeader: false,
                     content: [oComponentContainer]
                 });
+                oPage.addStyleClass("launchpadEmbeddedAppPage");
 
                 oNavContainer.addPage(oPage);
             }

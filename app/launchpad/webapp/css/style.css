@@ -1,119 +1,220 @@
-.flpShellBar,
-.flpShellBar .sapFShellBar {
-    background: #354a5f !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: none !important;
+.flpMainPage,
+.flpRoot {
+    height: 100%;
+    background: #f3f5f6 !important;
 }
 
-.flpShellBar .sapFShellBarTitle,
-.flpShellBar .sapFShellBarSecondTitle,
-.flpShellBar .sapFShellBarPrimaryTitle,
-.flpShellBar .sapFShellBarPrimaryTitle .sapUiSelectable,
-.flpShellBar .sapMTitle,
-.flpShellBar .sapMBtnIcon,
-.flpShellBar .sapMBtnContent {
+.flpRoot {
+    display: flex;
+    flex-direction: column;
+}
+
+.flpContentNav {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.flpSystemStrip.sapMTB {
+    height: 2.75rem;
+    padding: 0 1rem;
+    background: #1f5f33 !important;
+    border: none;
+    box-shadow: none;
+}
+
+.flpSystemText {
     color: #ffffff !important;
-    text-shadow: none !important;
+    font-weight: 700;
+    font-size: 0.9375rem;
 }
 
-.flpShellBar .sapFShellBarHomeIcon {
-    background: #ffffff;
-    border-radius: 0.35rem;
-    padding: 0.125rem 0.35rem;
+.flpSystemClient {
+    margin-left: 0.75rem;
+}
+
+.flpSystemIcon {
+    color: #ffffff;
+    margin-right: 0.5rem;
+}
+
+.flpShellHeader.sapMTB {
+    height: 4rem;
+    padding: 0 2rem;
+    background: #ffffff !important;
+    border-bottom: 1px solid #d5dadd;
+    box-shadow: none;
+}
+
+.flpSapLogo {
+    width: 4.5rem;
+    height: 2.25rem;
+    object-fit: contain;
+    margin: 0 0.875rem 0 0.5rem;
+    cursor: pointer;
+}
+
+.flpProductTitle {
+    color: #0a3b7a !important;
+    font-size: 1.125rem !important;
+    font-weight: 700 !important;
+}
+
+.flpShellSeparator {
+    height: 2rem;
+    margin: 0 0.875rem;
+}
+
+.flpHomeSelector .sapMBtnInner {
+    color: #1d2d3e !important;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none !important;
+    background: transparent !important;
+}
+
+.flpShellIconButton .sapMBtnInner {
+    border: none !important;
+    background: transparent !important;
+}
+
+.flpShellIconButton .sapMBtnIcon {
+    color: #1d2d3e !important;
+    font-size: 1.125rem;
+}
+
+#notificationButton[data-badge]:not([data-badge="0"])::after {
+    content: attr(data-badge);
+    position: absolute;
+    top: 0.45rem;
+    right: 0.35rem;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.1875rem;
+    border-radius: 999px;
+    background: #bb0000;
+    color: #ffffff;
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    text-align: center;
+    font-weight: 700;
+}
+
+.flpProfileAvatar.sapFAvatar {
+    background: #d1eaff !important;
+    color: #0a6ed1 !important;
+    margin-left: 0.5rem;
 }
 
 .flpNavigationBar.sapMTB {
-    height: 3rem;
+    height: 3.5rem;
     padding: 0 2rem;
-    background: #354a5f !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 1px solid #1b2a38;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.16);
+    background: #ffffff !important;
+    border-bottom: 1px solid #d5dadd;
+    box-shadow: 0 0.125rem 0.25rem rgba(34, 53, 72, 0.16);
 }
 
 .flpNavButton.sapMBtn {
-    height: 3rem;
+    height: 3.5rem;
     margin: 0 0.125rem;
 }
 
 .flpNavButton .sapMBtnInner {
-    height: 3rem;
+    height: 3.5rem;
     min-width: 0;
-    padding: 0 0.875rem;
-    color: rgba(255, 255, 255, 0.88) !important;
+    padding: 0 0.625rem;
+    color: #1d2d3e !important;
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;
     text-shadow: none !important;
+    font-size: 0.9375rem;
 }
 
-.flpNavButton .sapMBtnIcon {
-    color: rgba(255, 255, 255, 0.88) !important;
-}
-
-.flpNavButton:hover .sapMBtnInner,
-.flpNavButton.sapMBtnHoverable:hover > .sapMBtnHoverable {
-    background: rgba(255, 255, 255, 0.08) !important;
-    color: #ffffff !important;
+.flpNavButton:hover .sapMBtnInner {
+    background: #f5f6f7 !important;
 }
 
 .flpNavButton.isActive .sapMBtnInner {
-    color: #ffffff !important;
-    font-weight: 600;
-    box-shadow: inset 0 -0.1875rem #91c8f6;
+    color: #0a6ed1 !important;
+    font-weight: 700;
+    box-shadow: inset 0 -0.1875rem #0a6ed1;
 }
 
-.flpNavUser {
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 0.875rem;
+.flpAddButton .sapMBtnInner {
+    border-radius: 1rem !important;
+    border: 1px solid #bcc3ca !important;
+    background: #ffffff !important;
+    color: #1d2d3e !important;
+    height: 2.25rem;
 }
 
 .launchpadHomePage {
-    background: #f5f6f7 !important;
+    background: #f3f5f6 !important;
 }
 
 .launchpadPageContent {
     width: auto;
-    max-width: 112rem;
-    padding: 1rem 2rem 2rem;
+    max-width: none;
+    padding: 1.25rem 2rem 2rem;
     margin: 0 auto;
 }
 
 .launchpadSection {
-    margin-top: 1rem;
+    margin-top: 1.5rem;
 }
 
 .launchpadSectionHeader {
     min-height: 2.25rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.375rem;
 }
 
 .launchpadSectionTitle {
-    font-size: 1.125rem !important;
+    font-size: 1.25rem !important;
     line-height: 1.35 !important;
-    font-weight: 600 !important;
-    color: #1d2d3e !important;
+    font-weight: 700 !important;
+    color: #0b1f33 !important;
+}
+
+.launchpadSectionChevron {
+    margin-left: 0.5rem;
+    color: #0a6ed1;
 }
 
 .welcomeBanner {
-    background: linear-gradient(135deg, #0a4f96 0%, #1e88e5 100%);
-    border-radius: 0.75rem;
-    padding: 0.875rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 5.75rem;
+    background:
+        linear-gradient(135deg, rgba(9, 90, 210, 0.96) 0%, rgba(40, 132, 225, 0.92) 62%, rgba(0, 95, 200, 0.98) 100%),
+        radial-gradient(circle at 88% 30%, rgba(255,255,255,0.28), transparent 22%);
+    border-radius: 0.625rem;
+    padding: 1rem 1.5rem;
     color: white;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 0.75rem;
+    box-shadow: 0 0.25rem 0.875rem rgba(34, 53, 72, 0.16);
+    margin-bottom: 1.25rem;
+}
+
+.welcomeBanner::after {
+    content: "";
+    position: absolute;
+    right: 3rem;
+    top: -1rem;
+    width: 22rem;
+    height: 9rem;
+    transform: skewX(-18deg);
+    background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.04));
 }
 
 .welcomeDate {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: #e3f2fd;
-    margin-bottom: 0.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 0.625rem;
 }
 
 .welcomeGreeting {
-    font-size: 1.25rem;
-    font-weight: bold;
+    font-size: 1.375rem;
+    font-weight: 700;
     color: white;
 }
 
@@ -238,11 +339,11 @@
 /* To-Do Tab Bar styling */
 .todoCardsContainer {
     gap: 0.75rem;
-    padding: 0.5rem 0 0;
+    padding: 0.75rem 0 0;
 }
 
 .todoEmptyState {
-    min-height: 6.5rem;
+    min-height: 5.5rem;
     justify-content: center;
     padding: 0.75rem 0 1rem;
 }
@@ -259,24 +360,77 @@
 }
 
 .todoTabBar .sapMITBContent {
+    min-height: 5.75rem;
     padding: 0.25rem 0 0 !important;
-    border-bottom: none !important;
+    background: #ffffff !important;
+    border: 1px solid #d5dadd !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 0.125rem 0.5rem rgba(34, 53, 72, 0.13);
+}
+
+.launchpadWorkArea {
+    gap: 1.25rem;
+    align-items: flex-start;
+    margin-top: 2.75rem;
+}
+
+.launchpadNewsColumn {
+    flex: 1 1 32rem;
+    min-width: 24rem;
+    max-width: 58rem;
+}
+
+.launchpadPagesColumn {
+    flex: 1 1 32rem;
+    min-width: 24rem;
+}
+
+.newsCard {
+    min-height: 20rem;
+    background: #ffffff;
+    border: 1px solid #d5dadd;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 0.125rem 0.5rem rgba(34, 53, 72, 0.13);
+}
+
+.newsCardImage {
+    min-height: 9rem;
+    background:
+        linear-gradient(135deg, rgba(11,31,51,0.85), rgba(42,94,126,0.72)),
+        radial-gradient(circle at 72% 20%, rgba(145,200,246,0.75), transparent 26%);
+}
+
+.newsCardBody {
+    padding: 1rem 1.25rem;
+}
+
+.newsCardTitle {
+    color: #0b1f33 !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 0.5rem;
+}
+
+.newsCardText {
+    color: #1d2d3e;
 }
 
 .launchpadTileGrid {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 1rem;
     padding-top: 0.625rem;
 }
 
 .tileLayout.sapMGT {
-    width: 13.25rem !important;
+    width: 12.75rem !important;
     height: 10rem !important;
     margin: 0 !important;
     border-radius: 0.75rem !important;
     box-shadow: 0 0.125rem 0.5rem rgba(34, 53, 72, 0.12) !important;
-    border: 1px solid #d8dde3 !important;
+    border: none !important;
+    color: #ffffff !important;
 }
 
 .tileLayout.sapMGT:hover {
@@ -291,28 +445,139 @@
 .tileLayout .sapMGTTitle {
     font-size: 0.9375rem !important;
     line-height: 1.25 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
 }
 
 .tileLayout .sapMGTSubHdrTxt {
-    color: #4b647d !important;
+    color: rgba(255, 255, 255, 0.92) !important;
 }
 
 .tileLayout .sapMImageContentImageIcon.sapUiIcon {
-    color: #5b738b !important;
+    color: #ffffff !important;
     font-size: 2rem !important;
 }
 
+.tileAccentBlue.sapMGT {
+    background: #0a6ed1 !important;
+}
+
+.tileAccentTeal.sapMGT {
+    background: #07838f !important;
+}
+
+.tileAccentGreen.sapMGT {
+    background: #188918 !important;
+}
+
+.launchpadEmbeddedAppPage {
+    background: #f3f5f6 !important;
+}
+
+.launchpadEmbeddedAppPage .sapMPageBgStandard,
+.launchpadEmbeddedAppPage .sapMPageBgSolid,
+.launchpadEmbeddedAppPage .sapTntToolPage {
+    background: #f3f5f6 !important;
+}
+
+.launchpadEmbeddedAppPage .sapTntToolPageHeader {
+    display: none !important;
+}
+
+.launchpadEmbeddedAppPage .sapTntToolPageAside {
+    top: 0 !important;
+    background: #ffffff !important;
+    border-right: 1px solid #d5dadd;
+    box-shadow: 0.125rem 0 0.375rem rgba(34, 53, 72, 0.08);
+}
+
+.launchpadEmbeddedAppPage .sapTntSideNavigation {
+    background: #ffffff !important;
+}
+
+.launchpadEmbeddedAppPage .sapTntNavLIItem {
+    min-height: 2.75rem;
+}
+
+.launchpadEmbeddedAppPage .sapTntNavLIItemSelected,
+.launchpadEmbeddedAppPage .sapTntNavLIItemSelected.sapTntNavLIItem {
+    background: #eaf4ff !important;
+    border-left: 0.1875rem solid #0a6ed1;
+}
+
+.launchpadEmbeddedAppPage .sapTntNavLIItemSelected .sapTntNavLIText,
+.launchpadEmbeddedAppPage .sapTntNavLIItemSelected .sapTntNavLIGroupIcon {
+    color: #0b1f33 !important;
+    font-weight: 700;
+}
+
+.launchpadEmbeddedAppPage .sapTntToolPageMain {
+    padding-top: 0 !important;
+}
+
+.launchpadEmbeddedAppPage .sapUiResponsiveMargin {
+    margin: 1rem 1.5rem !important;
+}
+
+.launchpadEmbeddedAppPage .timesheetPageHeader,
+.launchpadEmbeddedAppPage .profileHeroContainer {
+    background:
+        linear-gradient(135deg, rgba(9, 90, 210, 0.96) 0%, rgba(40, 132, 225, 0.92) 62%, rgba(0, 95, 200, 0.98) 100%) !important;
+    border-radius: 0.625rem !important;
+    box-shadow: 0 0.25rem 0.875rem rgba(34, 53, 72, 0.16) !important;
+}
+
+.launchpadEmbeddedAppPage .timesheetPageHeader {
+    min-height: 4.75rem;
+    padding: 1rem 1.25rem !important;
+}
+
+.launchpadEmbeddedAppPage .timesheetHeaderTitle,
+.launchpadEmbeddedAppPage .profileHeroTitle,
+.launchpadEmbeddedAppPage .profileHeroSubText {
+    color: #ffffff !important;
+}
+
+.launchpadEmbeddedAppPage .premiumTableContainer,
+.launchpadEmbeddedAppPage .profileCoreTabs,
+.launchpadEmbeddedAppPage .profileInfoCard,
+.launchpadEmbeddedAppPage .profileSingleCard,
+.launchpadEmbeddedAppPage .sapMPanel,
+.launchpadEmbeddedAppPage .sapMListTbl {
+    border-color: #d5dadd !important;
+    box-shadow: 0 0.125rem 0.5rem rgba(34, 53, 72, 0.13) !important;
+}
+
 @media (max-width: 48rem) {
+    .flpSystemStrip.sapMTB {
+        height: 2.25rem;
+    }
+
+    .flpShellHeader.sapMTB {
+        height: 3.5rem;
+        padding: 0 0.75rem;
+    }
+
+    .flpProductTitle {
+        font-size: 0.95rem !important;
+    }
+
+    .flpSapLogo {
+        width: 3.75rem;
+        margin-right: 0.5rem;
+    }
+
     .flpNavigationBar.sapMTB {
         padding: 0 0.75rem;
     }
 
-    .flpNavUser {
-        display: none;
-    }
-
     .launchpadPageContent {
         padding: 0.75rem 1rem 1.5rem;
+    }
+
+    .launchpadNewsColumn,
+    .launchpadPagesColumn {
+        min-width: 100%;
     }
 
     .tileLayout.sapMGT {
