@@ -51,7 +51,20 @@
                         </VBox>
                         <VBox class="sapUiMediumMarginEnd">
                             <Label text="{i18n>detailApprover}"/>
-                            <Text text="{= ${odata>LastChangedBy} ? ${odata>LastChangedBy} : 'System' }" class="sapMTextBold"/>
+                            <Text
+                                text="{
+                                    parts: [
+                                        {path: 'odata>Status', targetType: 'any'},
+                                        {path: 'odata>DecisionName', targetType: 'any'},
+                                        {path: 'odata>DecisionUserId', targetType: 'any'},
+                                        {path: 'odata>CreatedBy', targetType: 'any'},
+                                        {path: 'odata>CreatedAt', targetType: 'any'},
+                                        {path: 'odata>LastChangedBy', targetType: 'any'},
+                                        {path: 'odata>LastChangedAt', targetType: 'any'}
+                                    ],
+                                    formatter: '.formatApprovalActor'
+                                }"
+                                class="sapMTextBold"/>
                         </VBox>
                         <VBox class="sapUiMediumMarginEnd">
                             <Label text="{i18n>detailSubmittedDate}"/>
@@ -160,11 +173,33 @@
                                             state="{= ${path: 'odata>Status', targetType: 'any'} === '02' ? 'Success' : 'Error' }"
                                             inverted="true"/>
 
-                                        <Label text="{i18n>lblApprover}"/>
-                                        <Text text="{= ${odata>LastChangedBy} ? ${odata>LastChangedBy} : 'System' }"/>
+                                        <Label text="{i18n>lblApprovalHandler}"/>
+                                        <Text
+                                            text="{
+                                                parts: [
+                                                    {path: 'odata>Status', targetType: 'any'},
+                                                    {path: 'odata>DecisionName', targetType: 'any'},
+                                                    {path: 'odata>DecisionUserId', targetType: 'any'},
+                                                    {path: 'odata>CreatedBy', targetType: 'any'},
+                                                    {path: 'odata>CreatedAt', targetType: 'any'},
+                                                    {path: 'odata>LastChangedBy', targetType: 'any'},
+                                                    {path: 'odata>LastChangedAt', targetType: 'any'}
+                                                ],
+                                                formatter: '.formatApprovalActor'
+                                            }"/>
 
                                         <Label text="{i18n>lblApprovalDate}"/>
-                                        <Text text="{odata>LastChangedAt}"/>
+                                        <Text
+                                            text="{
+                                                parts: [
+                                                    {path: 'odata>DecisionAt', targetType: 'any'},
+                                                    {path: 'odata>LastChangedAt', targetType: 'any'}
+                                                ],
+                                                formatter: '.formatApprovalDate'
+                                            }"/>
+
+                                        <Label text="{i18n>lblSapAuditUser}" visible="{= !!${odata>LastChangedBy} }"/>
+                                        <Text text="{odata>LastChangedBy}" visible="{= !!${odata>LastChangedBy} }"/>
                                         
                                         <!-- Rejection reason -->
                                         <Label text="{i18n>lblReason}" visible="{= ${path: 'odata>Status', targetType: 'any'} === '03' }"/>

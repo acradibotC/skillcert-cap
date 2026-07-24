@@ -34,6 +34,79 @@ sap.ui.define([
             });
         },
 
+        /**
+         * Approval display helper.
+         *
+         * Prefer the business decision fields exposed by SAP RAP. RAP audit
+         * fields such as CreatedBy/LastChangedBy are technical users (for
+         * example DEV-271) and must not be presented as business approvers.
+         */
+        formatApprovalActor: function (
+            sStatus,
+            sDecisionName,
+            sDecisionUserId,
+            sCreatedBy,
+            vCreatedAt,
+            sLastChangedBy,
+            vLastChangedAt
+        ) {
+            var oBundle = this._getBundle();
+            var sNormalizedStatus = String(sStatus || "");
+
+            if (sNormalizedStatus === "01") {
+                return oBundle.getText("approvalPending");
+            }
+
+            if (sDecisionName) {
+                return sDecisionName;
+            }
+
+            if (sDecisionUserId) {
+                return sDecisionUserId;
+            }
+
+            if (sNormalizedStatus === "02" && this._isAutoApprovedAtCreation(
+                    sCreatedBy, vCreatedAt, sLastChangedBy, vLastChangedAt)) {
+                return oBundle.getText("approvalAutoCreated");
+            }
+
+            if (sNormalizedStatus === "02") {
+                return oBundle.getText("approvalActorNotExposed");
+            }
+
+            if (sNormalizedStatus === "03") {
+                return oBundle.getText("rejectionActorNotExposed");
+            }
+
+            return oBundle.getText("approvalActorNotCaptured");
+        },
+
+        formatApprovalDate: function (vDecisionAt, vLastChangedAt) {
+            return vDecisionAt || vLastChangedAt || "";
+        },
+
+        _isAutoApprovedAtCreation: function (sCreatedBy, vCreatedAt, sLastChangedBy, vLastChangedAt) {
+            return !!sCreatedBy
+                && !!sLastChangedBy
+                && String(sCreatedBy) === String(sLastChangedBy)
+                && this._isSameInstant(vCreatedAt, vLastChangedAt);
+        },
+
+        _isSameInstant: function (vFirst, vSecond) {
+            if (!vFirst || !vSecond) {
+                return false;
+            }
+
+            var iFirst = Date.parse(vFirst);
+            var iSecond = Date.parse(vSecond);
+
+            if (!Number.isNaN(iFirst) && !Number.isNaN(iSecond)) {
+                return iFirst === iSecond;
+            }
+
+            return String(vFirst) === String(vSecond);
+        },
+
         _onRouteMatched: function (oEvent) {
             var sRequestId = oEvent.getParameter("arguments").certIndex;
             var oView = this.getView();

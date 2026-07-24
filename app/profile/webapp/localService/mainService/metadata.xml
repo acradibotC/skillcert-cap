@@ -101,6 +101,10 @@
                 <Property Name="Status" Type="Edm.String" Nullable="false" MaxLength="2"/>
                 <Property Name="StatusText" Type="Edm.String" Nullable="false" MaxLength="20"/>
                 <Property Name="RejectionReason" Type="Edm.String" Nullable="false" MaxLength="255"/>
+                <Property Name="DecisionUserId" Type="Edm.String" Nullable="false" MaxLength="30"/>
+                <Property Name="DecisionPernr" Type="Edm.String" Nullable="false" MaxLength="8"/>
+                <Property Name="DecisionName" Type="Edm.String" Nullable="false" MaxLength="40"/>
+                <Property Name="DecisionAt" Type="Edm.DateTimeOffset" Precision="7"/>
                 <Property Name="CreatedBy" Type="Edm.String" Nullable="false" MaxLength="12"/>
                 <Property Name="CreatedAt" Type="Edm.DateTimeOffset" Precision="7"/>
                 <Property Name="LastChangedBy" Type="Edm.String" Nullable="false" MaxLength="12"/>

@@ -227,6 +227,31 @@
      "length": 255,
      "notNull": true
     },
+    "DecisionUserId": {
+     "type": "cds.String",
+     "length": 30,
+     "notNull": true,
+     "@Core.Computed": true
+    },
+    "DecisionPernr": {
+     "type": "cds.String",
+     "length": 8,
+     "notNull": true,
+     "@Common.IsDigitSequence": true,
+     "@Core.Computed": true
+    },
+    "DecisionName": {
+     "type": "cds.String",
+     "length": 40,
+     "notNull": true,
+     "@Core.Computed": true
+    },
+    "DecisionAt": {
+     "type": "cds.Timestamp",
+     "@odata.Precision": 7,
+     "@odata.Type": "Edm.DateTimeOffset",
+     "@Core.Computed": true
+    },
     "CreatedBy": {
      "type": "cds.String",
      "length": 12,
