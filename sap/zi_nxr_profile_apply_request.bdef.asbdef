@@ -1,0 +1,67 @@
+managed implementation in class zbp_nxr_i_profapply unique;
+strict ( 2 );
+
+define behavior for ZI_NXR_ProfileApplyRequest alias ProfileApplyRequest
+persistent table ztb_nxr_profreq
+lock master
+authorization master ( instance )
+etag master LocalLastChangedAt
+{
+  create;
+  update;
+
+  action ( features : instance ) applyProfileChanges
+    parameter ZA_NXR_PROFAPPLY_DECISION
+    result [1] $self;
+
+  field ( readonly ) Status,
+                     ApplyState,
+                     ApplyMessage,
+                     DecisionBy,
+                     DecisionByEmail,
+                     DecisionPernr,
+                     DecisionAt,
+                     CreatedBy,
+                     CreatedAt,
+                     LastChangedBy,
+                     LastChangedAt,
+                     LocalLastChangedAt;
+
+  field ( readonly, numbering : managed ) RequestId;
+
+  determination setInitialState on modify { create; }
+
+  mapping for ztb_nxr_profreq
+  {
+    RequestId              = request_id;
+    RequestNo              = request_no;
+    Pernr                  = pernr;
+    EmployeeName           = employee_name;
+    RequestedByEmail       = requested_by_email;
+    RevisionNo             = revision_no;
+    Status                 = status;
+    ApplyState             = apply_state;
+    ApplyMessage           = apply_message;
+    ChangedFields          = changed_fields;
+    IdNumber               = id_number;
+    Telephone              = telephone;
+    PermanentAddress       = permanent_address;
+    WorkEmail              = work_email;
+    CurrentAddress         = current_address;
+    TaxCode                = tax_code;
+    PayMethod              = pay_method;
+    BankCountry            = bank_country;
+    BankKey                = bank_key;
+    BankAccount            = bank_account;
+    DecisionBy             = decision_by;
+    DecisionByEmail        = decision_by_email;
+    DecisionPernr          = decision_pernr;
+    DecisionAt             = decision_at;
+    HrComment              = hr_comment;
+    CreatedBy              = created_by;
+    CreatedAt              = created_at;
+    LastChangedBy          = last_changed_by;
+    LastChangedAt          = last_changed_at;
+    LocalLastChangedAt     = local_last_changed_at;
+  }
+}

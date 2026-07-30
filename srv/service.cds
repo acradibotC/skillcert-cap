@@ -57,7 +57,12 @@ service WorktimeUploadService @(path: '/api/v4') {
     // Uploads validated rows into SAP staging. The 05:00 SAP job posts
     // queued rows to HR infotypes; this action never writes PA2002 directly.
     action uploadBatch(records: array of WorktimePayload, sourceFileName: String(128)) returns UploadResult;
-    action checkExisting(months: array of String)          returns ExistingResult;
+    action checkExisting(records: array of WorktimeKey)    returns ExistingResult;
+
+    type WorktimeKey {
+        Pernr    : String(8);
+        WorkDate : Date;
+    }
 
     type WorktimePayload {
         Pernr         : String(8);
@@ -81,8 +86,8 @@ service WorktimeUploadService @(path: '/api/v4') {
     }
 
     type ExistingResult {
-        count   : Integer;
-        months  : String;
+        count : Integer;
+        dates : array of Date;
     }
 }
 

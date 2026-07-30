@@ -18,7 +18,8 @@ sap.ui.define([
                 approvedCount: 0,
                 rejectedCount: 0,
                 teamCertCount: 0,
-                selectedTab: "myProfile"
+                selectedTab: "myProfile",
+                sideExpanded: true
             });
             this.getView().setModel(oViewModel, "view");
             // Attach click events to Dashboard cards using Event Delegates
@@ -552,8 +553,9 @@ sap.ui.define([
 
         onSideNavButtonPress: function () {
             var oToolPage = this.byId("toolPage");
-            var bSideExpanded = oToolPage.getSideExpanded();
-            oToolPage.setSideExpanded(!bSideExpanded);
+            var bSideExpanded = !oToolPage.getSideExpanded();
+            oToolPage.setSideExpanded(bSideExpanded);
+            this.getView().getModel("view").setProperty("/sideExpanded", bSideExpanded);
         },
 
         onSideNavSelect: function (oEvent) {
@@ -564,14 +566,22 @@ sap.ui.define([
 
             var oItem = oEvent.getParameter("item");
             var sKey = oItem.getKey();
+            var oViewModel = this.getView().getModel("view");
 
-            if (sKey === "profileApprovals" &&
-                    !this.getOwnerComponent().getModel("user").getProperty("/isHrAdmin")) {
-                this.getView().getModel("view").setProperty("/selectedTab", "myProfile");
+            if (sKey === "toggleNavigation") {
+                var sSelectedTab = oViewModel.getProperty("/selectedTab");
+                this.onSideNavButtonPress();
+                this.byId("sideNav").setSelectedKey(sSelectedTab);
                 return;
             }
 
-            this.getView().getModel("view").setProperty("/selectedTab", sKey);
+            if (sKey === "profileApprovals" &&
+                    !this.getOwnerComponent().getModel("user").getProperty("/isHrAdmin")) {
+                oViewModel.setProperty("/selectedTab", "myProfile");
+                return;
+            }
+
+            oViewModel.setProperty("/selectedTab", sKey);
 
             if (sKey === "profileApprovals") {
                 var oInboxView = this.byId("profileApprovalInboxView");

@@ -8,7 +8,7 @@
     xmlns:unified="sap.ui.unified"
     xmlns:layout="sap.ui.layout"
     xmlns:form="sap.ui.layout.form">
-    <tnt:ToolPage id="toolPage">
+    <tnt:ToolPage id="toolPage" sideExpanded="{view>/sideExpanded}">
 
         <!-- Dynamic Page Header -->
         <tnt:header>
@@ -23,15 +23,22 @@
         </tnt:header>
 
         <tnt:sideContent>
-            <tnt:SideNavigation id="sideNav" expanded="true" selectedKey="{view>/selectedTab}" itemSelect="onSideNavSelect">
+            <tnt:SideNavigation id="sideNav" expanded="{view>/sideExpanded}" selectedKey="{= ${view>/selectedTab} }" itemSelect="onSideNavSelect">
                 <tnt:NavigationList>
-                    <tnt:NavigationListItem text="{i18n>navDashboard}" icon="sap-icon://bar-chart" key="dashboard" />
+                    <tnt:NavigationListItem text="{i18n>navDashboard}" icon="sap-icon://bar-chart" key="dashboard" visible="{view>/isManager}" />
                     <tnt:NavigationListItem text="{i18n>navAttendance}" icon="sap-icon://time-entry-request" key="attendance" />
                     <tnt:NavigationListItem text="{i18n>navCalendar}" icon="sap-icon://calendar" key="calendar" />
                     <tnt:NavigationListItem text="{i18n>navRequests}" icon="sap-icon://request" key="requests" />
                     <tnt:NavigationListItem text="{i18n>navHistory}" icon="sap-icon://history" key="history" />
-                    <tnt:NavigationListItem text="{i18n>navReports}" icon="sap-icon://document-text" key="reports" />
                 </tnt:NavigationList>
+                <tnt:fixedItem>
+                    <tnt:NavigationList>
+                        <tnt:NavigationListItem
+                            tooltip="{i18n>navToggleMenu}"
+                            icon="sap-icon://menu2"
+                            key="toggleNavigation" />
+                    </tnt:NavigationList>
+                </tnt:fixedItem>
             </tnt:SideNavigation>
         </tnt:sideContent>
 
@@ -39,7 +46,7 @@
             <Page showHeader="false">
                 <content>
                     <!-- Dashboard Section -->
-                    <VBox visible="{= ${view>/selectedTab} === 'dashboard' }" class="sapUiResponsiveMargin">
+                    <VBox visible="{= ${view>/isManager} &amp;&amp; ${view>/selectedTab} === 'dashboard' }" class="sapUiResponsiveMargin">
                         <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
                             <core:Icon src="sap-icon://bar-chart" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
                             <Title text="{i18n>navDashboard}" class="timesheetHeaderTitle" level="H2" />
@@ -79,7 +86,6 @@
                                 <ToolbarSpacer />
                                 <Button text="{i18n>btnSort}" icon="sap-icon://sort" press="onSortAttendanceOpen" />
                                 <Button text="{i18n>btnExport}" icon="sap-icon://excel-attachment" type="Emphasized" press="onExport" />
-                                <Button text="{i18n>btnCreateRequest}" icon="sap-icon://add" type="Emphasized" press="onCreateRequest" />
                             </OverflowToolbar>
 
                             <Table id="attendanceTable"
@@ -146,6 +152,14 @@
                                     <layoutData>
                                         <layout:GridData span="XL4 L4 M12 S12" />
                                     </layoutData>
+                                    <Button
+                                        id="calendarCreateRequestButton"
+                                        text="{i18n>btnCreateRequest}"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        width="100%"
+                                        class="sapUiSmallMarginBottom"
+                                        press="onCreateRequestFromCalendar" />
                                     <!-- Legend -->
                                     <unified:CalendarLegend id="calendarLegend" class="sapUiSmallMarginBottom">
                                         <unified:items>
@@ -212,18 +226,24 @@
                         </HBox>
                         <VBox class="premiumTableContainer sapUiMediumMarginBottom">
                             <OverflowToolbar class="sapUiSmallMarginBottom">
-                                <SegmentedButton id="reqViewToggle" selectedKey="{view>/reqViewMode}" selectionChange="onReqViewToggle">
+                                <SegmentedButton id="reqViewToggle" selectedKey="{view>/reqViewMode}" selectionChange="onReqViewToggle" enabled="{= !${view>/requestsBusy} }">
                                     <items>
                                         <SegmentedButtonItem key="employee" text="{i18n>navRequests}" icon="sap-icon://person-placeholder" />
                                         <SegmentedButtonItem key="manager" text="{i18n>reqViewTeamAppr}" icon="sap-icon://manager" visible="{view>/isManager}" />
                                     </items>
                                 </SegmentedButton>
                                 <ToolbarSpacer />
-                                <Button text="{i18n>btnRefresh}" icon="sap-icon://refresh" press="onRefreshRequests" />
+                                <Button text="{i18n>btnRefresh}" icon="sap-icon://refresh" press="onRefreshRequests" enabled="{= !${view>/requestsBusy} }" />
+                                <Button
+                                    text="{i18n>btnCreateRequest}"
+                                    icon="sap-icon://add"
+                                    type="Emphasized"
+                                    press="onCreateRequest"
+                                    visible="{= ${view>/reqViewMode} === 'employee' &amp;&amp; !${view>/requestsBusy} }" />
                             </OverflowToolbar>
 
                             <!-- Status Filter -->
-                            <IconTabBar id="reqStatusFilter" select="onReqStatusFilter" selectedKey="ALL" class="sapUiSmallMarginBottom">
+                            <IconTabBar id="reqStatusFilter" select="onReqStatusFilter" selectedKey="ALL" enabled="{= !${view>/requestsBusy} }" class="sapUiSmallMarginBottom">
                                 <items>
                                     <IconTabFilter key="ALL" text="{i18n>statusAll}" count="{view>/reqCountAll}" />
                                     <IconTabFilter key="01" text="{i18n>statusPending}" count="{view>/reqCountPending}" iconColor="Critical" />
@@ -238,6 +258,8 @@
                                 growing="true"
                                 growingThreshold="20"
                                 alternateRowColors="true"
+                                busy="{view>/requestsBusy}"
+                                busyIndicatorDelay="0"
                                 class="sapUiSizeCompact"
                                 noDataText="{i18n>txtNoDataReq}">
                                 <columns>
@@ -270,15 +292,15 @@
                                             <HBox justifyContent="Center">
                                                 <!-- Employee: Cancel (only Pending) -->
                                                 <Button text="{i18n>btnCancel}" type="Reject" press="onCancelRequest"
-                                                    visible="{= ${view>/reqViewMode} === 'employee' &amp;&amp; ${reqList>Status} === '01' }"
+                                                    visible="{= !${view>/requestsBusy} &amp;&amp; ${view>/reqViewMode} === 'employee' &amp;&amp; ${view>/reqDataMode} === 'employee' &amp;&amp; ${reqList>Status} === '01' }"
                                                     class="sapUiTinyMarginEnd" />
                                                 <!-- Manager: Approve -->
                                                 <Button text="{i18n>btnApprove}" type="Accept" press="onApproveRequest"
-                                                    visible="{= ${view>/reqViewMode} === 'manager' &amp;&amp; ${reqList>Status} === '01' }"
+                                                    visible="{= !${view>/requestsBusy} &amp;&amp; ${view>/reqViewMode} === 'manager' &amp;&amp; ${view>/reqDataMode} === 'manager' &amp;&amp; ${reqList>Status} === '01' }"
                                                     class="sapUiTinyMarginEnd" />
                                                 <!-- Manager: Reject -->
                                                 <Button text="{i18n>btnReject}" type="Reject" press="onRejectRequest"
-                                                    visible="{= ${view>/reqViewMode} === 'manager' &amp;&amp; ${reqList>Status} === '01' }" />
+                                                    visible="{= !${view>/requestsBusy} &amp;&amp; ${view>/reqViewMode} === 'manager' &amp;&amp; ${view>/reqDataMode} === 'manager' &amp;&amp; ${reqList>Status} === '01' }" />
                                             </HBox>
                                         </cells>
                                     </ColumnListItem>
@@ -333,17 +355,6 @@
                                     </ColumnListItem>
                                 </items>
                             </Table>
-                        </VBox>
-                    </VBox>
-
-                    <!-- Reports Section -->
-                    <VBox visible="{= ${view>/selectedTab} === 'reports' }" class="sapUiResponsiveMargin">
-                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
-                            <core:Icon src="sap-icon://document-text" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
-                            <Title text="{i18n>navReports}" class="timesheetHeaderTitle" level="H2" />
-                        </HBox>
-                        <VBox class="premiumTableContainer sapUiMediumMarginBottom sapUiResponsiveContentPadding">
-                            <Text text="{i18n>txtReportsComing}" />
                         </VBox>
                     </VBox>
 

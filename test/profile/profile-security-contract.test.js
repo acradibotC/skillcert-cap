@@ -21,6 +21,6 @@ test('profile authorization is based on employee link or HR role, not manager st
     assert.match(source, /ProfileHRAdmin/);
     assert.doesNotMatch(source, /isManager[^\n]*ProfileHRAdmin/);
     assert.match(source, /SAP_PROFILE_IDENTITY_MISMATCH/);
-    assert.match(source, /PROFILE_WORKFLOW_NOT_AVAILABLE/);
+    assert.match(source, /SAP_PROFILE_WRITE_NOT_AVAILABLE/);
     assert.doesNotMatch(source, /ProfileSnapshots/);
 });

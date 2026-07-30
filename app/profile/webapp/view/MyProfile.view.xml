@@ -36,7 +36,7 @@
                     class="profileHeroSubText sapUiTinyMarginTop"/>
                 <ObjectStatus
                     icon="sap-icon://cloud"
-                    text="{i18n>profileSapPreviewStatus}"
+                    text="{i18n>profileReadOnlySap}"
                     class="profileHeroStatus sapUiTinyMarginTop"/>
             </VBox>
 
@@ -96,15 +96,48 @@
                             </VBox>
                         </HBox>
                         <HBox justifyContent="SpaceBetween" alignItems="Center" wrap="Wrap" class="profileEditRow">
-                            <ObjectStatus icon="sap-icon://edit" text="{i18n>profileFrontendPreview}" state="Information"/>
+                            <ObjectStatus icon="sap-icon://edit" text="{i18n>profileEditWorkflowNotice}" state="Information"/>
                             <Button id="profilePreviewEditButton" text="{i18n>profileEditButton}" icon="sap-icon://edit" type="Emphasized" enabled="{profileUi>/hasEditableField}" tooltip="{i18n>profileEditTooltip}" press="onEditProfile"/>
                         </HBox>
                         <MessageStrip
-                            visible="{profileUi>/hasPreviewChanges}"
-                            text="{i18n>profilePreviewUnsaved}"
+                            visible="{profileUi>/hasPendingRequest}"
+                            text="{i18n>profilePendingRequestNotice}"
                             type="Warning"
                             showIcon="true"
                             class="sapUiSmallMarginTop"/>
+                        <VBox class="profileSingleCard sapUiMediumMarginTop">
+                            <OverflowToolbar class="premiumTableHeader">
+                                <Title text="{i18n>profileRequestHistory}" level="H3"/>
+                                <ToolbarSpacer/>
+                                <Button icon="sap-icon://refresh" type="Transparent" tooltip="{i18n>profileRefreshHistory}" press="onRefreshProfile"/>
+                            </OverflowToolbar>
+                            <Table
+                                id="profileRequestHistoryTable"
+                                items="{profileRequests>/rows}"
+                                growing="true"
+                                growingThreshold="5"
+                                noDataText="{i18n>profileNoRequests}"
+                                alternateRowColors="true">
+                                <columns>
+                                    <Column><Text text="{i18n>profileRequestNo}"/></Column>
+                                    <Column demandPopin="true" minScreenWidth="Tablet"><Text text="{i18n>profileSubmittedAt}"/></Column>
+                                    <Column demandPopin="true" minScreenWidth="Tablet"><Text text="{i18n>profileRemark}"/></Column>
+                                    <Column hAlign="End"><Text text="{i18n>profileStatus}"/></Column>
+                                    <Column hAlign="End"><Text text="{i18n>colAction}"/></Column>
+                                </columns>
+                                <items>
+                                    <ColumnListItem>
+                                        <cells>
+                                            <ObjectIdentifier title="{profileRequests>RequestNo}" text="{profileRequests>ID}"/>
+                                            <Text text="{path:'profileRequests>SubmittedAt', formatter:'.formatter.formatDateTime'}"/>
+                                            <Text text="{profileRequests>Remark}" wrapping="true"/>
+                                            <ObjectStatus text="{profileRequests>StatusText}" icon="{path:'profileRequests>Status', formatter:'.formatter.statusIcon'}" state="{path:'profileRequests>Status', formatter:'.formatter.statusState'}" inverted="true"/>
+                                            <Button text="{i18n>profileResubmitButton}" type="Transparent" visible="{= ${profileRequests>Status} === '04' }" press="onReviseProfileRequest"/>
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
                     </IconTabFilter>
 
                     <IconTabFilter key="contactPayment" text="{i18n>profileTabContactPayment}">

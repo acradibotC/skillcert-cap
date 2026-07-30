@@ -28,3 +28,33 @@ test('frontend skill create keeps SAP as workflow status source of truth', () =>
     assert.doesNotMatch(payloadMatch[1], /Status\s*:/);
     assert.match(controllerSource, /bindList\("\/Request"\)/);
 });
+
+test('My Profile navigation has an icon-only collapse toggle that preserves the active tab', () => {
+    const controllerSource = fs.readFileSync(controllerPath, 'utf8');
+    const viewSource = fs.readFileSync(viewPath, 'utf8');
+
+    assert.match(viewSource, /sideExpanded="\{view>\/sideExpanded\}"/);
+    assert.match(viewSource, /selectedKey="\{= \$\{view>\/selectedTab\} \}"/);
+
+    const toggleStart = viewSource.lastIndexOf('<tnt:NavigationListItem', viewSource.indexOf('key="toggleNavigation"'));
+    const toggleEnd = viewSource.indexOf('/>', toggleStart);
+    const toggleItem = viewSource.slice(toggleStart, toggleEnd);
+
+    assert.match(toggleItem, /key="toggleNavigation"/);
+    assert.match(toggleItem, /icon="sap-icon:\/\/menu2"/);
+    assert.match(toggleItem, /tooltip="\{i18n>tooltipToggleMenu\}"/);
+    assert.doesNotMatch(toggleItem, /\btext=/);
+
+    assert.match(controllerSource, /sideExpanded: true/);
+    assert.match(controllerSource, /if \(sKey === "toggleNavigation"\)/);
+    assert.match(controllerSource, /setProperty\("\/sideExpanded", bSideExpanded\)/);
+    assert.match(controllerSource, /setSelectedKey\(sSelectedTab\)/);
+});
+
+test('My Profile no longer exposes the Dashboard tab or placeholder content', () => {
+    const viewSource = fs.readFileSync(viewPath, 'utf8');
+
+    assert.doesNotMatch(viewSource, /key="dashboard"/);
+    assert.doesNotMatch(viewSource, /selectedTab\}\s*===\s*'dashboard'/);
+    assert.doesNotMatch(viewSource, /Dashboard content placeholder/);
+});

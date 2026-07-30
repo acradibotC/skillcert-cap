@@ -1,0 +1,39 @@
+@EndUserText.label : 'MyProfile Apply Request'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table ztb_nxr_profreq {
+  key client            : abap.clnt not null;
+  key request_id        : sysuuid_x16 not null;
+  request_no            : abap.char(24);
+  pernr                 : abap.numc(8);
+  employee_name         : abap.char(120);
+  requested_by_email    : abap.char(255);
+  revision_no           : abap.int4;
+  status                : abap.char(2);
+  apply_state           : abap.char(20);
+  apply_message         : abap.char(500);
+  changed_fields        : abap.char(255);
+  id_number             : abap.char(20);
+  telephone             : abap.char(30);
+  permanent_address     : abap.char(60);
+  work_email            : abap.char(241);
+  current_address       : abap.char(60);
+  tax_code              : abap.char(10);
+  pay_method            : abap.char(1);
+  bank_country          : abap.char(3);
+  bank_key              : abap.char(15);
+  bank_account          : abap.char(18);
+  decision_by           : abap.char(255);
+  decision_by_email     : abap.char(255);
+  decision_pernr        : abap.numc(8);
+  decision_at           : timestampl;
+  hr_comment            : abap.char(500);
+  created_by            : syuname;
+  created_at            : timestampl;
+  last_changed_by       : syuname;
+  last_changed_at       : timestampl;
+  local_last_changed_at : timestampl;
+
+}

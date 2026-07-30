@@ -253,14 +253,22 @@ sap.ui.define([
         },
 
         _errorKey: function (oError) {
-            var iStatus = ProfileApi.errorInfo(oError).status;
+            var oInfo = ProfileApi.errorInfo(oError);
             return {
+                SAP_PROFILE_WRITE_NOT_AVAILABLE: "profileErrorSapApplyUnavailable",
+                SAP_PROFILE_WRITE_NOT_IMPLEMENTED: "profileErrorSapApplyUnavailable",
+                SAP_PROFILE_WRITE_SERVICE_UNAVAILABLE: "profileErrorSapApplyUnavailable",
+                SAP_PROFILE_WRITE_FAILED: "profileErrorSapApplyUnavailable",
+                SAP_PROFILE_WRITE_REJECTED: "profileErrorSapApplyUnavailable",
+                SAP_PROFILE_WRITE_EMPTY_PAYLOAD: "profileErrorSapApplyUnavailable"
+            }[oInfo.code] || {
                 401: "profileErrorUnauthorized",
                 403: "profileErrorForbidden",
                 409: "profileErrorConflict",
                 412: "profileErrorStale",
+                501: "profileErrorSapApplyUnavailable",
                 503: "profileErrorServiceUnavailable"
-            }[iStatus] || "profileErrorServiceUnavailable";
+            }[oInfo.status] || "profileErrorServiceUnavailable";
         },
 
         onExit: function () {

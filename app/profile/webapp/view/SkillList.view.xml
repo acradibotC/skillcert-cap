@@ -8,7 +8,7 @@
     xmlns:f="sap.f"
     xmlns:tnt="sap.tnt">
 
-    <tnt:ToolPage id="toolPage">
+    <tnt:ToolPage id="toolPage" sideExpanded="{view>/sideExpanded}">
 
         <!-- Dynamic Page Header -->
         <tnt:header>
@@ -24,15 +24,22 @@
         </tnt:header>
 
         <tnt:sideContent>
-            <tnt:SideNavigation id="sideNav" expanded="true" selectedKey="{view>/selectedTab}" itemSelect="onSideNavSelect">
+            <tnt:SideNavigation id="sideNav" expanded="{view>/sideExpanded}" selectedKey="{= ${view>/selectedTab} }" itemSelect="onSideNavSelect">
                 <tnt:NavigationList>
                     <tnt:NavigationListItem text="{i18n>tabMyProfile}" icon="sap-icon://person-placeholder" key="myProfile" />
                     <tnt:NavigationListItem text="{i18n>tabMySkills}" icon="sap-icon://education" key="mySkills" />
                     <tnt:NavigationListItem text="{i18n>tabMyCerts}" icon="sap-icon://badge" key="myCerts" />
-                    <tnt:NavigationListItem text="{i18n>tabDashboard}" icon="sap-icon://bar-chart" key="dashboard" visible="{user>/isManager}" />
                     <tnt:NavigationListItem text="{i18n>tabTeamMgmt}" icon="sap-icon://group" key="team" visible="{user>/isManager}" />
                     <tnt:NavigationListItem text="{i18n>tabProfileApprovals}" icon="sap-icon://approvals" key="profileApprovals" visible="{user>/isHrAdmin}" />
                 </tnt:NavigationList>
+                <tnt:fixedItem>
+                    <tnt:NavigationList>
+                        <tnt:NavigationListItem
+                            tooltip="{i18n>tooltipToggleMenu}"
+                            icon="sap-icon://menu2"
+                            key="toggleNavigation" />
+                    </tnt:NavigationList>
+                </tnt:fixedItem>
             </tnt:SideNavigation>
         </tnt:sideContent>
 
@@ -197,15 +204,7 @@
                         </VBox>
                     </VBox>
 
-                    <!-- Section 3: Dashboard (Manager Only) -->
-                    <VBox visible="{= ${view>/selectedTab} === 'dashboard' &amp;&amp; ${user>/isManager} }">
-                        <!-- Dashboard content will go here -->
-                        <Panel headerText="{i18n>tabDashboard}">
-                            <Text text="Dashboard content placeholder" />
-                        </Panel>
-                    </VBox>
-
-                    <!-- Section 4: Team Management (Manager Only) -->
+                    <!-- Section 3: Team Management (Manager Only) -->
                     <VBox visible="{= ${view>/selectedTab} === 'team' &amp;&amp; ${user>/isManager} }">
                         <l:Splitter height="750px">
                                     <Page id="teamMasterPage" title="{i18n>teamMembersTitle}" showHeader="true">

@@ -1,0 +1,118 @@
+{
+  "meta": {
+    "creator": "manual contract for CAP remote SAP profile apply action"
+  },
+  "$version": "2.0",
+  "definitions": {
+    "ZUI_NXR_PROFILE_APPLY_O4": {
+      "kind": "service",
+      "@cds.external": true
+    },
+    "ZUI_NXR_PROFILE_APPLY_O4.ProfileApplyChange": {
+      "kind": "type",
+      "@cds.external": true,
+      "elements": {
+        "FieldCode": {
+          "type": "cds.String",
+          "length": 30
+        },
+        "FieldGroup": {
+          "type": "cds.String",
+          "length": 30
+        },
+        "OldValue": {
+          "type": "cds.String",
+          "length": 500
+        },
+        "NewValue": {
+          "type": "cds.String",
+          "length": 500
+        },
+        "SapInfotype": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "SapSubtype": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "SapField": {
+          "type": "cds.String",
+          "length": 30
+        },
+        "IsSensitive": {
+          "type": "cds.Boolean"
+        }
+      }
+    },
+    "ZUI_NXR_PROFILE_APPLY_O4.ProfileApplyResult": {
+      "kind": "type",
+      "@cds.external": true,
+      "elements": {
+        "Applied": {
+          "type": "cds.Boolean"
+        },
+        "Message": {
+          "type": "cds.String",
+          "length": 500
+        },
+        "SapRequestId": {
+          "type": "cds.String",
+          "length": 64
+        }
+      }
+    },
+    "ZUI_NXR_PROFILE_APPLY_O4.applyProfileChanges": {
+      "kind": "action",
+      "@cds.external": true,
+      "params": {
+        "RequestId": {
+          "type": "cds.UUID"
+        },
+        "RequestNo": {
+          "type": "cds.String",
+          "length": 24
+        },
+        "Pernr": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "EmployeeName": {
+          "type": "cds.String",
+          "length": 120
+        },
+        "RequestedByEmail": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "RevisionNo": {
+          "type": "cds.Integer"
+        },
+        "DecisionBy": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "DecisionByEmail": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "DecisionPernr": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "HrComment": {
+          "type": "cds.String",
+          "length": 500
+        },
+        "Changes": {
+          "items": {
+            "type": "ZUI_NXR_PROFILE_APPLY_O4.ProfileApplyChange"
+          }
+        }
+      },
+      "returns": {
+        "type": "ZUI_NXR_PROFILE_APPLY_O4.ProfileApplyResult"
+      }
+    }
+  }
+}

@@ -61,6 +61,16 @@
           "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_attreq_o4/srvd/sap/zsd_nxr_attreq_post/0001",
           "authentication": "BasicAuthentication"
         }
+      },
+      "ZUI_NXR_PROFILE_APPLY_O4": {
+        "kind": "odata-v4",
+        "model": "srv/external/ZUI_NXR_PROFILE_APPLY_O4",
+        "csrf": true,
+        "csrfInBatch": true,
+        "credentials": {
+          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_profile_apply_o4_bind/srvd/sap/zui_nxr_profile_apply_o4/0001",
+          "authentication": "BasicAuthentication"
+        }
       }
     }
   }

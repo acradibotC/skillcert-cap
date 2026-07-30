@@ -12,14 +12,6 @@ sap.ui.define([
     return Controller.extend("znxr09.hrupload.controller.App", {
 
         onInit: function () {
-            // Dynamically load SheetJS for Launchpad compatibility
-            if (typeof XLSX === "undefined") {
-                var oScript = document.createElement("script");
-                oScript.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
-                oScript.type = "text/javascript";
-                document.head.appendChild(oScript);
-            }
-
             var oUploadModel = new JSONModel({
                 fileSelected: false,
                 fileName: "",
@@ -34,10 +26,66 @@ sap.ui.define([
             });
             this.getView().setModel(oUploadModel, "uploadModel");
             this._rawFile = null;
+
+            // Preload SheetJS for the embedded Launchpad component. Do not show
+            // an error yet: onParseFile retries and reports a user-facing error.
+            this._ensureSheetJs().catch(function () {});
         },
 
         onNavBack: function () {
             window.history.back();
+        },
+
+        _isSheetJsReady: function () {
+            return !!(window.XLSX &&
+                typeof window.XLSX.read === "function" &&
+                window.XLSX.utils &&
+                typeof window.XLSX.utils.sheet_to_json === "function");
+        },
+
+        _ensureSheetJs: function () {
+            if (this._isSheetJsReady()) {
+                return Promise.resolve(window.XLSX);
+            }
+            if (this._sheetJsPromise) {
+                return this._sheetJsPromise;
+            }
+
+            var that = this;
+            var oScript = document.createElement("script");
+            oScript.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+            oScript.type = "text/javascript";
+            oScript.async = true;
+            oScript.setAttribute("data-znxr-sheetjs", "true");
+
+            this._sheetJsPromise = new Promise(function (resolve, reject) {
+                oScript.onload = function () {
+                    if (that._isSheetJsReady()) {
+                        resolve(window.XLSX);
+                    } else {
+                        reject(new Error("SheetJS loaded without the required Excel parser API."));
+                    }
+                };
+                oScript.onerror = function () {
+                    reject(new Error("Could not load the Excel parser library."));
+                };
+                document.head.appendChild(oScript);
+            }).then(function (sheetJs) {
+                // Cache only an in-flight load. If another script later
+                // replaces window.XLSX, the next Parse must be able to reload.
+                that._sheetJsPromise = null;
+                return sheetJs;
+            }).catch(function (error) {
+                // A failed or partial load can leave window.XLSX as an empty
+                // object. Clear the cached promise so the next Parse retries.
+                that._sheetJsPromise = null;
+                if (oScript.parentNode) {
+                    oScript.parentNode.removeChild(oScript);
+                }
+                throw error;
+            });
+
+            return this._sheetJsPromise;
         },
 
         // ======================== File Selection ========================
@@ -80,35 +128,40 @@ sap.ui.define([
             }
             sap.ui.core.BusyIndicator.show(0);
             var that = this;
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                setTimeout(function() {
-                    try {
-                        that._processExcelData(e.target.result);
-                    } catch (err) {
-                        sap.ui.core.BusyIndicator.hide();
-                        MessageBox.error("Failed to parse file: " + err.message);
-                    }
-                }, 50);
-            };
-            reader.onerror = function () {
+
+            this._ensureSheetJs().then(function () {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    setTimeout(function() {
+                        try {
+                            that._processExcelData(e.target.result);
+                        } catch (err) {
+                            sap.ui.core.BusyIndicator.hide();
+                            MessageBox.error("Failed to parse file: " + err.message);
+                        }
+                    }, 50);
+                };
+                reader.onerror = function () {
+                    sap.ui.core.BusyIndicator.hide();
+                    MessageBox.error("Error reading the file from disk.");
+                };
+                reader.readAsArrayBuffer(that._rawFile);
+            }).catch(function (error) {
                 sap.ui.core.BusyIndicator.hide();
-                MessageBox.error("Error reading the file from disk.");
-            };
-            reader.readAsArrayBuffer(this._rawFile);
+                MessageBox.error("Excel parser is not available: " + error.message);
+            });
         },
 
         _processExcelData: function (arrayBuffer) {
             // Use SheetJS (XLSX) library loaded from CDN
-            if (typeof XLSX === "undefined") {
-                MessageBox.error("Excel parser library (SheetJS) is not loaded. Please refresh and try again.");
-                return;
+            if (!this._isSheetJsReady()) {
+                throw new Error("Excel parser library (SheetJS) is not ready.");
             }
 
-            var workbook = XLSX.read(arrayBuffer, { type: "array" });
+            var workbook = window.XLSX.read(arrayBuffer, { type: "array" });
             var sheetName = workbook.SheetNames[0];
             var worksheet = workbook.Sheets[sheetName];
-            var rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            var rawData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
             if (rawData.length < 2) {
                 MessageBox.warning("The Excel file contains no data rows (only header or empty).");
@@ -387,37 +440,33 @@ sap.ui.define([
                 return;
             }
 
-            // Collect unique YYYYMM months
-            var oMonths = {};
-            aRecords.forEach(function (rec) {
-                if (rec.WorkDate) {
-                    var sMonth = rec.WorkDate.substring(0, 6);
-                    oMonths[sMonth] = true;
-                }
+            var aKeys = aRecords.map(function (rec) {
+                return {
+                    Pernr: rec.Pernr,
+                    WorkDate: rec.WorkDate.substring(0, 4) + "-" +
+                        rec.WorkDate.substring(4, 6) + "-" +
+                        rec.WorkDate.substring(6, 8)
+                };
             });
-            var aMonthKeys = Object.keys(oMonths);
-            if (aMonthKeys.length === 0) {
-                MessageToast.show("No valid dates to check.");
-                return;
-            }
 
-            var sMonthList = aMonthKeys.map(function (m) {
-                return m.substring(4, 6) + "/" + m.substring(0, 4);
-            }).join(", ");
-
-            // Call backend to check existing count
+            // Check only the employee/date keys in the file against actual
+            // SAP attendance exposed by WorkSchedule (PA2002).
             var that = this;
             var sUrl = "/api/v4/checkExisting";
             jQuery.ajax({
                 url: sUrl,
                 method: "POST",
                 contentType: "application/json",
-                data: JSON.stringify({ months: aMonthKeys }),
+                data: JSON.stringify({ records: aKeys }),
                 success: function (result) {
                     var iCount = result.count || 0;
+                    var sDateList = (result.dates || []).map(function (date) {
+                        var parts = String(date).substring(0, 10).split("-");
+                        return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : date;
+                    }).join(", ");
                     if (iCount > 0) {
                         MessageBox.confirm(
-                            oBundle.getText("msgExistingData", [iCount, sMonthList]),
+                            oBundle.getText("msgExistingSapData", [iCount, sDateList]),
                             {
                                 title: oBundle.getText("titleConfirmOverwrite"),
                                 onClose: function (oAction) {
@@ -428,7 +477,7 @@ sap.ui.define([
                             }
                         );
                     } else {
-                        MessageBox.information(oBundle.getText("msgNoExisting", [sMonthList]));
+                        MessageBox.information(oBundle.getText("msgNoExistingSap"));
                     }
                 },
                 error: function () {

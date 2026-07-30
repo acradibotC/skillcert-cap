@@ -39,11 +39,13 @@ sap.ui.define([
                 initials: "U",
                 email: "",
                 userId: "",
+                orgUnitId: "",
                 server: window.location.hostname,
                 theme: sap.ui.getCore().getConfiguration().getTheme(),
                 shellTitle: "Nexora Employee Portal",
                 activeNav: "home",
                 isHomeContext: true,
+                canUseHrTools: false,
                 sections: {
                     todosExpanded: true,
                     newsExpanded: true,
@@ -83,9 +85,6 @@ sap.ui.define([
                         return;
                     }
                     oUserModel.setProperty("/authorized", true);
-                    oUserModel.setProperty("/isHomeContext", true);
-                    this.byId("navContainer").to(this.byId("homePage"));
-                    this._setLaunchpadNavActive("home");
 
                     if (oData && (oData.employeeName || oData.name)) {
                         var sDisplayName = oData.employeeName || oData.name;
@@ -94,11 +93,14 @@ sap.ui.define([
                         oUserModel.setProperty("/initials", initials);
                         oUserModel.setProperty("/email", oData.email ? oData.email.toLowerCase() : "");
                         oUserModel.setProperty("/userId", oData.pernr || oData.userId);
+                        oUserModel.setProperty("/orgUnitId", oData.orgUnitId || "");
                         oUserModel.setProperty("/isManager", oData.isManager === true || oData.isManager === "X");
+                        oUserModel.setProperty("/canUseHrTools", oData.canUseHrTools === true);
                         this.byId("welcomeGreeting").setText("Hi " + sDisplayName + ", great to see you!");
                     } else {
                         this.byId("welcomeGreeting").setText("Hi User, great to see you!");
                     }
+                    this._restoreRouteFromHash();
                     // Load to-dos after user info is loaded
                     this._loadTodos();
                     // Initialize notifications + WebSocket
@@ -106,10 +108,8 @@ sap.ui.define([
                 }.bind(this),
                 error: function () {
                     oUserModel.setProperty("/authorized", true);
-                    oUserModel.setProperty("/isHomeContext", true);
-                    this.byId("navContainer").to(this.byId("homePage"));
-                    this._setLaunchpadNavActive("home");
                     this.byId("welcomeGreeting").setText("Hi, great to see you!");
+                    this._restoreRouteFromHash();
                     this._loadTodos();
                     this._initNotifications();
                 }.bind(this)
@@ -286,6 +286,7 @@ sap.ui.define([
             this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
             this.getView().getModel("user").setProperty("/isHomeContext", true);
             this._setLaunchpadNavActive("home");
+            this._setRoute("home");
             var oNavContainer = this.byId("navContainer");
             oNavContainer.to(this.byId("homePage"));
             this._scrollHomePageTo("homeHero");
@@ -301,22 +302,82 @@ sap.ui.define([
         },
 
         onNavToHrTools: function () {
+            if (!this.getView().getModel("user").getProperty("/canUseHrTools")) {
+                return;
+            }
             this._goHomeAndScrollTo("pagesSection", "hr");
         },
 
         onNavToProfile: function () {
             this._setLaunchpadNavActive("employee");
+            this._setRoute("profile");
             this._navigateToApp("profilePage", "znxr09.znxr09f300", "/profile/webapp");
         },
 
         onNavToTimesheet: function () {
             this._setLaunchpadNavActive("time");
+            if (this._getRouteParts()[0] !== "timesheet") {
+                this._setRoute("timesheet");
+            }
             this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
         },
 
         onNavToHrUpload: function () {
+            if (!this.getView().getModel("user").getProperty("/canUseHrTools")) {
+                return;
+            }
             this._setLaunchpadNavActive("hr");
+            this._setRoute("hr-upload");
             this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
+        },
+
+        _getRouteParts: function () {
+            return (window.location.hash || "")
+                .replace(/^#\/?/, "")
+                .split("/")
+                .filter(Boolean);
+        },
+
+        _setRoute: function (sApp, sSubRoute) {
+            var sHash = "#/" + sApp + (sSubRoute ? "/" + sSubRoute : "");
+            if (window.location.hash === sHash) {
+                return;
+            }
+            window.history.replaceState(
+                window.history.state,
+                document.title,
+                window.location.pathname + window.location.search + sHash
+            );
+        },
+
+        _restoreRouteFromHash: function () {
+            var aRoute = this._getRouteParts();
+            var sApp = aRoute[0] || "home";
+
+            if (sApp === "timesheet") {
+                this._setLaunchpadNavActive("time");
+                this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
+                return;
+            }
+
+            if (sApp === "profile") {
+                this._setLaunchpadNavActive("employee");
+                this._navigateToApp("profilePage", "znxr09.znxr09f300", "/profile/webapp");
+                return;
+            }
+
+            if (sApp === "hr-upload" &&
+                this.getView().getModel("user").getProperty("/canUseHrTools")) {
+                this._setLaunchpadNavActive("hr");
+                this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
+                return;
+            }
+
+            this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
+            this.getView().getModel("user").setProperty("/isHomeContext", true);
+            this._setLaunchpadNavActive("home");
+            this._setRoute("home");
+            this.byId("navContainer").to(this.byId("homePage"));
         },
 
         _setLaunchpadNavActive: function (sKey) {
@@ -350,6 +411,7 @@ sap.ui.define([
             this.getView().getModel("user").setProperty("/shellTitle", "Nexora Employee Portal");
             this.getView().getModel("user").setProperty("/isHomeContext", true);
             this._setLaunchpadNavActive(sNavKey);
+            this._setRoute("home");
 
             var oNavContainer = this.byId("navContainer");
             var oHomePage = this.byId("homePage");

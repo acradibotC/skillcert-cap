@@ -432,6 +432,8 @@ module.exports = {
     WorktimeUploadService: async function() {
         const axios = require('axios');
         const { randomUUID } = require('crypto');
+        const { SELECT } = cds.ql;
+        const workScheduleExternal = await cds.connect.to('ZUI_NXR_WORKSCHEDULE_O4');
 
         const SAP_WORKTIME_URL = (process.env.SAP_WORKTIME_URL ||
             'https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_worktime_upload/srvd/sap/zsd_nxr_worktime_upload/0001')
@@ -580,20 +582,87 @@ module.exports = {
             return rowsByKey;
         }
 
+        const hasActualAttendance = (row) => {
+            const actualStart = String(row.ActualStartTime || '').replace(/:/g, '');
+            const actualEnd = String(row.ActualEndTime || '').replace(/:/g, '');
+            return actualStart !== '' && actualEnd !== '' &&
+                (actualStart !== '000000' || actualEnd !== '000000');
+        };
+
+        async function fetchExistingAttendance(records) {
+            const requestedKeys = new Set(records.map(recordKey));
+            const existingDates = new Set();
+            const datesByPernr = new Map();
+
+            records.forEach((record) => {
+                if (!datesByPernr.has(record.Pernr)) {
+                    datesByPernr.set(record.Pernr, []);
+                }
+                datesByPernr.get(record.Pernr).push(record.WorkDate);
+            });
+
+            for (const [pernr, dates] of datesByPernr) {
+                // WorkSchedule treats an equality filter on WorkDate as the
+                // read cursor. Start at the earliest requested date; range
+                // operators are not supported by this custom entity.
+                const firstRequestedDate = dates.slice().sort()[0];
+                const rows = await workScheduleExternal.run(
+                    SELECT.from('WorkSchedule')
+                        .columns('Pernr', 'WorkDate', 'ActualStartTime', 'ActualEndTime')
+                        .where({ Pernr: pernr, WorkDate: firstRequestedDate })
+                        .limit(5000)
+                );
+
+                (rows || []).forEach((row) => {
+                    const normalized = {
+                        Pernr: normalizePernr(row.Pernr),
+                        WorkDate: normalizeDate(row.WorkDate)
+                    };
+                    if (requestedKeys.has(recordKey(normalized)) && hasActualAttendance(row)) {
+                        existingDates.add(normalized.WorkDate);
+                    }
+                });
+            }
+
+            return Array.from(existingDates).sort();
+        }
+
         // ---- ACTION: checkExisting ----
         this.on('checkExisting', async (req) => {
             try {
-                const months = normalizeMonths(req.data.months);
-                if (months.length === 0) return { count: 0, months: '' };
-                const existing = await fetchExistingRows(months);
+                const records = req.data.records;
+                if (!Array.isArray(records) || records.length === 0) {
+                    return req.reject(400, 'No employee/date records provided');
+                }
+                if (records.length > 5000) {
+                    return req.reject(400, 'A check cannot contain more than 5000 records');
+                }
+
+                const normalizedRecords = [];
+                const keys = new Set();
+                records.forEach((record, index) => {
+                    const normalized = {
+                        Pernr: normalizePernr(record.Pernr),
+                        WorkDate: normalizeDate(record.WorkDate)
+                    };
+                    const key = recordKey(normalized);
+                    if (keys.has(key)) {
+                        throw new Error(`Duplicate Pernr and WorkDate at row ${index + 1}`);
+                    }
+                    keys.add(key);
+                    normalizedRecords.push(normalized);
+                });
+
+                const dates = await fetchExistingAttendance(normalizedRecords);
                 return {
-                    count: existing.size,
-                    months: months.map((month) => month.slice(4, 6) + '/' + month.slice(0, 4)).join(', ')
+                    count: dates.length,
+                    dates
                 };
             } catch (error) {
                 const message = sapErrorMessage(error);
-                console.error('[WorktimeUpload] checkExisting failed:', message);
-                return req.reject(502, 'Cannot check SAP staging data: ' + message);
+                const status = error.response ? 502 : 400;
+                console.error('[WorktimeUpload] checkExisting attendance failed:', message);
+                return req.reject(status, 'Cannot check existing SAP attendance: ' + message);
             }
         });
 

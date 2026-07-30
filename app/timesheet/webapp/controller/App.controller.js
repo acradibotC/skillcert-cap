@@ -48,12 +48,16 @@ sap.ui.define([
 
         onInit: function () {
             var oNow = new Date();
+            var sInitialTab = this._getTabFromHash() || "dashboard";
             var oViewModel = new JSONModel({
-                selectedTab: "dashboard",
+                selectedTab: sInitialTab,
+                sideExpanded: true,
                 calendarBusy: false,
                 attMonth: String(oNow.getMonth() + 1),
                 attYear: String(oNow.getFullYear()),
                 reqViewMode: "employee", // Default view mode for Requests tab
+                reqDataMode: "",
+                requestsBusy: false,
                 isManager: false, // Will be set after fetching UserProfile
                 reqCountAll: 0,
                 reqCountPending: 0,
@@ -70,6 +74,7 @@ sap.ui.define([
             // Subscribe to cross-app navigation events from Launchpad
             sap.ui.getCore().getEventBus().subscribe("Launchpad", "NavToRequests", function(sChannel, sEvent, oData) {
                 this.getView().getModel("view").setProperty("/selectedTab", "requests");
+                this._persistTabInHash("requests");
                 if (oData && oData.mode) {
                     this.getView().getModel("view").setProperty("/reqViewMode", oData.mode);
                 }
@@ -85,12 +90,54 @@ sap.ui.define([
 
         onSideNavButtonPress: function () {
             var oToolPage = this.byId("toolPage");
-            oToolPage.setSideExpanded(!oToolPage.getSideExpanded());
+            var bExpanded = !oToolPage.getSideExpanded();
+            oToolPage.setSideExpanded(bExpanded);
+            this.getView().getModel("view").setProperty("/sideExpanded", bExpanded);
         },
 
         onSideNavSelect: function (oEvent) {
             var sKey = oEvent.getParameter("item").getKey();
+            if (sKey === "toggleNavigation") {
+                this.onSideNavButtonPress();
+                this.byId("sideNav").setSelectedKey(
+                    this.getView().getModel("view").getProperty("/selectedTab")
+                );
+                return;
+            }
+            if (sKey === "dashboard" && !this.getView().getModel("view").getProperty("/isManager")) {
+                this.byId("sideNav").setSelectedKey("attendance");
+                this.getView().getModel("view").setProperty("/selectedTab", "attendance");
+                return;
+            }
             this.getView().getModel("view").setProperty("/selectedTab", sKey);
+            this._persistTabInHash(sKey);
+        },
+
+        _getTabFromHash: function () {
+            var aParts = (window.location.hash || "")
+                .replace(/^#\/?/, "")
+                .split("/")
+                .filter(Boolean);
+            var aAllowedTabs = ["dashboard", "attendance", "calendar", "requests", "history"];
+
+            return aParts[0] === "timesheet" && aAllowedTabs.indexOf(aParts[1]) >= 0
+                ? aParts[1]
+                : "";
+        },
+
+        _persistTabInHash: function (sTab) {
+            var aAllowedTabs = ["dashboard", "attendance", "calendar", "requests", "history"];
+            if (aAllowedTabs.indexOf(sTab) < 0) {
+                return;
+            }
+            var sHash = "#/timesheet/" + sTab;
+            if (window.location.hash !== sHash) {
+                window.history.replaceState(
+                    window.history.state,
+                    document.title,
+                    window.location.pathname + window.location.search + sHash
+                );
+            }
         },
 
         onAttendanceSearch: function () {
@@ -242,7 +289,13 @@ sap.ui.define([
                         return;
                     }
                     this._sCurrentUserEmail = sEmail;
-                    oViewModel.setProperty("/isManager", oLocalUser.isManager === true || oLocalUser.isManager === "X");
+                    var bIsManager = oLocalUser.isManager === true || oLocalUser.isManager === "X";
+                    oViewModel.setProperty("/isManager", bIsManager);
+                    if (!bIsManager && oViewModel.getProperty("/selectedTab") === "dashboard") {
+                        oViewModel.setProperty("/selectedTab", "attendance");
+                        this.byId("sideNav").setSelectedKey("attendance");
+                        this._persistTabInHash("attendance");
+                    }
                     try {
                         var sStoredReqMode = window.sessionStorage.getItem("znxr09.timesheet.reqViewMode");
                         if (sStoredReqMode) {
@@ -535,6 +588,25 @@ sap.ui.define([
             }
         },
 
+        onCreateRequestFromCalendar: function () {
+            var oCalendar = this.byId("attendanceCalendar");
+            var aSelectedDates = oCalendar.getSelectedDates();
+            var oDate = aSelectedDates.length > 0
+                ? aSelectedDates[0].getStartDate()
+                : new Date();
+            var sDateKey = this.getDateKey(oDate);
+            var oAttendance = (this._aAttendanceData || []).find(function (oItem) {
+                return oItem.dateKey === sDateKey;
+            });
+            var bHasActualTime = oAttendance && oAttendance.status !== 3;
+
+            this._showCreateRequestDialog({
+                Date: sDateKey,
+                Checkin: bHasActualTime ? (oAttendance.actualStart || "") : "",
+                Checkout: bHasActualTime ? (oAttendance.actualEnd || "") : ""
+            });
+        },
+
         _showDetail: function (oData) {
             this.byId("placeholderDetail").setVisible(false);
             this.byId("detailPanel").setVisible(true);
@@ -577,18 +649,12 @@ sap.ui.define([
         onCreateRequest: function (oEvent) {
             var oButton = oEvent.getSource();
             var oContext = oButton.getBindingContext("att");
-            
-            // If button is in toolbar (no context), try to get from selected table row
-            if (!oContext) {
-                var oTable = this.byId("attendanceTable");
-                var oSelectedItem = oTable.getSelectedItem();
-                if (oSelectedItem) {
-                    oContext = oSelectedItem.getBindingContext("att");
-                }
-            }
-
             var oRowData = oContext ? oContext.getObject() : null;
 
+            this._showCreateRequestDialog(oRowData);
+        },
+
+        _showCreateRequestDialog: function (oRowData) {
             if (!this.oRequestDialog) {
                 sap.ui.core.Fragment.load({
                     id: this.getView().getId(),
@@ -877,17 +943,40 @@ sap.ui.define([
             var oViewModel = this.getView().getModel("view");
             var sPernr = this._sCurrentPernr;
             var sMode = oViewModel.getProperty("/reqViewMode") || "employee";
-            if (sMode === "employee" && !sPernr) return;
+            var iRequestId = (this._iRequestLoadSequence || 0) + 1;
+            this._iRequestLoadSequence = iRequestId;
+
+            if (this._oRequestsXhr && this._oRequestsXhr.readyState !== 4) {
+                this._oRequestsXhr.abort();
+            }
+
+            oViewModel.setProperty("/requestsBusy", true);
+            oViewModel.setProperty("/reqDataMode", "");
+            oViewModel.setProperty("/reqCountAll", 0);
+            oViewModel.setProperty("/reqCountPending", 0);
+            oViewModel.setProperty("/reqCountApproved", 0);
+            oViewModel.setProperty("/reqCountRejected", 0);
+            this.getView().setModel(new JSONModel({ rows: [] }), "reqList");
+
+            if (sMode === "employee" && !sPernr) {
+                oViewModel.setProperty("/requestsBusy", false);
+                return;
+            }
 
             var sUrl = sMode === "manager"
                 ? "/api/manager/attendance-requests?status=ALL"
                 : "/api/v3/AttendanceRequest?$filter=Pernr eq '" + sPernr + "'&$orderby=CreatedAt desc";
             
             // Fetch requests for current pernr
-            jQuery.ajax({
+            this._oRequestsXhr = jQuery.ajax({
                 url: sUrl,
                 method: "GET",
                 success: function(oData) {
+                    if (iRequestId !== this._iRequestLoadSequence ||
+                            sMode !== oViewModel.getProperty("/reqViewMode")) {
+                        return;
+                    }
+
                     var aResults = oData.value || [];
                     var aReq = [];
                     var aHist = [];
@@ -930,8 +1019,10 @@ sap.ui.define([
                     oViewModel.setProperty("/reqCountApproved", iApproved);
                     oViewModel.setProperty("/reqCountRejected", iRejected);
                     
-                    this.getView().setModel(new sap.ui.model.json.JSONModel({ rows: aReq }), "reqList");
-                    this.getView().setModel(new sap.ui.model.json.JSONModel({ rows: aHist }), "histList");
+                    this.getView().setModel(new JSONModel({ rows: aReq }), "reqList");
+                    this.getView().setModel(new JSONModel({ rows: aHist }), "histList");
+                    oViewModel.setProperty("/reqDataMode", sMode);
+                    oViewModel.setProperty("/requestsBusy", false);
 
                     // Save raw requests for attendance table calculation
                     this._aRawRequests = aResults;
@@ -939,8 +1030,18 @@ sap.ui.define([
 
                 }.bind(this),
                 error: function(err) {
+                    if (iRequestId !== this._iRequestLoadSequence) {
+                        return;
+                    }
                     console.error("[MyRequests] Failed to load requests", err);
-                }
+                    oViewModel.setProperty("/reqDataMode", "");
+                    oViewModel.setProperty("/requestsBusy", false);
+                }.bind(this),
+                complete: function() {
+                    if (iRequestId === this._iRequestLoadSequence) {
+                        this._oRequestsXhr = null;
+                    }
+                }.bind(this)
             });
         },
 

@@ -16,8 +16,8 @@
         <content>
             <VBox class="sapUiResponsiveContentPadding">
                 <MessageStrip
-                    text="{i18n>profileEditPreviewNotice}"
-                    type="Warning"
+                    text="{i18n>profileEditWorkflowNotice}"
+                    type="Information"
                     showIcon="true"
                     class="sapUiSmallMarginBottom"/>
 
@@ -66,12 +66,15 @@
                     <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankAccount}" labelFor="profileBankAccountInput" required="true"/>
                     <Input visible="{profileEdit>/isBankTransfer}" id="profileBankAccountInput" value="{profileEdit>/values/BANK_ACCT}" enabled="{profileEdit>/states/BANK_ACCT/EffectiveEditable}" maxLength="18" type="Text" change="onProfileFieldChange"/>
 
+                    <Label text="{i18n>profileRemark}" labelFor="profileRemarkInput"/>
+                    <TextArea id="profileRemarkInput" value="{profileEdit>/remark}" maxLength="500" rows="3" growing="true" growingMaxLines="6"/>
+
                 </form:SimpleForm>
             </VBox>
         </content>
         <beginButton>
             <Button
-                text="{i18n>profileApplyPreviewButton}"
+                text="{i18n>profileSubmitButton}"
                 type="Emphasized"
                 icon="sap-icon://accept"
                 enabled="{= !${profileEdit>/busy} }"

@@ -1,0 +1,10 @@
+projection;
+strict ( 2 );
+
+define behavior for ZC_NXR_ProfileApplyRequest
+{
+  use create;
+  use update;
+
+  use action applyProfileChanges;
+}

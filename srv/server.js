@@ -54,6 +54,20 @@ function isProfileHrAdmin(email) {
         .includes(normalized);
 }
 
+function configuredHrOrgUnitIds() {
+    return new Set(
+        String(process.env.HR_ORG_UNIT_IDS || '50009040')
+            .split(',')
+            .map(value => value.trim())
+            .filter(Boolean)
+    );
+}
+
+function canUseHrTools(orgUnitId) {
+    const normalized = String(orgUnitId || '').trim();
+    return Boolean(normalized && configuredHrOrgUnitIds().has(normalized));
+}
+
 function sessionUserMatches(req) {
     const sessionUserId = String(req.session?.userInfo?.userId || '').trim();
     const passportUserId = String(req.user?.id || '').trim();
@@ -205,6 +219,7 @@ cds.on('bootstrap', app => {
                     });
                 }
                 req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email);
+                req.session.userInfo.canUseHrTools = canUseHrTools(req.session.userInfo.orgUnitId);
                 return res.json(req.session.userInfo);
             }
         }
@@ -312,9 +327,11 @@ cds.on('bootstrap', app => {
                     pernr: profile.Pernr,
                     employeeName: profile.EmployeeName || name,
                     position: profile.PositionName || profile.PositionId || '',
+                    orgUnitId: String(profile.OrgUnitId || '').trim(),
                     department: profile.OrgUnitName || profile.OrgUnitId || '',
                     isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x',
-                    isHrAdmin: isProfileHrAdmin(email)
+                    isHrAdmin: isProfileHrAdmin(email),
+                    canUseHrTools: canUseHrTools(profile.OrgUnitId)
                 };
                 if (req.session) req.session.userInfo = userInfo;
                 res.json(userInfo);
@@ -1046,13 +1063,43 @@ cds.on('bootstrap', app => {
         next();
     };
 
+    const ensureHrToolsAuthorized = (req, res, next) => {
+        const userInfo = req.session && req.session.userInfo;
+        if (!sessionUserMatches(req) || !userInfo || !userInfo.authorized) {
+            return res.status(403).json({
+                code: 'HR_TOOLS_IDENTITY_NOT_VALIDATED',
+                error: 'The login identity has not been validated against an employee record.'
+            });
+        }
+
+        const authorized = canUseHrTools(userInfo.orgUnitId);
+        userInfo.canUseHrTools = authorized;
+        if (!authorized) {
+            return res.status(403).json({
+                code: 'HR_TOOLS_FORBIDDEN',
+                error: 'HR Tools permission requires membership in an authorized HR organizational unit.'
+            });
+        }
+        next();
+    };
+
     // Serve UI5 app resources only after authentication. The launchpad loads
     // child components from these routes, so each route needs a real static root.
     app.use('/launchpad', ensureAuthenticated, express.static(path.join(__dirname, '../app/launchpad/webapp')));
     app.use('/profile/webapp', ensureAuthenticated, express.static(path.join(__dirname, '../app/profile/webapp')));
     app.use('/timesheet/webapp', ensureAuthenticated, express.static(path.join(__dirname, '../app/timesheet/webapp')));
-    app.get(['/hr-upload', '/hr-upload/'], ensureAuthenticated, (req, res) => res.redirect('/hr-upload/webapp/'));
-    app.use('/hr-upload/webapp', ensureAuthenticated, express.static(path.join(__dirname, '../app/hr-upload/webapp')));
+    app.get(
+        ['/hr-upload', '/hr-upload/'],
+        ensureAuthenticated,
+        ensureHrToolsAuthorized,
+        (req, res) => res.redirect('/hr-upload/webapp/')
+    );
+    app.use(
+        '/hr-upload/webapp',
+        ensureAuthenticated,
+        ensureHrToolsAuthorized,
+        express.static(path.join(__dirname, '../app/hr-upload/webapp'))
+    );
     app.use('/calendar', ensureAuthenticated);
 
     // Middleware to protect OData endpoints (API)
@@ -1077,7 +1124,7 @@ cds.on('bootstrap', app => {
             return res.status(401).json({ error: "Unauthorized. Please log in." });
         }
         next();
-    });
+    }, ensureHrToolsAuthorized);
 
     // MyProfile API requires both OAuth authentication and an employee mapping.
     app.use('/api/profile/v1', async (req, res, next) => {

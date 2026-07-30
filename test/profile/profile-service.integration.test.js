@@ -74,7 +74,7 @@ test('MyProfile is mapped from SAP UserProfile without ProfileSnapshots', async 
     assert.ok(profile.ProfileVersion);
 });
 
-test('MyProfileFields exposes the frontend-preview editable field catalog', async () => {
+test('MyProfileFields exposes the workflow editable field catalog', async () => {
     const fields = await service.send(new cds.Request({
         event: 'READ',
         query: SELECT.from('ProfileService.MyProfileFields'),
@@ -87,19 +87,217 @@ test('MyProfileFields exposes the frontend-preview editable field catalog', asyn
     assert.equal(fields.find(field => field.FieldCode === 'WORK_EMAIL').Value, 'haonguyen022202@gmail.com');
 });
 
-test('frontend preview does not query workflow persistence and keeps change actions disabled', async () => {
+test('profile edit submits a pending request, locks fields, and keeps SAP apply fail-safe', async () => {
+    const profileRows = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.MyProfile'),
+        user: user()
+    }));
+    const profile = profileRows.Pernr ? profileRows : profileRows[0];
+    const submitKey = `profile-submit-${Date.now()}`;
+
+    const submitted = await service.send(new cds.Request({
+        event: 'submitProfileChange',
+        data: {
+            IdempotencyKey: submitKey,
+            ProfileVersion: profile.ProfileVersion,
+            Remark: 'Update contact email',
+            Changes: [{ FieldCode: 'WORK_EMAIL', NewValue: 'profile.change@example.com' }]
+        },
+        user: user()
+    }));
+
+    assert.equal(submitted.Status, '01');
+    assert.equal(submitted.Pernr, '90000005');
+    assert.match(submitted.RequestNo, /^PR/);
+
+    const duplicate = await service.send(new cds.Request({
+        event: 'submitProfileChange',
+        data: {
+            IdempotencyKey: submitKey,
+            ProfileVersion: profile.ProfileVersion,
+            Remark: 'Update contact email',
+            Changes: [{ FieldCode: 'WORK_EMAIL', NewValue: 'profile.change@example.com' }]
+        },
+        user: user()
+    }));
+    assert.equal(duplicate.ID, submitted.ID);
+
     const requests = await service.send(new cds.Request({
         event: 'READ',
         query: SELECT.from('ProfileService.MyProfileRequests'),
         user: user()
     }));
-    assert.deepEqual(requests, []);
+    assert.ok(requests.some(request => request.ID === submitted.ID && request.Status === '01'));
+
+    const fieldsAfterSubmit = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.MyProfileFields'),
+        user: user()
+    }));
+    const emailField = fieldsAfterSubmit.find(field => field.FieldCode === 'WORK_EMAIL');
+    assert.equal(emailField.Locked, true);
+    assert.equal(emailField.LockRequestId, submitted.ID);
 
     await assert.rejects(() => service.send(new cds.Request({
         event: 'submitProfileChange',
-        data: {},
+        data: {
+            IdempotencyKey: `profile-submit-conflict-${Date.now()}`,
+            ProfileVersion: profile.ProfileVersion,
+            Remark: 'Conflicting email update',
+            Changes: [{ FieldCode: 'WORK_EMAIL', NewValue: 'profile.conflict@example.com' }]
+        },
         user: user()
-    })), error => error.code === 'PROFILE_WORKFLOW_NOT_AVAILABLE' || error.statusCode === 501);
+    })), error => error.code === 'PROFILE_FIELD_LOCKED' || error.statusCode === 409);
+
+    const inbox = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.ProfileApprovalRequests'),
+        user: user('hr@example.com', '90000099', true)
+    }));
+    assert.ok(inbox.some(request => request.ID === submitted.ID && request.Status === '01'));
+
+    await assert.rejects(() => service.send(new cds.Request({
+        event: 'approveProfileChange',
+        data: {
+            RequestId: submitted.ID,
+            ExpectedVersion: submitted.Version,
+            HrComment: ''
+        },
+        user: user('hr@example.com', '90000099', true)
+    })), error => error.code === 'SAP_PROFILE_WRITE_NOT_AVAILABLE' || error.statusCode === 501);
+
+    const revision = await service.send(new cds.Request({
+        event: 'requestProfileChanges',
+        data: {
+            RequestId: submitted.ID,
+            ExpectedVersion: submitted.Version,
+            HrComment: 'Please confirm the address as well.'
+        },
+        user: user('hr@example.com', '90000099', true)
+    }));
+    assert.equal(revision.Status, '04');
+
+    const resubmitted = await service.send(new cds.Request({
+        event: 'resubmitProfileChange',
+        data: {
+            RequestId: submitted.ID,
+            ExpectedVersion: revision.Version,
+            IdempotencyKey: `profile-resubmit-${Date.now()}`,
+            ProfileVersion: profile.ProfileVersion,
+            Remark: 'Confirmed contact email',
+            Changes: [{ FieldCode: 'WORK_EMAIL', NewValue: 'profile.change.2@example.com' }]
+        },
+        user: user()
+    }));
+    assert.equal(resubmitted.Status, '01');
+    assert.equal(resubmitted.RevisionNo, 2);
+
+    const rejected = await service.send(new cds.Request({
+        event: 'rejectProfileChange',
+        data: {
+            RequestId: submitted.ID,
+            ExpectedVersion: resubmitted.Version,
+            HrComment: 'Rejected for regression test cleanup.'
+        },
+        user: user('hr@example.com', '90000099', true)
+    }));
+    assert.equal(rejected.Status, '03');
+
+    const fieldsAfterReject = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.MyProfileFields'),
+        user: user()
+    }));
+    assert.equal(fieldsAfterReject.find(field => field.FieldCode === 'WORK_EMAIL').Locked, false);
+});
+
+test('profile approval applies changes through configured SAP profile OData adapter', async () => {
+    const profileRows = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.MyProfile'),
+        user: user()
+    }));
+    const profile = profileRows.Pernr ? profileRows : profileRows[0];
+
+    const submitted = await service.send(new cds.Request({
+        event: 'submitProfileChange',
+        data: {
+            IdempotencyKey: `profile-submit-sap-${Date.now()}`,
+            ProfileVersion: profile.ProfileVersion,
+            Remark: 'Update current address',
+            Changes: [{ FieldCode: 'CURR_ADDRESS', NewValue: '123 Local Street' }]
+        },
+        user: user()
+    }));
+
+    const oldApplyMode = process.env.PROFILE_APPLY_MODE;
+    const oldApplyService = process.env.PROFILE_APPLY_SERVICE;
+    const oldApplyPath = process.env.PROFILE_APPLY_ACTION_PATH;
+    let sentRequest;
+
+    process.env.PROFILE_APPLY_MODE = 'sap';
+    process.env.PROFILE_APPLY_SERVICE = 'ZUI_NXR_PROFILE_APPLY_O4';
+    delete process.env.PROFILE_APPLY_ACTION_PATH;
+    cds.connect.to = async function (name) {
+        if (name === 'ZUI_NXR_PROFILE_APPLY_O4') {
+            return {
+                send: async request => {
+                    sentRequest = request;
+                    return {
+                        Applied: true,
+                        Message: 'Applied by mocked SAP profile OData action.'
+                    };
+                }
+            };
+        }
+        return originalConnectTo.call(cds.connect, name);
+    };
+
+    try {
+        const approved = await service.send(new cds.Request({
+            event: 'approveProfileChange',
+            data: {
+                RequestId: submitted.ID,
+                ExpectedVersion: submitted.Version,
+                HrComment: 'Approved after SAP apply.'
+            },
+            user: user('hr@example.com', '90000099', true)
+        }));
+
+        assert.equal(approved.Status, '02');
+        assert.equal(approved.ApplyState, 'APPLIED');
+        assert.equal(sentRequest.event, 'applyProfileChanges');
+        assert.equal(sentRequest.data.RequestId, submitted.ID);
+        assert.equal(sentRequest.data.Pernr, '90000005');
+        assert.equal(sentRequest.data.DecisionByEmail, 'hr@example.com');
+        assert.equal(sentRequest.data.Changes.length, 1);
+        assert.deepEqual(sentRequest.data.Changes[0], {
+            FieldCode: 'CURR_ADDRESS',
+            FieldGroup: 'CONTACT',
+            OldValue: '',
+            NewValue: '123 Local Street',
+            SapInfotype: '0006',
+            SapSubtype: '',
+            SapField: 'STRAS',
+            IsSensitive: false
+        });
+
+        const fieldsAfterApprove = await service.send(new cds.Request({
+            event: 'READ',
+            query: SELECT.from('ProfileService.MyProfileFields'),
+            user: user()
+        }));
+        assert.equal(fieldsAfterApprove.find(field => field.FieldCode === 'CURR_ADDRESS').Locked, false);
+    } finally {
+        if (oldApplyMode === undefined) delete process.env.PROFILE_APPLY_MODE;
+        else process.env.PROFILE_APPLY_MODE = oldApplyMode;
+        if (oldApplyService === undefined) delete process.env.PROFILE_APPLY_SERVICE;
+        else process.env.PROFILE_APPLY_SERVICE = oldApplyService;
+        if (oldApplyPath === undefined) delete process.env.PROFILE_APPLY_ACTION_PATH;
+        else process.env.PROFILE_APPLY_ACTION_PATH = oldApplyPath;
+        cds.connect.to = originalConnectTo;
+    }
 });
 
 test('SAP profile must match the authenticated Pernr', async () => {
