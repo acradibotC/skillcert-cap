@@ -48,7 +48,7 @@ sap.ui.define([
 
         onInit: function () {
             var oNow = new Date();
-            var sInitialTab = this._getTabFromHash() || "dashboard";
+            var sInitialTab = this._getTabFromRoute() || "dashboard";
             var oViewModel = new JSONModel({
                 selectedTab: sInitialTab,
                 sideExpanded: true,
@@ -74,7 +74,7 @@ sap.ui.define([
             // Subscribe to cross-app navigation events from Launchpad
             sap.ui.getCore().getEventBus().subscribe("Launchpad", "NavToRequests", function(sChannel, sEvent, oData) {
                 this.getView().getModel("view").setProperty("/selectedTab", "requests");
-                this._persistTabInHash("requests");
+                this._persistTabInRoute("requests");
                 if (oData && oData.mode) {
                     this.getView().getModel("view").setProperty("/reqViewMode", oData.mode);
                 }
@@ -110,34 +110,43 @@ sap.ui.define([
                 return;
             }
             this.getView().getModel("view").setProperty("/selectedTab", sKey);
-            this._persistTabInHash(sKey);
+            this._persistTabInRoute(sKey);
         },
 
-        _getTabFromHash: function () {
-            var aParts = (window.location.hash || "")
+        _getTabFromRoute: function () {
+            var oUrl = new URL(window.location.href);
+            var sApp = oUrl.searchParams.get("app") || "";
+            var sTab = oUrl.searchParams.get("tab") || "";
+            var aLegacyParts = (window.location.hash || "")
                 .replace(/^#\/?/, "")
                 .split("/")
                 .filter(Boolean);
             var aAllowedTabs = ["dashboard", "attendance", "calendar", "requests", "history"];
 
-            return aParts[0] === "timesheet" && aAllowedTabs.indexOf(aParts[1]) >= 0
-                ? aParts[1]
+            if (sApp === "timesheet" && aAllowedTabs.indexOf(sTab) >= 0) {
+                return sTab;
+            }
+
+            return aLegacyParts[0] === "timesheet" &&
+                aAllowedTabs.indexOf(aLegacyParts[1]) >= 0
+                ? aLegacyParts[1]
                 : "";
         },
 
-        _persistTabInHash: function (sTab) {
+        _persistTabInRoute: function (sTab) {
             var aAllowedTabs = ["dashboard", "attendance", "calendar", "requests", "history"];
             if (aAllowedTabs.indexOf(sTab) < 0) {
                 return;
             }
-            var sHash = "#/timesheet/" + sTab;
-            if (window.location.hash !== sHash) {
-                window.history.replaceState(
-                    window.history.state,
-                    document.title,
-                    window.location.pathname + window.location.search + sHash
-                );
-            }
+            var oUrl = new URL(window.location.href);
+            oUrl.searchParams.set("app", "timesheet");
+            oUrl.searchParams.set("tab", sTab);
+            oUrl.hash = "";
+            window.history.replaceState(
+                window.history.state,
+                document.title,
+                oUrl.pathname + oUrl.search
+            );
         },
 
         onAttendanceSearch: function () {
@@ -294,7 +303,7 @@ sap.ui.define([
                     if (!bIsManager && oViewModel.getProperty("/selectedTab") === "dashboard") {
                         oViewModel.setProperty("/selectedTab", "attendance");
                         this.byId("sideNav").setSelectedKey("attendance");
-                        this._persistTabInHash("attendance");
+                        this._persistTabInRoute("attendance");
                     }
                     try {
                         var sStoredReqMode = window.sessionStorage.getItem("znxr09.timesheet.reqViewMode");

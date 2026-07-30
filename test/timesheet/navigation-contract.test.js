@@ -92,17 +92,22 @@ test('Launchpad header no longer renders the redundant menu button', () => {
     assert.doesNotMatch(launchpadView, /id="btnMenu"/);
 });
 
-test('Reload restores the embedded app and selected Timesheet tab from the URL hash', () => {
+test('Reload restores the embedded app from query parameters without consuming Profile router hash', () => {
     assert.match(launchpadController, /this\._restoreRouteFromHash\(\)/);
     assert.match(launchpadController, /sApp === "timesheet"/);
     assert.match(launchpadController, /_navigateToApp\("timesheetPage", "znxr09\.timesheet"/);
     assert.match(launchpadController, /window\.history\.replaceState/);
+    assert.match(launchpadController, /searchParams\.set\("app", sApp\)/);
+    assert.match(launchpadController, /fromLegacyHash: bFromLegacyHash/);
+    assert.match(launchpadController, /embedded Profile component owns the hash/);
+    assert.doesNotMatch(launchpadController, /var sHash = "#\/" \+ sApp/);
 
-    assert.match(controller, /var sInitialTab = this\._getTabFromHash\(\) \|\| "dashboard"/);
+    assert.match(controller, /var sInitialTab = this\._getTabFromRoute\(\) \|\| "dashboard"/);
     assert.match(controller, /selectedTab: sInitialTab/);
-    assert.match(controller, /"#\/timesheet\/" \+ sTab/);
-    assert.match(controller, /this\._persistTabInHash\(sKey\)/);
-    assert.match(controller, /this\._persistTabInHash\("attendance"\)/);
+    assert.match(controller, /searchParams\.set\("app", "timesheet"\)/);
+    assert.match(controller, /searchParams\.set\("tab", sTab\)/);
+    assert.match(controller, /this\._persistTabInRoute\(sKey\)/);
+    assert.match(controller, /this\._persistTabInRoute\("attendance"\)/);
 });
 
 test('Request mode switching never exposes actions for stale request data', () => {

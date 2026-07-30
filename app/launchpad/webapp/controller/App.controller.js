@@ -316,7 +316,7 @@ sap.ui.define([
 
         onNavToTimesheet: function () {
             this._setLaunchpadNavActive("time");
-            if (this._getRouteParts()[0] !== "timesheet") {
+            if (this._getRouteState().app !== "timesheet") {
                 this._setRoute("timesheet");
             }
             this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
@@ -331,28 +331,72 @@ sap.ui.define([
             this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
         },
 
-        _getRouteParts: function () {
-            return (window.location.hash || "")
+        _getRouteState: function () {
+            var oUrl = new URL(window.location.href);
+            var sApp = oUrl.searchParams.get("app") || "";
+            var sTab = oUrl.searchParams.get("tab") || "";
+            var aLegacyParts = (window.location.hash || "")
                 .replace(/^#\/?/, "")
                 .split("/")
                 .filter(Boolean);
+            var bFromLegacyHash = !sApp &&
+                ["home", "profile", "timesheet", "hr-upload"].indexOf(aLegacyParts[0]) >= 0;
+
+            if (bFromLegacyHash) {
+                sApp = aLegacyParts[0];
+                sTab = aLegacyParts[1] || "";
+            }
+
+            return {
+                app: sApp || "home",
+                tab: sTab,
+                fromLegacyHash: bFromLegacyHash
+            };
         },
 
         _setRoute: function (sApp, sSubRoute) {
-            var sHash = "#/" + sApp + (sSubRoute ? "/" + sSubRoute : "");
-            if (window.location.hash === sHash) {
-                return;
+            var oUrl = new URL(window.location.href);
+
+            if (sApp === "home") {
+                oUrl.searchParams.delete("app");
+            } else {
+                oUrl.searchParams.set("app", sApp);
             }
+
+            if (sSubRoute) {
+                oUrl.searchParams.set("tab", sSubRoute);
+            } else {
+                oUrl.searchParams.delete("tab");
+            }
+
+            // The embedded Profile component owns the hash for its own router.
+            // Clear only Launchpad's legacy hashes or any hash when leaving Profile.
+            var aHashParts = (oUrl.hash || "")
+                .replace(/^#\/?/, "")
+                .split("/")
+                .filter(Boolean);
+            var bLaunchpadHash = ["home", "profile", "timesheet", "hr-upload"]
+                .indexOf(aHashParts[0]) >= 0;
+            if (sApp !== "profile" || bLaunchpadHash) {
+                oUrl.hash = "";
+            }
+
             window.history.replaceState(
                 window.history.state,
                 document.title,
-                window.location.pathname + window.location.search + sHash
+                oUrl.pathname + oUrl.search + oUrl.hash
             );
         },
 
         _restoreRouteFromHash: function () {
-            var aRoute = this._getRouteParts();
-            var sApp = aRoute[0] || "home";
+            var oRoute = this._getRouteState();
+            var sApp = oRoute.app;
+
+            // Migrate previously bookmarked Launchpad hashes before creating an
+            // embedded component, otherwise Profile's router consumes "#/profile".
+            if (oRoute.fromLegacyHash) {
+                this._setRoute(sApp, oRoute.tab);
+            }
 
             if (sApp === "timesheet") {
                 this._setLaunchpadNavActive("time");
