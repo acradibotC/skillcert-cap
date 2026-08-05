@@ -34,10 +34,6 @@
                     textAlign="Center"
                     wrapping="true"
                     class="profileHeroSubText sapUiTinyMarginTop"/>
-                <ObjectStatus
-                    icon="sap-icon://cloud"
-                    text="{i18n>profileReadOnlySap}"
-                    class="profileHeroStatus sapUiTinyMarginTop"/>
             </VBox>
 
             <IconTabBar
@@ -95,8 +91,7 @@
                                 <Text visible="{= !${profile>/HasBankTransfer} }" text="{i18n>profileNoBankDetails}" wrapping="true" class="profileFieldHint"/>
                             </VBox>
                         </HBox>
-                        <HBox justifyContent="SpaceBetween" alignItems="Center" wrap="Wrap" class="profileEditRow">
-                            <ObjectStatus icon="sap-icon://edit" text="{i18n>profileEditWorkflowNotice}" state="Information"/>
+                        <HBox justifyContent="End" alignItems="Center" wrap="Wrap" class="profileEditRow">
                             <Button id="profilePreviewEditButton" text="{i18n>profileEditButton}" icon="sap-icon://edit" type="Emphasized" enabled="{profileUi>/hasEditableField}" tooltip="{i18n>profileEditTooltip}" press="onEditProfile"/>
                         </HBox>
                         <MessageStrip

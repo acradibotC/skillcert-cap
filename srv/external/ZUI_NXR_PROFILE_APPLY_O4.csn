@@ -109,6 +109,15 @@
         "HrComment": {
           "type": "cds.String",
           "length": 500
+        },
+        "CreatedAt": {
+          "type": "cds.Timestamp"
+        },
+        "LastChangedAt": {
+          "type": "cds.Timestamp"
+        },
+        "LocalLastChangedAt": {
+          "type": "cds.Timestamp"
         }
       }
     },

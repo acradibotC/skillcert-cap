@@ -400,6 +400,78 @@ test('profile approval applies changes through configured SAP profile OData adap
     }
 });
 
+test('MyProfileRequests includes staged SAP profile request history', async () => {
+    const oldApplyMode = process.env.PROFILE_APPLY_MODE;
+    const oldApplyService = process.env.PROFILE_APPLY_SERVICE;
+    const oldApplyPath = process.env.PROFILE_APPLY_ACTION_PATH;
+    const oldApplyStrategy = process.env.PROFILE_APPLY_STRATEGY;
+    const oldApplyHttpClient = process.env.PROFILE_APPLY_HTTP_CLIENT;
+    const sentRequests = [];
+
+    process.env.PROFILE_APPLY_MODE = 'sap';
+    process.env.PROFILE_APPLY_SERVICE = 'ZUI_NXR_PROFILE_APPLY_O4';
+    process.env.PROFILE_APPLY_STRATEGY = 'create';
+    process.env.PROFILE_APPLY_HTTP_CLIENT = 'cap';
+    delete process.env.PROFILE_APPLY_ACTION_PATH;
+    cds.connect.to = async function (name) {
+        if (name === 'ZUI_NXR_PROFILE_APPLY_O4') {
+            return {
+                send: async request => {
+                    sentRequests.push(request);
+                    assert.equal(request.method, 'GET');
+                    assert.match(request.path, /Pernr%20eq%20'90000005'/);
+                    return {
+                        d: {
+                            results: [{
+                                RequestId: '22222222-3333-4444-5555-666666666666',
+                                RequestNo: 'PRSAPHISTORY',
+                                Pernr: '90000005',
+                                EmployeeName: 'Ta Nam Son',
+                                RevisionNo: 1,
+                                Status: '01',
+                                ApplyState: 'PENDING_APPROVAL',
+                                ApplyMessage: 'SAP pending row',
+                                CreatedAt: '/Date(1784514628000)/',
+                                LastChangedAt: '/Date(1784514628000)/'
+                            }]
+                        }
+                    };
+                }
+            };
+        }
+        return originalConnectTo.call(cds.connect, name);
+    };
+
+    try {
+        const requests = await service.send(new cds.Request({
+            event: 'READ',
+            query: SELECT.from('ProfileService.MyProfileRequests'),
+            user: user()
+        }));
+
+        const sapHistoryRow = requests.find(request => request.RequestNo === 'PRSAPHISTORY');
+        assert.equal(sentRequests.length, 1);
+        assert.ok(sapHistoryRow);
+        assert.equal(sapHistoryRow.ID, '22222222-3333-4444-5555-666666666666');
+        assert.equal(sapHistoryRow.Pernr, '90000005');
+        assert.equal(sapHistoryRow.Status, '01');
+        assert.equal(sapHistoryRow.ApplyState, 'PENDING_APPROVAL');
+        assert.equal(sapHistoryRow.SubmittedAt, '2026-07-20T02:30:28.000Z');
+    } finally {
+        if (oldApplyMode === undefined) delete process.env.PROFILE_APPLY_MODE;
+        else process.env.PROFILE_APPLY_MODE = oldApplyMode;
+        if (oldApplyService === undefined) delete process.env.PROFILE_APPLY_SERVICE;
+        else process.env.PROFILE_APPLY_SERVICE = oldApplyService;
+        if (oldApplyPath === undefined) delete process.env.PROFILE_APPLY_ACTION_PATH;
+        else process.env.PROFILE_APPLY_ACTION_PATH = oldApplyPath;
+        if (oldApplyStrategy === undefined) delete process.env.PROFILE_APPLY_STRATEGY;
+        else process.env.PROFILE_APPLY_STRATEGY = oldApplyStrategy;
+        if (oldApplyHttpClient === undefined) delete process.env.PROFILE_APPLY_HTTP_CLIENT;
+        else process.env.PROFILE_APPLY_HTTP_CLIENT = oldApplyHttpClient;
+        cds.connect.to = originalConnectTo;
+    }
+});
+
 test('SAP profile must match the authenticated Pernr', async () => {
     await assert.rejects(() => service.send(new cds.Request({
         event: 'READ',

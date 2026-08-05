@@ -99,6 +99,81 @@ function profileRequestDto(row) {
     };
 }
 
+function sapDateTimeToIso(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value.toISOString();
+
+    const raw = String(value).trim();
+    const odataDateMatch = raw.match(/^\/Date\((-?\d+)(?:[+-]\d+)?\)\/$/);
+    if (odataDateMatch) {
+        const timestamp = Number(odataDateMatch[1]);
+        if (Number.isFinite(timestamp)) {
+            return new Date(timestamp).toISOString();
+        }
+    }
+
+    const parsedTimestamp = Date.parse(raw);
+    if (Number.isFinite(parsedTimestamp)) {
+        return new Date(parsedTimestamp).toISOString();
+    }
+    return raw;
+}
+
+function sapProfileRequestDto(row) {
+    if (!row) return null;
+    const requestId = row.RequestId || row.requestId || row.ID || row.Id || '';
+    const requestNo = row.RequestNo || row.requestNo || '';
+    const submittedAt = sapDateTimeToIso(row.CreatedAt || row.SubmittedAt || row.createdAt || row.submittedAt);
+    const modifiedAt = sapDateTimeToIso(
+        row.LastChangedAt || row.ModifiedAt || row.LocalLastChangedAt ||
+        row.lastChangedAt || row.modifiedAt || row.localLastChangedAt || submittedAt
+    );
+
+    return {
+        ID: String(requestId || requestNo || '').replace(/[{}]/g, ''),
+        RequestNo: requestNo,
+        Pernr: row.Pernr || row.pernr || '',
+        EmployeeName: row.EmployeeName || row.employeeName || '',
+        Status: row.Status || row.status || '',
+        Version: 1,
+        RevisionNo: Number(row.RevisionNo || row.revisionNo || 1),
+        Remark: row.Remark || row.EmployeeRemark || row.employeeRemark || '',
+        HrComment: row.HrComment || row.hrComment || '',
+        ApplyState: row.ApplyState || row.applyState || '',
+        ApplyMessage: row.ApplyMessage || row.applyMessage || '',
+        IsSimulation: false,
+        SubmittedAt: submittedAt,
+        ModifiedAt: modifiedAt
+    };
+}
+
+function sortProfileRequestDtos(rows) {
+    return rows.sort((left, right) =>
+        String(right.SubmittedAt || '').localeCompare(String(left.SubmittedAt || '')) ||
+        String(right.ModifiedAt || '').localeCompare(String(left.ModifiedAt || '')) ||
+        String(left.RequestNo || left.ID || '').localeCompare(String(right.RequestNo || right.ID || ''))
+    );
+}
+
+function mergeProfileRequestDtos(localRows, sapRows) {
+    const byKey = new Map();
+    for (const row of sapRows || []) {
+        if (!row) continue;
+        const key = String(row.RequestNo || row.ID || '').trim();
+        if (key) byKey.set(key, row);
+    }
+    for (const row of localRows || []) {
+        if (!row) continue;
+        const key = String(row.RequestNo || row.ID || '').trim();
+        if (key) {
+            byKey.set(key, { ...byKey.get(key), ...row });
+        } else {
+            byKey.set(`LOCAL:${byKey.size}`, row);
+        }
+    }
+    return Array.from(byKey.values());
+}
+
 function profileItemDto(row) {
     if (!row) return null;
     return {
@@ -520,6 +595,28 @@ async function readSapProfileApplyByRequestNo(sapApply, requestNo) {
         path: `${entityPath}?%24filter=${filter}&%24top=1`
     });
     return remoteRows(result)[0] || null;
+}
+
+async function readSapProfileApplyHistory(req, context) {
+    const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
+    if (mode !== 'sap') return [];
+    if (profileApplyActionPathConfigured() || profileApplyStrategy() === 'action') return [];
+
+    try {
+        const sapApply = await connectProfileApplyService(req);
+        const entityPath = profileApplyEntityPath();
+        const filter = encodeURIComponent(`Pernr eq ${odataStringLiteral(context.pernr)}`);
+        const result = await sapApply.send({
+            method: 'GET',
+            path: `${entityPath}?%24filter=${filter}&%24top=100`
+        });
+        return remoteRows(result)
+            .map(sapProfileRequestDto)
+            .filter(row => row && (!row.Pernr || row.Pernr === context.pernr));
+    } catch (error) {
+        console.warn('[ProfileService] SAP profile request history read failed:', sapApplyErrorMessage(error));
+        return [];
+    }
 }
 
 async function connectProfileApplyService(req) {
@@ -1043,7 +1140,9 @@ module.exports = async function ProfileService() {
         const context = userContext(req);
         const tx = cds.tx(req);
         const rows = await tx.run(SELECT.from(REQUESTS).where({ employeePernr: context.pernr }));
-        return sortByCreatedDesc(rows).map(profileRequestDto);
+        const localRows = sortByCreatedDesc(rows).map(profileRequestDto);
+        const sapRows = await readSapProfileApplyHistory(req, context);
+        return sortProfileRequestDtos(mergeProfileRequestDtos(localRows, sapRows));
     });
 
     this.on('READ', 'ProfileApprovalRequests', async req => {

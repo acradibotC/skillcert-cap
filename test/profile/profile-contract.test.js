@@ -49,11 +49,14 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(employeeView, /profilePreviewEditButton[\s\S]*?enabled="\{profileUi>\/hasEditableField\}"/);
     assert.match(employeeView, /press="onEditProfile"/);
     assert.match(employeeView, /visible="\{profile>\/HasBankTransfer\}"/);
-    assert.match(employeeView, /profileReadOnlySap/);
-    assert.match(employeeView, /profileEditWorkflowNotice/);
+    assert.doesNotMatch(employeeView, /profileReadOnlySap/);
+    assert.doesNotMatch(employeeView, /profileEditWorkflowNotice/);
     assert.match(employeeView, /profileRequestHistory/);
     assert.match(employeeView, /profileRequestHistoryTable/);
     assert.match(employeeView, /profileResubmitButton/);
+
+    const editDialog = fs.readFileSync('app/profile/webapp/view/ProfileEditDialog.fragment.xml', 'utf8');
+    assert.match(editDialog, /profileEditWorkflowNotice/);
 });
 
 test('existing skill approval actions remain explicitly unbound', async () => {
