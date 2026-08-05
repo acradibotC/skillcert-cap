@@ -281,30 +281,35 @@ test('profile approval applies changes through configured SAP profile OData adap
     }));
     const profile = profileRows.Pernr ? profileRows : profileRows[0];
 
-    const submitted = await service.send(new cds.Request({
-        event: 'submitProfileChange',
-        data: {
-            IdempotencyKey: `profile-submit-sap-${Date.now()}`,
-            ProfileVersion: profile.ProfileVersion,
-            Remark: 'Update current address',
-            Changes: [{ FieldCode: 'CURR_ADDRESS', NewValue: '123 Local Street' }]
-        },
-        user: user()
-    }));
-
     const oldApplyMode = process.env.PROFILE_APPLY_MODE;
     const oldApplyService = process.env.PROFILE_APPLY_SERVICE;
     const oldApplyPath = process.env.PROFILE_APPLY_ACTION_PATH;
-    let sentRequest;
+    const oldApplyStrategy = process.env.PROFILE_APPLY_STRATEGY;
+    const sentRequests = [];
+    const sapRequestId = '11111111-2222-3333-4444-555555555555';
 
     process.env.PROFILE_APPLY_MODE = 'sap';
     process.env.PROFILE_APPLY_SERVICE = 'ZUI_NXR_PROFILE_APPLY_O4';
+    process.env.PROFILE_APPLY_STRATEGY = 'create';
     delete process.env.PROFILE_APPLY_ACTION_PATH;
     cds.connect.to = async function (name) {
         if (name === 'ZUI_NXR_PROFILE_APPLY_O4') {
             return {
                 send: async request => {
-                    sentRequest = request;
+                    sentRequests.push(request);
+                    if (request.method === 'GET') {
+                        return [{
+                            RequestId: sapRequestId,
+                            RequestNo: request.path.includes('RequestNo') ? 'matched-by-request-no' : ''
+                        }];
+                    }
+                    if (request.method === 'POST') {
+                        return {
+                            RequestId: sapRequestId,
+                            ApplyState: 'PENDING_APPROVAL',
+                            ApplyMessage: 'Staged by mocked SAP profile OData service.'
+                        };
+                    }
                     return {
                         Applied: true,
                         ApplyState: 'QUEUED',
@@ -317,6 +322,29 @@ test('profile approval applies changes through configured SAP profile OData adap
     };
 
     try {
+        const submitted = await service.send(new cds.Request({
+            event: 'submitProfileChange',
+            data: {
+                IdempotencyKey: `profile-submit-sap-${Date.now()}`,
+                ProfileVersion: profile.ProfileVersion,
+                Remark: 'Update current address',
+                Changes: [{ FieldCode: 'CURR_ADDRESS', NewValue: '123 Local Street' }]
+            },
+            user: user()
+        }));
+
+        assert.equal(submitted.Status, '01');
+        assert.equal(submitted.ApplyState, 'PENDING_APPROVAL');
+        assert.equal(sentRequests[0].method, 'POST');
+        assert.equal(sentRequests[0].path, '/ProfileApplyRequest');
+        assert.equal(sentRequests[0].data.RequestNo, submitted.RequestNo);
+        assert.equal(sentRequests[0].data.Pernr, '90000005');
+        assert.equal(sentRequests[0].data.Status, '01');
+        assert.equal(sentRequests[0].data.ApplyState, 'PENDING_APPROVAL');
+        assert.equal(sentRequests[0].data.DecisionByEmail, '');
+        assert.equal(sentRequests[0].data.ChangedFields, 'CURR_ADDRESS');
+        assert.equal(sentRequests[0].data.CurrentAddress, '123 Local Street');
+
         const approved = await service.send(new cds.Request({
             event: 'approveProfileChange',
             data: {
@@ -329,13 +357,17 @@ test('profile approval applies changes through configured SAP profile OData adap
 
         assert.equal(approved.Status, '02');
         assert.equal(approved.ApplyState, 'QUEUED');
-        assert.equal(sentRequest.method, 'POST');
-        assert.equal(sentRequest.path, '/ProfileApplyRequest');
-        assert.equal(sentRequest.data.RequestNo, submitted.RequestNo);
-        assert.equal(sentRequest.data.Pernr, '90000005');
-        assert.equal(sentRequest.data.DecisionByEmail, 'hr@example.com');
-        assert.equal(sentRequest.data.ChangedFields, 'CURR_ADDRESS');
-        assert.equal(sentRequest.data.CurrentAddress, '123 Local Street');
+        assert.equal(sentRequests[1].method, 'GET');
+        assert.match(sentRequests[1].path, /RequestNo%20eq%20'PR/);
+        assert.equal(sentRequests[2].method, 'MERGE');
+        assert.equal(sentRequests[2].path, `/ProfileApplyRequest(guid'${sapRequestId}')`);
+        assert.equal(sentRequests[2].data.RequestNo, submitted.RequestNo);
+        assert.equal(sentRequests[2].data.Pernr, '90000005');
+        assert.equal(sentRequests[2].data.Status, '02');
+        assert.equal(sentRequests[2].data.ApplyState, 'QUEUED');
+        assert.equal(sentRequests[2].data.DecisionByEmail, 'hr@example.com');
+        assert.equal(sentRequests[2].data.ChangedFields, 'CURR_ADDRESS');
+        assert.equal(sentRequests[2].data.CurrentAddress, '123 Local Street');
 
         const employeeOutbox = await cds.run(SELECT.from('znxr09.db.ProfileNotificationOutbox').where({
             request_ID: submitted.ID,
@@ -358,6 +390,8 @@ test('profile approval applies changes through configured SAP profile OData adap
         else process.env.PROFILE_APPLY_SERVICE = oldApplyService;
         if (oldApplyPath === undefined) delete process.env.PROFILE_APPLY_ACTION_PATH;
         else process.env.PROFILE_APPLY_ACTION_PATH = oldApplyPath;
+        if (oldApplyStrategy === undefined) delete process.env.PROFILE_APPLY_STRATEGY;
+        else process.env.PROFILE_APPLY_STRATEGY = oldApplyStrategy;
         cds.connect.to = originalConnectTo;
     }
 });

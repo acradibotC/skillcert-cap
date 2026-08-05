@@ -406,22 +406,24 @@ function profileApplyPayload(request, items, context, comment) {
     };
 }
 
-function profileApplyStagingPayload(request, items, context, comment) {
+function profileApplyStagingPayload(request, items, context, comment, options = {}) {
+    const status = String(options.status || STATUS.APPROVED).slice(0, 2);
+    const isPendingApproval = status === STATUS.PENDING;
     const payload = {
         RequestNo: request.requestNo || '',
         Pernr: request.employeePernr,
         EmployeeName: request.employeeName || '',
         RequestedByEmail: request.requestedByEmail || '',
         RevisionNo: Number(request.revisionNo || 1),
-        Status: STATUS.APPROVED,
-        ApplyState: 'QUEUED',
-        ApplyMessage: 'Queued for HR master data background job',
+        Status: status,
+        ApplyState: String(options.applyState || 'QUEUED').slice(0, 20),
+        ApplyMessage: String(options.applyMessage || 'Queued for HR master data background job').slice(0, 500),
         ChangedFields: (items || []).map(item => item.fieldName).filter(Boolean).join(',').slice(0, 255),
-        DecisionBy: actorId(context),
-        DecisionByEmail: context.email || '',
-        DecisionPernr: context.pernr || '',
-        DecisionAt: new Date().toISOString(),
-        HrComment: normalizeRemark(comment)
+        DecisionBy: isPendingApproval ? '' : actorId(context),
+        DecisionByEmail: isPendingApproval ? '' : (context.email || ''),
+        DecisionPernr: isPendingApproval ? '' : (context.pernr || ''),
+        DecisionAt: isPendingApproval ? null : new Date().toISOString(),
+        HrComment: isPendingApproval ? '' : normalizeRemark(comment)
     };
 
     const valueByField = new Map((items || []).map(item => [item.fieldName, item.newValue || '']));
@@ -443,10 +445,13 @@ function sapApplyErrorMessage(error) {
     return String(message).replace(/\s+/g, ' ').slice(0, 500);
 }
 
-function normalizeApplyResult(result) {
+function normalizeApplyResult(result, defaults = {}) {
     const body = Array.isArray(result)
         ? result[0]
         : result?.value || result?.d || result || {};
+    const defaultState = String(defaults.applyState || 'QUEUED').slice(0, 20);
+    const defaultMessage = String(defaults.message || 'SAP profile change request was staged for background processing.')
+        .slice(0, 500);
     const hasAppliedFlag = Object.prototype.hasOwnProperty.call(body, 'Applied')
         || Object.prototype.hasOwnProperty.call(body, 'applied')
         || Object.prototype.hasOwnProperty.call(body, 'Success')
@@ -457,17 +462,71 @@ function normalizeApplyResult(result) {
     const explicitState = String(body.ApplyState || body.applyState || body.State || body.state || '').trim();
     return {
         applied,
-        applyState: (explicitState || (applied ? 'QUEUED' : 'REJECTED')).slice(0, 20),
+        applyState: (explicitState || (applied ? defaultState : 'REJECTED')).slice(0, 20),
         message: String(
             body.Message ||
             body.message ||
             body.ApplyMessage ||
-            'SAP profile change request was staged for background processing.'
+            defaultMessage
         ).slice(0, 500)
     };
 }
 
-async function sendProfileApply(sapApply, actionPayload, stagingPayload) {
+function profileApplyEntityPath() {
+    return String(process.env.PROFILE_APPLY_ENTITY_PATH || '/ProfileApplyRequest').trim() || '/ProfileApplyRequest';
+}
+
+function odataStringLiteral(value) {
+    return `'${String(value || '').replace(/'/g, "''")}'`;
+}
+
+function remoteRows(result) {
+    if (Array.isArray(result)) return result;
+    if (Array.isArray(result?.value)) return result.value;
+    if (Array.isArray(result?.d?.results)) return result.d.results;
+    if (Array.isArray(result?.results)) return result.results;
+    if (result?.d && typeof result.d === 'object') return [result.d];
+    return result && typeof result === 'object' ? [result] : [];
+}
+
+function profileApplyKeyPath(entityPath, row) {
+    const rawId = String(row?.RequestId || row?.requestId || row?.ID || '').replace(/[{}]/g, '').trim();
+    if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(rawId)) {
+        const error = new Error('SAP profile staging row does not expose a valid RequestId key.');
+        error.statusCode = 502;
+        throw error;
+    }
+    return `${entityPath}(guid'${rawId.toLowerCase()}')`;
+}
+
+async function readSapProfileApplyByRequestNo(sapApply, requestNo) {
+    const entityPath = profileApplyEntityPath();
+    const filter = encodeURIComponent(`RequestNo eq ${odataStringLiteral(requestNo)}`);
+    const result = await sapApply.send({
+        method: 'GET',
+        path: `${entityPath}?%24filter=${filter}&%24top=1`
+    });
+    return remoteRows(result)[0] || null;
+}
+
+async function connectProfileApplyService(req) {
+    const serviceName = String(process.env.PROFILE_APPLY_SERVICE || 'ZUI_NXR_PROFILE_APPLY_O4').trim();
+    try {
+        ensureRemoteServiceCredentials(serviceName);
+        const sapApply = await cds.connect.to(serviceName);
+        ensureRemoteServiceCredentials(serviceName, sapApply);
+        return sapApply;
+    } catch (error) {
+        return reject(
+            req,
+            503,
+            'SAP_PROFILE_WRITE_SERVICE_UNAVAILABLE',
+            `SAP profile write service ${serviceName} is not available.`
+        );
+    }
+}
+
+async function sendProfileApplyCreate(sapApply, actionPayload, stagingPayload) {
     const configuredPath = String(process.env.PROFILE_APPLY_ACTION_PATH || '').trim();
     if (configuredPath) {
         return sapApply.send({
@@ -485,12 +544,105 @@ async function sendProfileApply(sapApply, actionPayload, stagingPayload) {
         });
     }
 
-    const entityPath = String(process.env.PROFILE_APPLY_ENTITY_PATH || '/ProfileApplyRequest').trim();
     return sapApply.send({
         method: 'POST',
-        path: entityPath,
+        path: profileApplyEntityPath(),
         data: stagingPayload
     });
+}
+
+async function sendProfileApplyUpdateByRequestNo(sapApply, requestNo, stagingPayload) {
+    const entityPath = profileApplyEntityPath();
+    const remoteRow = await readSapProfileApplyByRequestNo(sapApply, requestNo);
+    if (!remoteRow) {
+        const error = new Error(`SAP profile staging request ${requestNo} was not found.`);
+        error.statusCode = 404;
+        throw error;
+    }
+    return sapApply.send({
+        method: String(process.env.PROFILE_APPLY_UPDATE_METHOD || 'MERGE').trim().toUpperCase(),
+        path: profileApplyKeyPath(entityPath, remoteRow),
+        data: stagingPayload
+    });
+}
+
+async function stageProfileSubmission(req, request, items, context, comment) {
+    const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
+    const defaults = {
+        applyState: 'PENDING_APPROVAL',
+        message: 'SAP profile change request was staged and is waiting for HR approval.'
+    };
+    if (mode === 'mock' && process.env.NODE_ENV !== 'production') {
+        return {
+            applyState: defaults.applyState,
+            applyMessage: 'Mock SAP profile change request was staged for HR approval.'
+        };
+    }
+    if (mode !== 'sap') {
+        return {
+            applyState: 'NOT_APPLIED',
+            applyMessage: ''
+        };
+    }
+    if (!items?.length) {
+        return reject(req, 400, 'SAP_PROFILE_WRITE_EMPTY_PAYLOAD', 'There are no current profile changes to submit.');
+    }
+
+    const sapApply = await connectProfileApplyService(req);
+    const stagingPayload = profileApplyStagingPayload(request, items, context, comment, {
+        status: STATUS.PENDING,
+        applyState: defaults.applyState,
+        applyMessage: defaults.message
+    });
+    let result;
+    try {
+        if (request.revisionNo > 1) {
+            try {
+                result = await sendProfileApplyUpdateByRequestNo(sapApply, request.requestNo, stagingPayload);
+            } catch (updateError) {
+                if ((updateError.statusCode || updateError.status) !== 404) {
+                    throw updateError;
+                }
+                result = await sendProfileApplyCreate(
+                    sapApply,
+                    profileApplyPayload(request, items, context, comment),
+                    stagingPayload
+                );
+            }
+        } else {
+            result = await sendProfileApplyCreate(sapApply, profileApplyPayload(request, items, context, comment), stagingPayload);
+        }
+    } catch (error) {
+        return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
+    }
+
+    const normalized = normalizeApplyResult(result, defaults);
+    if (!normalized.applied) {
+        return reject(req, 502, 'SAP_PROFILE_WRITE_REJECTED', normalized.message);
+    }
+    return {
+        applyState: normalized.applyState,
+        applyMessage: normalized.message
+    };
+}
+
+function decisionApplyDefaults(toStatus) {
+    if (toStatus === STATUS.APPROVED) {
+        return {
+            applyState: 'QUEUED',
+            message: 'Queued for HR master data background job'
+        };
+    }
+    if (toStatus === STATUS.REJECTED) {
+        return {
+            applyState: 'REJECTED',
+            message: 'Profile change request was rejected by HR.'
+        };
+    }
+    return {
+        applyState: 'REVISION_REQUIRED',
+        message: 'HR requested changes for this profile request.'
+    };
 }
 
 async function applyProfileChanges(req, request, items, context, comment) {
@@ -506,33 +658,42 @@ async function applyProfileChanges(req, request, items, context, comment) {
             return reject(req, 400, 'SAP_PROFILE_WRITE_EMPTY_PAYLOAD', 'There are no current profile changes to apply.');
         }
 
-        let sapApply;
-        const serviceName = String(process.env.PROFILE_APPLY_SERVICE || 'ZUI_NXR_PROFILE_APPLY_O4').trim();
-        try {
-            ensureRemoteServiceCredentials(serviceName);
-            sapApply = await cds.connect.to(serviceName);
-            ensureRemoteServiceCredentials(serviceName, sapApply);
-        } catch (error) {
-            return reject(
-                req,
-                503,
-                'SAP_PROFILE_WRITE_SERVICE_UNAVAILABLE',
-                `SAP profile write service ${serviceName} is not available.`
-            );
-        }
+        const sapApply = await connectProfileApplyService(req);
 
         let result;
+        const defaults = decisionApplyDefaults(STATUS.APPROVED);
+        const stagingPayload = profileApplyStagingPayload(request, items, context, comment, {
+            status: STATUS.APPROVED,
+            applyState: defaults.applyState,
+            applyMessage: defaults.message
+        });
         try {
-            result = await sendProfileApply(
-                sapApply,
-                profileApplyPayload(request, items, context, comment),
-                profileApplyStagingPayload(request, items, context, comment)
-            );
+            const strategy = String(process.env.PROFILE_APPLY_STRATEGY || 'create').trim().toLowerCase();
+            if (String(process.env.PROFILE_APPLY_ACTION_PATH || '').trim() || strategy === 'action') {
+                result = await sendProfileApplyCreate(
+                    sapApply,
+                    profileApplyPayload(request, items, context, comment),
+                    stagingPayload
+                );
+            } else {
+                try {
+                    result = await sendProfileApplyUpdateByRequestNo(sapApply, request.requestNo, stagingPayload);
+                } catch (updateError) {
+                    if ((updateError.statusCode || updateError.status) !== 404) {
+                        throw updateError;
+                    }
+                    result = await sendProfileApplyCreate(
+                        sapApply,
+                        profileApplyPayload(request, items, context, comment),
+                        stagingPayload
+                    );
+                }
+            }
         } catch (error) {
             return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
         }
 
-        const normalized = normalizeApplyResult(result);
+        const normalized = normalizeApplyResult(result, defaults);
         if (!normalized.applied) {
             return reject(req, 502, 'SAP_PROFILE_WRITE_REJECTED', normalized.message);
         }
@@ -547,6 +708,60 @@ async function applyProfileChanges(req, request, items, context, comment) {
         'SAP_PROFILE_WRITE_NOT_AVAILABLE',
         'The SAP profile write adapter is not configured. The request remains pending and SAP data was not changed.'
     );
+}
+
+async function syncProfileDecision(req, request, items, context, comment, toStatus) {
+    if (toStatus === STATUS.APPROVED) {
+        return applyProfileChanges(req, request, items, context, comment);
+    }
+
+    const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
+    const defaults = decisionApplyDefaults(toStatus);
+    if (mode === 'mock' && process.env.NODE_ENV !== 'production') {
+        return {
+            applyState: defaults.applyState,
+            applyMessage: `Mock SAP profile request status changed to ${toStatus}.`
+        };
+    }
+    if (mode !== 'sap') {
+        return {
+            applyState: request.applyState || 'NOT_APPLIED',
+            applyMessage: request.applyMessage || ''
+        };
+    }
+
+    const sapApply = await connectProfileApplyService(req);
+    const stagingPayload = profileApplyStagingPayload(request, items, context, comment, {
+        status: toStatus,
+        applyState: defaults.applyState,
+        applyMessage: defaults.message
+    });
+    let result;
+    try {
+        try {
+            result = await sendProfileApplyUpdateByRequestNo(sapApply, request.requestNo, stagingPayload);
+        } catch (updateError) {
+            if ((updateError.statusCode || updateError.status) !== 404) {
+                throw updateError;
+            }
+            result = await sendProfileApplyCreate(
+                sapApply,
+                profileApplyPayload(request, items, context, comment),
+                stagingPayload
+            );
+        }
+    } catch (error) {
+        return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
+    }
+
+    const normalized = normalizeApplyResult(result, defaults);
+    if (!normalized.applied) {
+        return reject(req, 502, 'SAP_PROFILE_WRITE_REJECTED', normalized.message);
+    }
+    return {
+        applyState: normalized.applyState,
+        applyMessage: normalized.message
+    };
 }
 
 async function insertProfileNotificationOutbox(tx, requestId, eventType, recipientType, recipientKey, now) {
@@ -793,6 +1008,14 @@ module.exports = async function ProfileService() {
             modifiedBy: context.email
         }));
         await insertItemsAndLocks(tx, requestId, context, 1, validation.changes, now);
+        const stagedRequest = await readRequest(tx, requestId);
+        const stagingResult = await stageProfileSubmission(req, stagedRequest, validation.changes, context, req.data.Remark);
+        await tx.run(UPDATE(REQUESTS).set({
+            applyState: stagingResult.applyState,
+            applyMessage: stagingResult.applyMessage,
+            modifiedAt: now,
+            modifiedBy: context.email
+        }).where({ ID: requestId }));
         await insertEvent(tx, requestId, 1, 'SUBMITTED', null, STATUS.PENDING, context, 'EMPLOYEE', req.data.Remark, idempotencyKey);
         await insertProfileNotificationOutbox(tx, requestId, 'SUBMITTED', 'HR_ADMIN', 'PROFILE_HR_ADMIN', now);
 
@@ -857,6 +1080,14 @@ module.exports = async function ProfileService() {
             modifiedBy: context.email
         }).where({ ID: requestId }));
         await insertItemsAndLocks(tx, requestId, context, revisionNo, validation.changes, now);
+        const stagedRequest = await readRequest(tx, requestId);
+        const stagingResult = await stageProfileSubmission(req, stagedRequest, validation.changes, context, req.data.Remark);
+        await tx.run(UPDATE(REQUESTS).set({
+            applyState: stagingResult.applyState,
+            applyMessage: stagingResult.applyMessage,
+            modifiedAt: now,
+            modifiedBy: context.email
+        }).where({ ID: requestId }));
         await insertEvent(tx, requestId, revisionNo, 'RESUBMITTED', STATUS.REVISION, STATUS.PENDING, context, 'EMPLOYEE', req.data.Remark, idempotencyKey);
         await insertProfileNotificationOutbox(tx, requestId, 'RESUBMITTED', 'HR_ADMIN', 'PROFILE_HR_ADMIN', now);
 
@@ -881,11 +1112,8 @@ module.exports = async function ProfileService() {
             return reject(req, 400, 'PROFILE_HR_COMMENT_REQUIRED', 'An HR comment is required.');
         }
 
-        let applyResult = { applyState: request.applyState || 'NOT_APPLIED', applyMessage: request.applyMessage || '' };
-        if (action === 'approve') {
-            const items = await currentItems(tx, request.ID);
-            applyResult = await applyProfileChanges(req, request, items, context, comment);
-        }
+        const items = await currentItems(tx, request.ID);
+        const applyResult = await syncProfileDecision(req, request, items, context, comment, toStatus);
 
         const now = utcNow();
         await tx.run(UPDATE(REQUESTS).set({

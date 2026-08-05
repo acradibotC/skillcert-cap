@@ -2,11 +2,11 @@
 
 ## Current boundary
 
-The frontend and CAP workflow create and review `ProfileChangeRequests` locally.
-Approval must not become `Approved` unless SAP accepts the approved change request
-into the SAP-side staging table. The actual HR master-data update can then be
-executed by a scheduled ABAP job that calls the required enterprise FM/BAPI per
-infotype.
+The frontend and CAP workflow create and review `ProfileChangeRequests`, while
+SAP keeps the official staging row in `ZTB_NXR_PROFREQ`. Employee submit must
+create a SAP-side `Pending` row immediately so HR has a request to approve. The
+actual HR master-data update still happens only after HR approval, through the
+scheduled ABAP job that calls the required enterprise FM/BAPI per infotype.
 
 CAP now supports a fail-closed SAP staging adapter:
 
@@ -15,6 +15,7 @@ CAP now supports a fail-closed SAP staging adapter:
 - CAP remote service: `PROFILE_APPLY_SERVICE=ZUI_NXR_PROFILE_APPLY_O4`
 - default strategy: `PROFILE_APPLY_STRATEGY=create`
 - default entity path: `PROFILE_APPLY_ENTITY_PATH=/ProfileApplyRequest`
+- default update method for the OData V2 row: `PROFILE_APPLY_UPDATE_METHOD=MERGE`
 - optional legacy action path: `PROFILE_APPLY_ACTION_PATH`
 - current published SAP binding used by CAP: OData V2 UI binding
   `ZUI_NXR_PROF_APPLY_BND`
@@ -25,10 +26,11 @@ HR approval users are resolved by SAP organization assignment:
   `HR_ORG_UNIT_IDS`
 - optional override for testing/emergency access: `PROFILE_HR_EMAILS`
 
-If the SAP service is unavailable, the action fails with a `SAP_PROFILE_WRITE_*`
-error and the request stays `Pending`. If SAP accepts the staged row, CAP moves
-the request to `Approved` and stores `ApplyState=QUEUED` unless SAP returns a
-more specific `ApplyState`.
+If the SAP service is unavailable during submit, CAP fails the submit instead of
+creating a local-only production request. If SAP accepts the submitted row, CAP
+stores `ApplyState=PENDING_APPROVAL`. During HR decision, CAP reads the SAP row
+by `RequestNo` and updates the same row to `Approved`, `Rejected`, or
+`Revision Required`.
 
 ## Live SAP deployment status
 
@@ -100,12 +102,27 @@ ProfileApplyRequest(
 )
 ```
 
-Default CAP call:
+Default CAP submit call:
 
 ```js
 sapApply.send({
   method: "POST",
   path: "/ProfileApplyRequest",
+  data: stagingPayload
+})
+```
+
+Default CAP HR decision call:
+
+```js
+sapApply.send({
+  method: "GET",
+  path: "/ProfileApplyRequest?$filter=RequestNo eq 'PR...'"
+})
+
+sapApply.send({
+  method: "MERGE",
+  path: "/ProfileApplyRequest(guid'...')",
   data: stagingPayload
 })
 ```
@@ -120,7 +137,29 @@ The previous unbound action adapter is still available by setting
 `PROFILE_APPLY_STRATEGY=action`, or by setting a concrete
 `PROFILE_APPLY_ACTION_PATH`.
 
-## Payload
+## Submit payload
+
+```json
+{
+  "RequestNo": "PR...",
+  "Pernr": "90000005",
+  "EmployeeName": "Ta Nam Son",
+  "RequestedByEmail": "haonguyen022202@gmail.com",
+  "RevisionNo": 1,
+  "Status": "01",
+  "ApplyState": "PENDING_APPROVAL",
+  "ApplyMessage": "SAP profile change request was staged and is waiting for HR approval.",
+  "DecisionBy": "",
+  "DecisionByEmail": "",
+  "DecisionPernr": "",
+  "DecisionAt": null,
+  "HrComment": "",
+  "ChangedFields": "WORK_EMAIL",
+  "WorkEmail": "new@example.com"
+}
+```
+
+## Approval payload
 
 ```json
 {
@@ -153,24 +192,26 @@ The previous unbound action adapter is still available by setting
 }
 ```
 
-When `Applied` is false or the create/action returns an HTTP error, CAP keeps the
-request in status `01` (`Pending`) and does not release locks.
+When `Applied` is false or SAP returns an HTTP error, CAP does not move the
+request to the next state and does not release locks.
 
 ## SAP implementation notes
 
 The RAP implementation should:
 
-1. Validate the acting HR user and employee `Pernr`.
-2. Persist the approved request payload into `ZTB_NXR_PROFREQ` with
-   `Status='02'` and `ApplyState='QUEUED'`.
-3. Schedule/run an ABAP background job to select queued rows, lock the employee,
+1. Persist employee-submitted request payload into `ZTB_NXR_PROFREQ` with
+   `Status='01'` and `ApplyState='PENDING_APPROVAL'`.
+2. Validate the acting HR user and update the same row by `RequestNo` when HR
+   approves, rejects, or requests revision.
+3. On approval, set `Status='02'` and `ApplyState='QUEUED'`.
+4. Schedule/run an ABAP background job to select queued rows, lock the employee,
    map fields, and post HR master data by the approved enterprise API/BAPI for
    the infotype:
    - `0006` address fields
    - `0009` bank/payment fields
    - `0105` communication fields
    - `0185` identification fields
-4. Update `ApplyState` to `APPLIED` or `FAILED` after the job finishes and write
+5. Update `ApplyState` to `APPLIED` or `FAILED` after the job finishes and write
    `ApplyMessage` with a business-readable result.
-5. Return an HTTP error or `Applied=false` from the staging service when the row
+6. Return an HTTP error or `Applied=false` from the staging service when the row
    cannot be safely persisted.

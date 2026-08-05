@@ -17,20 +17,32 @@ Transport tested with MCP: `S40K919620` / task `S40K919621`
 
 ## CAP runtime contract
 
-CAP approval uses SAP staging by default:
+CAP profile workflow uses SAP staging by default:
 
 ```env
 PROFILE_APPLY_MODE=sap
 PROFILE_APPLY_STRATEGY=create
 PROFILE_APPLY_ENTITY_PATH=/ProfileApplyRequest
+PROFILE_APPLY_UPDATE_METHOD=MERGE
 ```
 
-When HR approves a MyProfile request, CAP creates a `ProfileApplyRequest` row in
-the SAP OData service and sends these staging fields directly:
+When the employee submits a MyProfile request, CAP creates a
+`ProfileApplyRequest` row in the SAP OData service and sends these staging
+fields directly:
+
+- `Status = '01'`
+- `ApplyState = 'PENDING_APPROVAL'`
+- `ApplyMessage = 'SAP profile change request was staged and is waiting for HR approval.'`
+
+When HR decides the MyProfile request, CAP reads the SAP row by `RequestNo` and
+updates the same OData V2 row using `MERGE`. On approval it sends:
 
 - `Status = '02'`
 - `ApplyState = 'QUEUED'`
 - `ApplyMessage = 'Queued for HR master data background job'`
+
+Reject and revision-required decisions update the same row to `Status = '03'`
+or `Status = '04'`.
 
 The background report `ZNXR_PROFILE_APPLY_JOB` is intentionally safe by default
 (`p_test = X`). Replace the marked posting block with the approved HR infotype
