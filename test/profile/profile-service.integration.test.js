@@ -184,6 +184,13 @@ test('profile edit submits a pending request, locks fields, and keeps SAP apply 
     }));
     assert.ok(requests.some(request => request.ID === submitted.ID && request.Status === '01'));
 
+    const hrOutbox = await cds.run(SELECT.from('znxr09.db.ProfileNotificationOutbox').where({
+        request_ID: submitted.ID,
+        eventType: 'SUBMITTED',
+        recipientType: 'HR_ADMIN'
+    }));
+    assert.equal(hrOutbox.length, 1);
+
     const fieldsAfterSubmit = await service.send(new cds.Request({
         event: 'READ',
         query: SELECT.from('ProfileService.MyProfileFields'),
@@ -300,7 +307,8 @@ test('profile approval applies changes through configured SAP profile OData adap
                     sentRequest = request;
                     return {
                         Applied: true,
-                        Message: 'Applied by mocked SAP profile OData action.'
+                        ApplyState: 'QUEUED',
+                        Message: 'Queued by mocked SAP profile OData service.'
                     };
                 }
             };
@@ -320,22 +328,22 @@ test('profile approval applies changes through configured SAP profile OData adap
         }));
 
         assert.equal(approved.Status, '02');
-        assert.equal(approved.ApplyState, 'APPLIED');
-        assert.equal(sentRequest.event, 'applyProfileChanges');
-        assert.equal(sentRequest.data.RequestId, submitted.ID);
+        assert.equal(approved.ApplyState, 'QUEUED');
+        assert.equal(sentRequest.method, 'POST');
+        assert.equal(sentRequest.path, '/ProfileApplyRequest');
+        assert.equal(sentRequest.data.RequestNo, submitted.RequestNo);
         assert.equal(sentRequest.data.Pernr, '90000005');
         assert.equal(sentRequest.data.DecisionByEmail, 'hr@example.com');
-        assert.equal(sentRequest.data.Changes.length, 1);
-        assert.deepEqual(sentRequest.data.Changes[0], {
-            FieldCode: 'CURR_ADDRESS',
-            FieldGroup: 'CONTACT',
-            OldValue: '456 UI5 Avenue',
-            NewValue: '123 Local Street',
-            SapInfotype: '0006',
-            SapSubtype: '',
-            SapField: 'STRAS',
-            IsSensitive: false
-        });
+        assert.equal(sentRequest.data.ChangedFields, 'CURR_ADDRESS');
+        assert.equal(sentRequest.data.CurrentAddress, '123 Local Street');
+
+        const employeeOutbox = await cds.run(SELECT.from('znxr09.db.ProfileNotificationOutbox').where({
+            request_ID: submitted.ID,
+            eventType: 'APPROVED',
+            recipientType: 'EMPLOYEE',
+            recipientKey: '90000005'
+        }));
+        assert.equal(employeeOutbox.length, 1);
 
         const fieldsAfterApprove = await service.send(new cds.Request({
             event: 'READ',

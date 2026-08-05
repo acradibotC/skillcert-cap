@@ -36,6 +36,8 @@
                     <Label text="{i18n>profileSubmittedAt}"/><Text text="{path:'hrDetail>/request/SubmittedAt', formatter:'.formatter.formatDateTime'}"/>
                     <Label text="{i18n>profileEmployeeRemark}"/><Text text="{hrDetail>/request/Remark}" wrapping="true"/>
                     <Label text="{i18n>profileRevisionNumber}"/><Text text="{hrDetail>/request/RevisionNo}"/>
+                    <Label text="{i18n>profileApplyState}"/><Text text="{hrDetail>/request/ApplyState}"/>
+                    <Label text="{i18n>profileApplyMessage}"/><Text text="{hrDetail>/request/ApplyMessage}" wrapping="true"/>
                 </form:SimpleForm>
 
                 <Title text="{i18n>profileChangeComparison}" level="H4" class="sapUiMediumMarginTop sapUiSmallMarginBottom"/>

@@ -24,3 +24,12 @@ test('profile authorization is based on employee link or HR role, not manager st
     assert.match(source, /SAP_PROFILE_WRITE_NOT_AVAILABLE/);
     assert.doesNotMatch(source, /ProfileSnapshots/);
 });
+
+test('profile HR approver access is derived from HR organization unit', () => {
+    const source = fs.readFileSync('srv/server.js', 'utf8');
+    assert.match(source, /function isProfileHrAdmin\(email, orgUnitId\)/);
+    assert.match(source, /configuredEmailOverride \|\| canUseHrTools\(orgUnitId\)/);
+    assert.match(source, /isHrAdmin:\s*isProfileHrAdmin\(email, profile\.OrgUnitId\)/);
+    assert.match(source, /req\.session\.userInfo\.isHrAdmin = isProfileHrAdmin\(req\.session\.userInfo\.email, req\.session\.userInfo\.orgUnitId\)/);
+    assert.match(source, /isHrAdmin:\s*isProfileHrAdmin\(email, resp\.data\.OrgUnitId\)/);
+});

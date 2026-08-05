@@ -2,41 +2,60 @@
 
 Package: `ZPK_ZNXR09F300`
 
-Transport tested with MCP: `S40K919412`
+Transport tested with MCP: `S40K919620` / task `S40K919621`
 
 ## Source files
 
 1. `ztb_nxr_profreq.tabl.asddl`
-2. `za_nxr_profapply_decision.ddls.asddls`
-3. `za_nxr_profapply_result.ddls.asddls`
-4. `zi_nxr_profile_apply_request.ddls.asddls`
-5. `zc_nxr_profile_apply_request.ddls.asddls`
-6. `zi_nxr_profile_apply_request.bdef.asbdef`
-7. `zc_nxr_profile_apply_request.bdef.asbdef`
-8. `zui_nxr_profile_apply_o4.srvd.srvdsrv`
+2. `zi_nxr_profile_apply_request.ddls.asddls`
+3. `zc_nxr_profile_apply_request.ddls.asddls`
+4. `zi_nxr_profile_apply_request.bdef.asbdef`
+5. `zc_nxr_profile_apply_request.bdef.asbdef`
+6. `zbp_nxr_i_profapply.clas.abap`
+7. `zui_nxr_profile_apply_o4.srvd.srvdsrv`
+8. `znxr_profile_apply_job.prog.abap`
 
-## MCP blocker
+## CAP runtime contract
 
-MCP can create DDLS shell objects with `transport`, but source update currently
-fails with:
+CAP approval uses SAP staging by default:
 
-```text
-ExceptionResourceInvalidLockHandle
-Resource Data Definition <object> is not locked
+```env
+PROFILE_APPLY_MODE=sap
+PROFILE_APPLY_STRATEGY=create
+PROFILE_APPLY_ENTITY_PATH=/ProfileApplyRequest
 ```
 
-Use Eclipse ADT to paste the source above and activate if MCP continues to fail.
+When HR approves a MyProfile request, CAP creates a `ProfileApplyRequest` row in
+the SAP OData service and sends these staging fields directly:
+
+- `Status = '02'`
+- `ApplyState = 'QUEUED'`
+- `ApplyMessage = 'Queued for HR master data background job'`
+
+The background report `ZNXR_PROFILE_APPLY_JOB` is intentionally safe by default
+(`p_test = X`). Replace the marked posting block with the approved HR infotype
+FM/BAPI calls, then schedule it for queued rows.
+
+## Live status checked on 2026-08-06
+
+The table, CDS views, BDEF pair, service definition, service binding object and
+background report were created/activated through MCP in `S40K919620` /
+`S40K919621`. The ADT publish helper returned OK for
+`ZUI_NXR_PROF_APPLY_BND`, but direct metadata still returned
+`/IWBEP/CM_V4_COS/014 Service group 'ZUI_NXR_PROF_APPLY_BND' not published`.
+If this persists, open service binding `ZUI_NXR_PROF_APPLY_BND` in Eclipse ADT,
+publish/refresh the local endpoint, then recheck `$metadata`.
 
 ## Publish
 
 After the service definition activates, create or publish a service binding for:
 
 ```text
-ZUI_NXR_PROFILE_APPLY_O4
+ZUI_NXR_PROF_APPLY_BND
 ```
 
 CAP default URL currently expects:
 
 ```text
-/sap/opu/odata4/sap/zui_nxr_profile_apply_o4_bind/srvd/sap/zui_nxr_profile_apply_o4/0001
+/sap/opu/odata4/sap/zui_nxr_prof_apply_bnd/srvd/sap/zui_nxr_profile_apply_o4/0001
 ```

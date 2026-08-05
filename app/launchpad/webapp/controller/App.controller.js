@@ -45,6 +45,7 @@ sap.ui.define([
                 shellTitle: "Nexora Employee Portal",
                 activeNav: "home",
                 isHomeContext: true,
+                isHrAdmin: false,
                 canUseHrTools: false,
                 sections: {
                     todosExpanded: true,
@@ -95,6 +96,7 @@ sap.ui.define([
                         oUserModel.setProperty("/userId", oData.pernr || oData.userId);
                         oUserModel.setProperty("/orgUnitId", oData.orgUnitId || "");
                         oUserModel.setProperty("/isManager", oData.isManager === true || oData.isManager === "X");
+                        oUserModel.setProperty("/isHrAdmin", oData.isHrAdmin === true);
                         oUserModel.setProperty("/canUseHrTools", oData.canUseHrTools === true);
                         this.byId("welcomeGreeting").setText("Hi " + sDisplayName + ", great to see you!");
                     } else {
@@ -308,9 +310,10 @@ sap.ui.define([
             this._goHomeAndScrollTo("pagesSection", "hr");
         },
 
-        onNavToProfile: function () {
+        onNavToProfile: function (vTab) {
+            var sTab = typeof vTab === "string" ? vTab : "";
             this._setLaunchpadNavActive("employee");
-            this._setRoute("profile");
+            this._setRoute("profile", sTab);
             this._navigateToApp("profilePage", "znxr09.znxr09f300", "/profile/webapp");
         },
 
@@ -779,6 +782,26 @@ sap.ui.define([
                     this.byId("notificationPopover").close();
                 }
                 this.onNavToTimesheet();
+            } else if (oData.navigateTo === "profileApprovals") {
+                if (this.byId("notificationPopover")) {
+                    this.byId("notificationPopover").close();
+                }
+                try {
+                    window.sessionStorage.setItem("znxr09.profile.selectedTab", "profileApprovals");
+                } catch (e) {
+                    // Session storage can be unavailable; the event bus below is the fallback.
+                }
+                this.onNavToProfile("profileApprovals");
+                setTimeout(function () {
+                    sap.ui.getCore().getEventBus().publish("Launchpad", "NavToProfileTab", {
+                        tab: "profileApprovals"
+                    });
+                }, 0);
+            } else if (oData.navigateTo === "profile") {
+                if (this.byId("notificationPopover")) {
+                    this.byId("notificationPopover").close();
+                }
+                this.onNavToProfile();
             }
         },
 

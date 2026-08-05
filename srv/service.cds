@@ -144,6 +144,7 @@ service ProfileService @(path: '/api/profile/v1') {
         employeeRemark as Remark,
         hrComment as HrComment,
         applyState as ApplyState,
+        applyMessage as ApplyMessage,
         isSimulation as IsSimulation,
         createdAt as SubmittedAt,
         modifiedAt as ModifiedAt
@@ -172,6 +173,7 @@ service ProfileService @(path: '/api/profile/v1') {
         employeeRemark as Remark,
         hrComment as HrComment,
         applyState as ApplyState,
+        applyMessage as ApplyMessage,
         isSimulation as IsSimulation,
         createdAt as SubmittedAt,
         modifiedAt as ModifiedAt

@@ -1,5 +1,6 @@
 const cds = require('@sap/cds');
 const crypto = require('node:crypto');
+require('dotenv').config();
 const {
     STATUS,
     FIELD_CATALOG,
@@ -14,6 +15,7 @@ const REQUESTS = 'znxr09.db.ProfileChangeRequests';
 const ITEMS = 'znxr09.db.ProfileChangeItems';
 const LOCKS = 'znxr09.db.ProfileFieldLocks';
 const EVENTS = 'znxr09.db.ProfileRequestEvents';
+const OUTBOX = 'znxr09.db.ProfileNotificationOutbox';
 
 const DTO_PROPERTY_BY_FIELD = Object.freeze({
     ID_NUMBER: 'IdNumber',
@@ -85,6 +87,7 @@ function profileRequestDto(row) {
         Remark: row.employeeRemark,
         HrComment: row.hrComment,
         ApplyState: row.applyState,
+        ApplyMessage: row.applyMessage,
         IsSimulation: row.isSimulation,
         SubmittedAt: row.createdAt,
         ModifiedAt: row.modifiedAt
@@ -339,6 +342,24 @@ function configuredServiceName(name, defaultValue) {
     return String(process.env[name] || defaultValue).trim();
 }
 
+function ensureRemoteServiceCredentials(serviceName, service) {
+    const username = process.env.UI5_USERNAME;
+    const password = process.env.UI5_PASSWORD;
+    const credentialTargets = [
+        cds.env.requires?.[serviceName]?.credentials,
+        service?.options?.credentials,
+        service?.credentials
+    ].filter(Boolean);
+    for (const credentials of credentialTargets) {
+        if (username && !credentials.username) {
+            credentials.username = username;
+        }
+        if (password && !credentials.password) {
+            credentials.password = password;
+        }
+    }
+}
+
 function paymentMethodText(code) {
     switch (String(code || '').trim().toUpperCase()) {
         case 'C':
@@ -385,6 +406,37 @@ function profileApplyPayload(request, items, context, comment) {
     };
 }
 
+function profileApplyStagingPayload(request, items, context, comment) {
+    const payload = {
+        RequestNo: request.requestNo || '',
+        Pernr: request.employeePernr,
+        EmployeeName: request.employeeName || '',
+        RequestedByEmail: request.requestedByEmail || '',
+        RevisionNo: Number(request.revisionNo || 1),
+        Status: STATUS.APPROVED,
+        ApplyState: 'QUEUED',
+        ApplyMessage: 'Queued for HR master data background job',
+        ChangedFields: (items || []).map(item => item.fieldName).filter(Boolean).join(',').slice(0, 255),
+        DecisionBy: actorId(context),
+        DecisionByEmail: context.email || '',
+        DecisionPernr: context.pernr || '',
+        DecisionAt: new Date().toISOString(),
+        HrComment: normalizeRemark(comment)
+    };
+
+    const valueByField = new Map((items || []).map(item => [item.fieldName, item.newValue || '']));
+    Object.entries(DTO_PROPERTY_BY_FIELD).forEach(([fieldCode, dtoProperty]) => {
+        if (fieldCode === 'PAY_METHOD') {
+            payload[dtoProperty] = valueByField.get(fieldCode) || request.payMethod || '';
+            return;
+        }
+        if (valueByField.has(fieldCode)) {
+            payload[dtoProperty] = valueByField.get(fieldCode);
+        }
+    });
+    return payload;
+}
+
 function sapApplyErrorMessage(error) {
     const details = error?.response?.data?.error || error?.reason?.response?.data?.error;
     const message = details?.message?.value || details?.message || error?.message || 'SAP profile write failed.';
@@ -402,24 +454,42 @@ function normalizeApplyResult(result) {
     const applied = hasAppliedFlag
         ? asBoolean(body.Applied ?? body.applied ?? body.Success ?? body.success)
         : true;
+    const explicitState = String(body.ApplyState || body.applyState || body.State || body.state || '').trim();
     return {
         applied,
-        message: String(body.Message || body.message || body.ApplyMessage || 'SAP profile changes were applied.').slice(0, 500)
+        applyState: (explicitState || (applied ? 'QUEUED' : 'REJECTED')).slice(0, 20),
+        message: String(
+            body.Message ||
+            body.message ||
+            body.ApplyMessage ||
+            'SAP profile change request was staged for background processing.'
+        ).slice(0, 500)
     };
 }
 
-async function sendProfileApply(sapApply, payload) {
+async function sendProfileApply(sapApply, actionPayload, stagingPayload) {
     const configuredPath = String(process.env.PROFILE_APPLY_ACTION_PATH || '').trim();
     if (configuredPath) {
         return sapApply.send({
             method: 'POST',
             path: configuredPath,
-            data: payload
+            data: actionPayload
         });
     }
+
+    const strategy = String(process.env.PROFILE_APPLY_STRATEGY || 'create').trim().toLowerCase();
+    if (strategy === 'action') {
+        return sapApply.send({
+            event: 'applyProfileChanges',
+            data: actionPayload
+        });
+    }
+
+    const entityPath = String(process.env.PROFILE_APPLY_ENTITY_PATH || '/ProfileApplyRequest').trim();
     return sapApply.send({
-        event: 'applyProfileChanges',
-        data: payload
+        method: 'POST',
+        path: entityPath,
+        data: stagingPayload
     });
 }
 
@@ -427,8 +497,8 @@ async function applyProfileChanges(req, request, items, context, comment) {
     const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
     if (mode === 'mock' && process.env.NODE_ENV !== 'production') {
         return {
-            applyState: 'APPLIED',
-            applyMessage: 'Mock SAP profile apply completed in non-production mode.'
+            applyState: 'QUEUED',
+            applyMessage: 'Mock SAP profile apply request was queued in non-production mode.'
         };
     }
     if (mode === 'sap') {
@@ -439,7 +509,9 @@ async function applyProfileChanges(req, request, items, context, comment) {
         let sapApply;
         const serviceName = String(process.env.PROFILE_APPLY_SERVICE || 'ZUI_NXR_PROFILE_APPLY_O4').trim();
         try {
+            ensureRemoteServiceCredentials(serviceName);
             sapApply = await cds.connect.to(serviceName);
+            ensureRemoteServiceCredentials(serviceName, sapApply);
         } catch (error) {
             return reject(
                 req,
@@ -451,7 +523,11 @@ async function applyProfileChanges(req, request, items, context, comment) {
 
         let result;
         try {
-            result = await sendProfileApply(sapApply, profileApplyPayload(request, items, context, comment));
+            result = await sendProfileApply(
+                sapApply,
+                profileApplyPayload(request, items, context, comment),
+                profileApplyStagingPayload(request, items, context, comment)
+            );
         } catch (error) {
             return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
         }
@@ -461,7 +537,7 @@ async function applyProfileChanges(req, request, items, context, comment) {
             return reject(req, 502, 'SAP_PROFILE_WRITE_REJECTED', normalized.message);
         }
         return {
-            applyState: 'APPLIED',
+            applyState: normalized.applyState,
             applyMessage: normalized.message
         };
     }
@@ -471,6 +547,27 @@ async function applyProfileChanges(req, request, items, context, comment) {
         'SAP_PROFILE_WRITE_NOT_AVAILABLE',
         'The SAP profile write adapter is not configured. The request remains pending and SAP data was not changed.'
     );
+}
+
+async function insertProfileNotificationOutbox(tx, requestId, eventType, recipientType, recipientKey, now) {
+    await tx.run(INSERT.into(OUTBOX).entries({
+        ID: uuid(),
+        request_ID: requestId,
+        eventType,
+        recipientType,
+        recipientKey: recipientKey || '',
+        deliveryStatus: 'PENDING',
+        attempts: 0,
+        nextAttemptAt: now,
+        createdAt: now,
+        createdBy: 'CAP_PROFILE_SERVICE',
+        modifiedAt: now,
+        modifiedBy: 'CAP_PROFILE_SERVICE'
+    }));
+}
+
+function emitProfileNotificationRefresh() {
+    setImmediate(() => process.emit('znxr09.profileNotificationsChanged'));
 }
 
 module.exports = async function ProfileService() {
@@ -486,6 +583,7 @@ module.exports = async function ProfileService() {
             return { serviceName, service: null, error: null };
         }
         try {
+            ensureRemoteServiceCredentials(serviceName);
             return { serviceName, service: await cds.connect.to(serviceName), error: null };
         } catch (error) {
             return { serviceName, service: null, error };
@@ -513,6 +611,7 @@ module.exports = async function ProfileService() {
             if (connection.error) throw connection.error;
             return null;
         }
+        ensureRemoteServiceCredentials(connection.serviceName, connection.service);
 
         for (const userId of profileLookupCandidates(context)) {
             const profile = await connection.service.run(SELECT.one.from('UserProfile').where({ UserId: userId }));
@@ -695,8 +794,11 @@ module.exports = async function ProfileService() {
         }));
         await insertItemsAndLocks(tx, requestId, context, 1, validation.changes, now);
         await insertEvent(tx, requestId, 1, 'SUBMITTED', null, STATUS.PENDING, context, 'EMPLOYEE', req.data.Remark, idempotencyKey);
+        await insertProfileNotificationOutbox(tx, requestId, 'SUBMITTED', 'HR_ADMIN', 'PROFILE_HR_ADMIN', now);
 
-        return profileRequestDto(await readRequest(tx, requestId));
+        const saved = profileRequestDto(await readRequest(tx, requestId));
+        emitProfileNotificationRefresh();
+        return saved;
     });
 
     this.on('resubmitProfileChange', async req => {
@@ -756,8 +858,11 @@ module.exports = async function ProfileService() {
         }).where({ ID: requestId }));
         await insertItemsAndLocks(tx, requestId, context, revisionNo, validation.changes, now);
         await insertEvent(tx, requestId, revisionNo, 'RESUBMITTED', STATUS.REVISION, STATUS.PENDING, context, 'EMPLOYEE', req.data.Remark, idempotencyKey);
+        await insertProfileNotificationOutbox(tx, requestId, 'RESUBMITTED', 'HR_ADMIN', 'PROFILE_HR_ADMIN', now);
 
-        return profileRequestDto(await readRequest(tx, requestId));
+        const saved = profileRequestDto(await readRequest(tx, requestId));
+        emitProfileNotificationRefresh();
+        return saved;
     });
 
     async function decide(req, action, toStatus, eventType, commentRequired = false) {
@@ -798,7 +903,10 @@ module.exports = async function ProfileService() {
             await releaseLocks(tx, request.ID);
         }
         await insertEvent(tx, request.ID, request.revisionNo, eventType, request.status, toStatus, context, 'HR', comment, uuid());
-        return profileRequestDto(await readRequest(tx, request.ID));
+        await insertProfileNotificationOutbox(tx, request.ID, eventType, 'EMPLOYEE', request.employeePernr, now);
+        const saved = profileRequestDto(await readRequest(tx, request.ID));
+        emitProfileNotificationRefresh();
+        return saved;
     }
 
     this.on('requestProfileChanges', req => decide(req, 'requestChanges', STATUS.REVISION, 'REVISION_REQUESTED', true));

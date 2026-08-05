@@ -1,4 +1,4 @@
 @EndUserText.label: 'MyProfile Apply OData V4 Service'
 define service ZUI_NXR_PROFILE_APPLY_O4 {
-  expose ZC_NXR_ProfileApplyRequest as ProfileApplyRequest;
+  expose ZC_NXR_PROFILE_APPLY_REQUEST as ProfileApplyRequest;
 }

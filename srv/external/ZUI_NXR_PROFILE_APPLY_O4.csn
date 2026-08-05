@@ -1,12 +1,116 @@
 {
   "meta": {
-    "creator": "manual contract for CAP remote SAP profile apply action"
+    "creator": "manual contract for CAP remote SAP profile staging service"
   },
   "$version": "2.0",
   "definitions": {
     "ZUI_NXR_PROFILE_APPLY_O4": {
       "kind": "service",
       "@cds.external": true
+    },
+    "ZUI_NXR_PROFILE_APPLY_O4.ProfileApplyRequest": {
+      "kind": "entity",
+      "@cds.external": true,
+      "elements": {
+        "RequestId": {
+          "key": true,
+          "type": "cds.UUID"
+        },
+        "RequestNo": {
+          "type": "cds.String",
+          "length": 24
+        },
+        "Pernr": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "EmployeeName": {
+          "type": "cds.String",
+          "length": 120
+        },
+        "RequestedByEmail": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "RevisionNo": {
+          "type": "cds.Integer"
+        },
+        "Status": {
+          "type": "cds.String",
+          "length": 2
+        },
+        "ApplyState": {
+          "type": "cds.String",
+          "length": 20
+        },
+        "ApplyMessage": {
+          "type": "cds.String",
+          "length": 500
+        },
+        "ChangedFields": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "IdNumber": {
+          "type": "cds.String",
+          "length": 20
+        },
+        "Telephone": {
+          "type": "cds.String",
+          "length": 30
+        },
+        "PermanentAddress": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "WorkEmail": {
+          "type": "cds.String",
+          "length": 241
+        },
+        "CurrentAddress": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "TaxCode": {
+          "type": "cds.String",
+          "length": 10
+        },
+        "PayMethod": {
+          "type": "cds.String",
+          "length": 1
+        },
+        "BankCountry": {
+          "type": "cds.String",
+          "length": 3
+        },
+        "BankKey": {
+          "type": "cds.String",
+          "length": 15
+        },
+        "BankAccount": {
+          "type": "cds.String",
+          "length": 18
+        },
+        "DecisionBy": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "DecisionByEmail": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "DecisionPernr": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "DecisionAt": {
+          "type": "cds.Timestamp"
+        },
+        "HrComment": {
+          "type": "cds.String",
+          "length": 500
+        }
+      }
     },
     "ZUI_NXR_PROFILE_APPLY_O4.ProfileApplyChange": {
       "kind": "type",

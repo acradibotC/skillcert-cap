@@ -1,6 +1,6 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'MyProfile Apply Request'
-define root view entity ZI_NXR_ProfileApplyRequest
+define root view entity ZI_NXR_PROFILE_APPLY_REQUEST
   as select from ztb_nxr_profreq as Request
 {
   key request_id            as RequestId,

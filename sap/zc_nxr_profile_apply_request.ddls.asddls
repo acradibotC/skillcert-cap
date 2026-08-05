@@ -1,8 +1,8 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'MyProfile Apply Request Projection'
-define root view entity ZC_NXR_ProfileApplyRequest
+define root view entity ZC_NXR_PROFILE_APPLY_REQUEST
   provider contract transactional_query
-  as projection on ZI_NXR_ProfileApplyRequest
+  as projection on ZI_NXR_PROFILE_APPLY_REQUEST
 {
   key RequestId,
       RequestNo,

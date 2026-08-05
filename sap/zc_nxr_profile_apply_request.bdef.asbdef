@@ -1,10 +1,7 @@
 projection;
-strict ( 2 );
 
-define behavior for ZC_NXR_ProfileApplyRequest
+define behavior for ZC_NXR_PROFILE_APPLY_REQUEST
 {
   use create;
   use update;
-
-  use action applyProfileChanges;
 }

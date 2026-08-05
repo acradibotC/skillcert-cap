@@ -53,7 +53,15 @@ sap.ui.define([
                     this._applyTableFilters(oCertsTable, "");
                 }
                 this._updateMyCounts();
+                this._consumeLaunchpadTabTarget();
             }.bind(this));
+
+            sap.ui.getCore().getEventBus().subscribe(
+                "Launchpad",
+                "NavToProfileTab",
+                this._onLaunchpadProfileTab,
+                this
+            );
         },
 
         /**
@@ -575,6 +583,44 @@ sap.ui.define([
                 return;
             }
 
+            this._selectProfileTab(sKey);
+        },
+
+        _onLaunchpadProfileTab: function (sChannel, sEvent, oData) {
+            this._selectProfileTab(oData && oData.tab);
+        },
+
+        _consumeLaunchpadTabTarget: function () {
+            var sTab = "";
+            try {
+                sTab = window.sessionStorage.getItem("znxr09.profile.selectedTab") || "";
+                if (sTab) {
+                    window.sessionStorage.removeItem("znxr09.profile.selectedTab");
+                }
+            } catch (e) {
+                sTab = "";
+            }
+
+            if (!sTab) {
+                try {
+                    sTab = new URL(window.location.href).searchParams.get("tab") || "";
+                } catch (e) {
+                    sTab = "";
+                }
+            }
+
+            if (sTab) {
+                this._selectProfileTab(sTab);
+            }
+        },
+
+        _selectProfileTab: function (sKey) {
+            if (!sKey) {
+                return;
+            }
+
+            var oViewModel = this.getView().getModel("view");
+
             if (sKey === "profileApprovals" &&
                     !this.getOwnerComponent().getModel("user").getProperty("/isHrAdmin")) {
                 oViewModel.setProperty("/selectedTab", "myProfile");
@@ -832,6 +878,15 @@ sap.ui.define([
          */
         _isValidUrl: function (sUrl) {
             return /^https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(sUrl);
+        },
+
+        onExit: function () {
+            sap.ui.getCore().getEventBus().unsubscribe(
+                "Launchpad",
+                "NavToProfileTab",
+                this._onLaunchpadProfileTab,
+                this
+            );
         }
     });
 });

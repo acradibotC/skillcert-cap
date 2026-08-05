@@ -45,13 +45,14 @@ function getSapCredentials() {
     return { username, password };
 }
 
-function isProfileHrAdmin(email) {
+function isProfileHrAdmin(email, orgUnitId) {
     const normalized = String(email || '').trim().toLowerCase();
-    return String(process.env.PROFILE_HR_EMAILS || '')
+    const configuredEmailOverride = String(process.env.PROFILE_HR_EMAILS || '')
         .split(',')
         .map(value => value.trim().toLowerCase())
         .filter(Boolean)
         .includes(normalized);
+    return configuredEmailOverride || canUseHrTools(orgUnitId);
 }
 
 function configuredHrOrgUnitIds() {
@@ -76,6 +77,7 @@ function sessionUserMatches(req) {
 
 // Module-scope references for notification functions — assigned inside cds.on('bootstrap')
 let getNotificationItems, mergeReadState, _broadcastCountUpdate, _broadcastToAllUsers;
+let profileNotificationListenerRegistered = false;
 
 cds.on('bootstrap', app => {
     // Dynamically inject credentials for OData external service
@@ -225,7 +227,7 @@ cds.on('bootstrap', app => {
                         errorMessage: 'Unable to validate the login identity.'
                     });
                 }
-                req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email);
+                req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email, req.session.userInfo.orgUnitId);
                 req.session.userInfo.canUseHrTools = canUseHrTools(req.session.userInfo.orgUnitId);
                 return res.json(req.session.userInfo);
             }
@@ -337,7 +339,7 @@ cds.on('bootstrap', app => {
                     orgUnitId: String(profile.OrgUnitId || '').trim(),
                     department: profile.OrgUnitName || profile.OrgUnitId || '',
                     isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x',
-                    isHrAdmin: isProfileHrAdmin(email),
+                    isHrAdmin: isProfileHrAdmin(email, profile.OrgUnitId),
                     canUseHrTools: canUseHrTools(profile.OrgUnitId)
                 };
                 if (req.session) req.session.userInfo = userInfo;
@@ -1161,7 +1163,7 @@ cds.on('bootstrap', app => {
             console.error('[Auth] Identity-link validation failed:', error.message);
             return res.status(503).json({ code: 'IDENTITY_VALIDATION_UNAVAILABLE', error: 'Unable to validate the login identity.' });
         }
-        req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email);
+        req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email, req.session.userInfo.orgUnitId);
         next();
     });
 
@@ -1181,15 +1183,102 @@ cds.on('bootstrap', app => {
         'OVERTIME': 'sap-icon://overtime'
     };
 
+    const PROFILE_STATUS_NOTIFICATIONS = {
+        '02': {
+            type: 'PROFILE_APPROVED',
+            title: 'Profile Change Request — Approved',
+            description: 'Your profile change request was approved and queued for SAP processing.',
+            priority: 'Low',
+            icon: 'sap-icon://accept'
+        },
+        '03': {
+            type: 'PROFILE_REJECTED',
+            title: 'Profile Change Request — Rejected',
+            description: 'Your profile change request was rejected.',
+            priority: 'High',
+            icon: 'sap-icon://decline'
+        },
+        '04': {
+            type: 'PROFILE_REVISION',
+            title: 'Profile Change Request — Revision Required',
+            description: 'HR requested changes for your profile update request.',
+            priority: 'Medium',
+            icon: 'sap-icon://edit'
+        }
+    };
+
     const teamMembersCache = new Map();
     const TEAM_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+    async function appendProfileNotificationItems(items, pernr, isHrAdmin) {
+        try {
+            const db = await cds.connect.to('db');
+            const { ProfileChangeRequests } = db.entities('znxr09.db');
+            if (!ProfileChangeRequests) return;
+
+            if (isHrAdmin) {
+                const pendingRows = await SELECT.from(ProfileChangeRequests).where({ status: '01' });
+                pendingRows
+                    .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))
+                    .slice(0, 50)
+                    .forEach(row => {
+                        const empName = row.employeeName || row.employeePernr || 'Employee';
+                        items.push({
+                            id: row.ID,
+                            type: 'PROFILE_PENDING',
+                            requestType: 'PROFILE_CHANGE',
+                            title: 'Profile Change Request — Pending',
+                            description: empName + ' submitted a profile change request',
+                            datetime: row.createdAt,
+                            datetimeText: row.createdAt ? _formatRelativeTime(row.createdAt) : '',
+                            priority: 'High',
+                            icon: 'sap-icon://employee-rejections',
+                            navigateTo: 'profileApprovals',
+                            authorName: empName
+                        });
+                    });
+            }
+
+            if (pernr) {
+                const ownRows = await SELECT.from(ProfileChangeRequests).where({ employeePernr: String(pernr) });
+                ownRows
+                    .filter(row => PROFILE_STATUS_NOTIFICATIONS[row.status])
+                    .sort((left, right) =>
+                        String(right.decisionAt || right.modifiedAt || right.createdAt || '')
+                            .localeCompare(String(left.decisionAt || left.modifiedAt || left.createdAt || ''))
+                    )
+                    .slice(0, 30)
+                    .forEach(row => {
+                        const template = PROFILE_STATUS_NOTIFICATIONS[row.status];
+                        const timeStr = row.decisionAt || row.modifiedAt || row.createdAt;
+                        items.push({
+                            id: row.ID,
+                            type: template.type,
+                            requestType: 'PROFILE_CHANGE',
+                            title: template.title,
+                            description: row.hrComment
+                                ? template.description + ' HR comment: ' + row.hrComment
+                                : template.description,
+                            datetime: timeStr,
+                            datetimeText: timeStr ? _formatRelativeTime(timeStr) : '',
+                            priority: template.priority,
+                            icon: template.icon,
+                            navigateTo: 'profile',
+                            authorName: row.employeeName || ''
+                        });
+                    });
+            }
+        } catch (err) {
+            console.error('[Notification] Error fetching profile items:', err.message);
+        }
+    }
 
     /**
      * Build notification items by querying SAP OData services.
      * For managers: pending requests from team members
      * For employees: recently processed (approved/rejected) requests
      */
-    getNotificationItems = async function(email, pernr, isManager) {
+    getNotificationItems = async function(email, pernr, isManager, isHrAdmin) {
         const axios = require('axios');
         const httpsAgent = sapHttpsAgent;
         const authHeader = getSapAuthHeader();
@@ -1286,6 +1375,12 @@ cds.on('bootstrap', app => {
             console.error('[Notification] Error fetching items:', err.message);
         }
 
+        await appendProfileNotificationItems(items, pernr, isHrAdmin);
+        items.sort((left, right) =>
+            String(right.datetime || '').localeCompare(String(left.datetime || '')) ||
+            String(left.id || '').localeCompare(String(right.id || ''))
+        );
+
         return items;
     }
 
@@ -1337,7 +1432,7 @@ cds.on('bootstrap', app => {
             const userInfo = await _resolveUserInfo(email);
             if (!userInfo.pernr) return res.json({ count: 0, unreadCount: 0, items: [] });
 
-            let items = await getNotificationItems(email, userInfo.pernr, userInfo.isManager);
+            let items = await getNotificationItems(email, userInfo.pernr, userInfo.isManager, userInfo.isHrAdmin);
             items = await mergeReadState(items, userInfo.pernr);
             
             // Lọc những thông báo đã đọc/bỏ qua để biến mất khỏi UI
@@ -1360,7 +1455,7 @@ cds.on('bootstrap', app => {
             const userInfo = await _resolveUserInfo(email);
             if (!userInfo.pernr) return res.json({ count: 0, unreadCount: 0 });
 
-            let items = await getNotificationItems(email, userInfo.pernr, userInfo.isManager);
+            let items = await getNotificationItems(email, userInfo.pernr, userInfo.isManager, userInfo.isHrAdmin);
             items = await mergeReadState(items, userInfo.pernr);
             
             // Lọc những thông báo đã đọc/bỏ qua
@@ -1407,7 +1502,7 @@ cds.on('bootstrap', app => {
             const userInfo = await _resolveUserInfo(email);
             if (!userInfo.pernr) return res.json({ success: true, marked: 0 });
 
-            const items = await getNotificationItems(email, userInfo.pernr, userInfo.isManager);
+            const items = await getNotificationItems(email, userInfo.pernr, userInfo.isManager, userInfo.isHrAdmin);
             const db = await cds.connect.to('db');
             const { NotificationRead } = db.entities('znxr09.db');
 
@@ -1426,7 +1521,7 @@ cds.on('bootstrap', app => {
             }
 
             // Broadcast updated count via WebSocket
-            _broadcastCountUpdate(email, userInfo.pernr, userInfo.isManager);
+            _broadcastCountUpdate(email, userInfo.pernr, userInfo.isManager, userInfo.isHrAdmin);
 
             res.json({ success: true, marked });
         } catch (error) {
@@ -1455,21 +1550,22 @@ cds.on('bootstrap', app => {
                     return {
                         pernr: resp.data.Pernr,
                         isManager: resp.data.IsManager === true || resp.data.IsManager === 'X' || resp.data.IsManager === 'x',
+                        isHrAdmin: isProfileHrAdmin(email, resp.data.OrgUnitId),
                         email: userId
                     };
                 }
             } catch (e) { /* continue */ }
         }
-        return { pernr: null, isManager: false, email };
+        return { pernr: null, isManager: false, isHrAdmin: isProfileHrAdmin(email), email };
     }
 
     /**
      * Broadcast notification count update to a specific user via Socket.IO.
      */
-    _broadcastCountUpdate = async function(email, pernr, isManager) {
+    _broadcastCountUpdate = async function(email, pernr, isManager, isHrAdmin) {
         if (!io) return;
         try {
-            let items = await getNotificationItems(email, pernr, isManager);
+            let items = await getNotificationItems(email, pernr, isManager, isHrAdmin);
             items = await mergeReadState(items, pernr);
             
             // Lọc bỏ những items đã đọc
@@ -1495,10 +1591,19 @@ cds.on('bootstrap', app => {
                 const socketId = Array.from(sockets)[0];
                 const socket = io.sockets.sockets.get(socketId);
                 if (socket && socket.userInfo) {
-                    _broadcastCountUpdate(email, socket.userInfo.pernr, socket.userInfo.isManager);
+                    _broadcastCountUpdate(email, socket.userInfo.pernr, socket.userInfo.isManager, socket.userInfo.isHrAdmin);
                 }
             }
         });
+    }
+
+    if (!profileNotificationListenerRegistered) {
+        process.on('znxr09.profileNotificationsChanged', () => {
+            if (_broadcastToAllUsers) {
+                _broadcastToAllUsers();
+            }
+        });
+        profileNotificationListenerRegistered = true;
     }
 
 });
@@ -1546,7 +1651,8 @@ cds.on('listening', ({ server }) => {
             }
             socket.userInfo = {
                 pernr: req.session.userInfo.pernr,
-                isManager: req.session.userInfo.isManager
+                isManager: req.session.userInfo.isManager,
+                isHrAdmin: req.session.userInfo.isHrAdmin === true
             };
         } catch (e) {
             console.error('[WS] Error resolving user info:', e.message);
@@ -1557,7 +1663,7 @@ cds.on('listening', ({ server }) => {
         // Send initial count immediately
         if (socket.userInfo) {
             try {
-                const items = await getNotificationItems(email, socket.userInfo.pernr, socket.userInfo.isManager);
+                const items = await getNotificationItems(email, socket.userInfo.pernr, socket.userInfo.isManager, socket.userInfo.isHrAdmin);
                 const merged = await mergeReadState(items, socket.userInfo.pernr);
                 const unreadCount = merged.filter(i => !i.isRead).length;
                 socket.emit('notificationUpdate', { count: merged.length, unreadCount });

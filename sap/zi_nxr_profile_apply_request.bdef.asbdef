@@ -1,35 +1,20 @@
 managed implementation in class zbp_nxr_i_profapply unique;
-strict ( 2 );
 
-define behavior for ZI_NXR_ProfileApplyRequest alias ProfileApplyRequest
+define behavior for ZI_NXR_PROFILE_APPLY_REQUEST alias ProfileApplyRequest
 persistent table ztb_nxr_profreq
 lock master
-authorization master ( instance )
 etag master LocalLastChangedAt
 {
   create;
   update;
 
-  action ( features : instance ) applyProfileChanges
-    parameter ZA_NXR_PROFAPPLY_DECISION
-    result [1] $self;
-
-  field ( readonly ) Status,
-                     ApplyState,
-                     ApplyMessage,
-                     DecisionBy,
-                     DecisionByEmail,
-                     DecisionPernr,
-                     DecisionAt,
-                     CreatedBy,
+  field ( readonly ) CreatedBy,
                      CreatedAt,
                      LastChangedBy,
                      LastChangedAt,
                      LocalLastChangedAt;
 
   field ( readonly, numbering : managed ) RequestId;
-
-  determination setInitialState on modify { create; }
 
   mapping for ztb_nxr_profreq
   {
