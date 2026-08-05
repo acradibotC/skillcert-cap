@@ -16,5 +16,14 @@ test('MyProfile apply job posts approved queued requests to HR infotypes', () =>
     assert.match(source, /gc_infty_0009[\s\S]*VALUE '0009'/);
     assert.match(source, /gc_infty_0185[\s\S]*VALUE '0185'/);
     assert.match(source, /gc_state_applied[\s\S]*VALUE 'APPLIED'/);
+    assert.match(source, /p_land1\s+TYPE p0006-land1 DEFAULT 'VN'/);
+    assert.match(source, /p_city\s+TYPE p0006-ort01 DEFAULT 'Unknown'/);
+    assert.match(source, /ls_p0006-anssa\s+=\s+iv_subty/);
+    assert.match(source, /ls_p0006-land1\s+=\s+p_land1/);
+    assert.match(source, /ls_p0006-ort01\s+=\s+lv_city/);
+    const apply0105 = source.match(/^FORM apply_0105[\s\S]*?^ENDFORM\./m)[0];
+    const apply0006 = source.match(/^FORM apply_0006[\s\S]*?^ENDFORM\./m)[0];
+    assert.doesNotMatch(apply0105, /lv_address|lv_city|lt_parts/);
+    assert.match(apply0006, /lv_address[\s\S]*lv_city[\s\S]*lt_parts/);
     assert.doesNotMatch(source, /HR master-data posting FM is not configured/);
 });

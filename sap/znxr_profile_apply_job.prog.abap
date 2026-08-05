@@ -8,6 +8,8 @@ PARAMETERS:
   p_telty  TYPE subty DEFAULT 'CELL',
   p_paddr  TYPE subty DEFAULT '1',
   p_caddr  TYPE subty DEFAULT '2',
+  p_land1  TYPE p0006-land1 DEFAULT 'VN',
+  p_city   TYPE p0006-ort01 DEFAULT 'Unknown',
   p_bankty TYPE subty DEFAULT '0',
   p_idty   TYPE subty DEFAULT '01'.
 
@@ -426,7 +428,11 @@ FORM apply_0006 USING is_request TYPE ztb_nxr_profreq
     lv_operation TYPE pspar-actio,
     lv_seqnr     TYPE seqnr,
     lv_begda     TYPE begda,
-    lv_endda     TYPE endda.
+    lv_endda     TYPE endda,
+    lv_address   TYPE string,
+    lv_city      TYPE string,
+    lv_part_count TYPE i,
+    lt_parts     TYPE STANDARD TABLE OF string WITH EMPTY KEY.
 
   CLEAR: ls_pa0006_db, ls_p0006, ls_return, ls_key,
          lv_operation, lv_seqnr, lv_begda, lv_endda.
@@ -455,12 +461,32 @@ FORM apply_0006 USING is_request TYPE ztb_nxr_profreq
     lv_endda = gc_endda.
   ENDIF.
 
+  lv_address = iv_address.
+  CONDENSE lv_address.
+  SPLIT lv_address AT ',' INTO TABLE lt_parts.
+  lv_part_count = lines( lt_parts ).
+  READ TABLE lt_parts INTO lv_city INDEX lv_part_count.
+  CONDENSE lv_city.
+  IF lv_city IS INITIAL.
+    lv_city = lv_address.
+  ENDIF.
+  IF lv_city IS INITIAL.
+    lv_city = p_city.
+  ENDIF.
+
   ls_p0006-pernr = is_request-pernr.
   ls_p0006-infty = gc_infty_0006.
   ls_p0006-subty = iv_subty.
+  ls_p0006-anssa = iv_subty.
   ls_p0006-begda = lv_begda.
   ls_p0006-endda = lv_endda.
-  ls_p0006-stras = iv_address.
+  ls_p0006-stras = lv_address.
+  IF ls_p0006-land1 IS INITIAL.
+    ls_p0006-land1 = p_land1.
+  ENDIF.
+  IF ls_p0006-ort01 IS INITIAL.
+    ls_p0006-ort01 = lv_city.
+  ENDIF.
 
   CALL FUNCTION 'HR_INFOTYPE_OPERATION'
     EXPORTING

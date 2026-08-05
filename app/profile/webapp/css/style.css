@@ -263,7 +263,7 @@
     padding-top: 0.45rem;
 }
 
-.profileReadOnlyInput .sapMInputBaseContentWrapper {
+.profileReadOnlyInput .sapMInputBaseReadonlyWrapper {
     background: var(--sapField_ReadOnly_Background, #f5f6f7) !important;
     border-color: var(--sapField_ReadOnly_BorderColor, #d5dadd) !important;
 }
@@ -290,13 +290,13 @@
     gap: 0.75rem;
 }
 
-.profileInlineEditCard {
+.profileInlineEditFooter {
     border-color: var(--sapContent_ForegroundBorderColor, #b8c6d9);
     box-shadow: var(--sapContent_Shadow0, 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08));
 }
 
-.profileInlineEditCard .sapUiFormResGrid,
-.profileInlineEditCard .sapUiFormResGridCont {
+.profileInlineEditFooter .sapUiFormResGrid,
+.profileInlineEditFooter .sapUiFormResGridCont {
     padding: 0 !important;
 }
 

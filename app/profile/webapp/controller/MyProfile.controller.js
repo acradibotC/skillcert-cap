@@ -145,6 +145,7 @@ sap.ui.define([
                 });
                 this._decorateProfile(oProfile);
                 this.getView().getModel("profile").setData(oProfile);
+                this._setProfileEditDisplayState(oProfile);
                 var aRequests = aResults[2] || [];
                 aRequests.forEach(function (oRequest) {
                     oRequest.StatusText = this._statusText(oRequest.Status);
@@ -227,6 +228,42 @@ sap.ui.define([
             this.refresh();
         },
 
+        _buildProfileEditState: function (oProfile, oOptions) {
+            var oValues = {};
+            var oOriginal = {};
+            var mStates = {};
+            var bForceReadOnly = Boolean(oOptions && oOptions.forceReadOnly);
+
+            Object.keys(FIELD_PROPERTY).forEach(function (sCode) {
+                var vValue = oProfile[FIELD_PROPERTY[sCode]];
+                var sValue = vValue === null || vValue === undefined ? "" : String(vValue);
+                var oFieldState = Object.assign({}, (oProfile.states && oProfile.states[sCode]) || {});
+
+                oValues[sCode] = sValue;
+                oOriginal[sCode] = sValue;
+                mStates[sCode] = Object.assign(oFieldState, {
+                    EffectiveEditable: !bForceReadOnly && Boolean(oFieldState.Editable === true &&
+                        oFieldState.Locked !== true)
+                });
+            });
+
+            return {
+                values: oValues,
+                original: oOriginal,
+                states: mStates,
+                remark: (oOptions && oOptions.remark) || "",
+                isRevision: Boolean(oOptions && oOptions.isRevision),
+                requestId: (oOptions && oOptions.requestId) || "",
+                expectedVersion: Number((oOptions && oOptions.expectedVersion) || 0),
+                isBankTransfer: this._isBankTransfer(oValues.PAY_METHOD),
+                busy: false
+            };
+        },
+
+        _setProfileEditDisplayState: function (oProfile) {
+            this.getView().getModel("profileEdit").setData(this._buildProfileEditState(oProfile));
+        },
+
         _startProfileEdit: function (oEditState) {
             this.getView().getModel("profileEdit").setData(oEditState);
             this.getView().getModel("profileUi").setProperty("/isEditingProfile", true);
@@ -240,6 +277,7 @@ sap.ui.define([
                     return this.byId(CONTROL_BY_FIELD[sCode]);
                 }.bind(this)).find(function (oControl) {
                     return oControl && (!oControl.getEnabled || oControl.getEnabled()) &&
+                        (!oControl.getEditable || oControl.getEditable()) &&
                         (!oControl.getVisible || oControl.getVisible());
                 });
                 if (oFirstEditable && oFirstEditable.focus) {
@@ -250,32 +288,7 @@ sap.ui.define([
 
         onEditProfile: function () {
             var oProfile = this.getView().getModel("profile").getData();
-            var oValues = {};
-            var oOriginal = {};
-            var mStates = {};
-
-            Object.keys(FIELD_PROPERTY).forEach(function (sCode) {
-                var sValue = oProfile[FIELD_PROPERTY[sCode]] || "";
-                oValues[sCode] = sValue;
-                oOriginal[sCode] = sValue;
-                mStates[sCode] = Object.assign({}, oProfile.states[sCode] || {}, {
-                    EffectiveEditable: Boolean(oProfile.states[sCode] &&
-                        oProfile.states[sCode].Editable === true &&
-                        oProfile.states[sCode].Locked !== true)
-                });
-            });
-
-            this._startProfileEdit({
-                values: oValues,
-                original: oOriginal,
-                states: mStates,
-                remark: "",
-                isRevision: false,
-                requestId: "",
-                expectedVersion: 0,
-                isBankTransfer: this._isBankTransfer(oValues.PAY_METHOD),
-                busy: false
-            });
+            this._startProfileEdit(this._buildProfileEditState(oProfile));
         },
 
         onReviseProfileRequest: function (oEvent) {
@@ -285,17 +298,12 @@ sap.ui.define([
             }
             var oRequest = Object.assign({}, oContext.getObject());
             var oProfile = this.getView().getModel("profile").getData();
-            var oValues = {};
-            var oOriginal = {};
-            var mStates = {};
-
-            Object.keys(FIELD_PROPERTY).forEach(function (sCode) {
-                var sValue = oProfile[FIELD_PROPERTY[sCode]] || "";
-                oValues[sCode] = sValue;
-                oOriginal[sCode] = sValue;
-                mStates[sCode] = Object.assign({}, oProfile.states[sCode] || {}, {
-                    EffectiveEditable: false
-                });
+            var oEditState = this._buildProfileEditState(oProfile, {
+                forceReadOnly: true,
+                remark: oRequest.Remark || "",
+                isRevision: true,
+                requestId: oRequest.ID,
+                expectedVersion: Number(oRequest.Version)
             });
 
             this.getView().getModel("profileUi").setProperty("/busy", true);
@@ -308,20 +316,11 @@ sap.ui.define([
                     if (!FIELD_PROPERTY[sCode]) {
                         return;
                     }
-                    oValues[sCode] = oItem.NewValue || "";
-                    mStates[sCode].EffectiveEditable = true;
+                    oEditState.values[sCode] = oItem.NewValue || "";
+                    oEditState.states[sCode].EffectiveEditable = true;
                 });
-                this._startProfileEdit({
-                    values: oValues,
-                    original: oOriginal,
-                    states: mStates,
-                    remark: oRequest.Remark || "",
-                    isRevision: true,
-                    requestId: oRequest.ID,
-                    expectedVersion: Number(oRequest.Version),
-                    isBankTransfer: this._isBankTransfer(oValues.PAY_METHOD),
-                    busy: false
-                });
+                oEditState.isBankTransfer = this._isBankTransfer(oEditState.values.PAY_METHOD);
+                this._startProfileEdit(oEditState);
             }.bind(this)).catch(function (oError) {
                 MessageBox.error(this._bundle().getText(this._errorKey(oError)));
             }.bind(this)).finally(function () {
@@ -354,6 +353,19 @@ sap.ui.define([
         },
 
         onCancelProfileEdit: function () {
+            var oEditModel = this.getView().getModel("profileEdit");
+            var oEdit = oEditModel.getData();
+            var oOriginal = Object.assign({}, oEdit.original || {});
+
+            oEdit.values = Object.assign({}, oOriginal);
+            oEdit.remark = "";
+            oEdit.isRevision = false;
+            oEdit.requestId = "";
+            oEdit.expectedVersion = 0;
+            oEdit.isBankTransfer = this._isBankTransfer(oOriginal.PAY_METHOD);
+            oEdit.busy = false;
+            oEditModel.setData(oEdit);
+
             this.getView().getModel("profileUi").setProperty("/isEditingProfile", false);
             this._applyValidationErrors({});
             var oEditButton = this.byId("profilePreviewEditButton");
