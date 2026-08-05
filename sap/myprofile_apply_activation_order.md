@@ -40,11 +40,8 @@ FM/BAPI calls, then schedule it for queued rows.
 
 The table, CDS views, BDEF pair, service definition, service binding object and
 background report were created/activated through MCP in `S40K919620` /
-`S40K919621`. The ADT publish helper returned OK for
-`ZUI_NXR_PROF_APPLY_BND`, but direct metadata still returned
-`/IWBEP/CM_V4_COS/014 Service group 'ZUI_NXR_PROF_APPLY_BND' not published`.
-If this persists, open service binding `ZUI_NXR_PROF_APPLY_BND` in Eclipse ADT,
-publish/refresh the local endpoint, then recheck `$metadata`.
+`S40K919621`. The currently published binding `ZUI_NXR_PROF_APPLY_BND` is
+`OData V2 - UI`; CAP is configured to call this V2 endpoint.
 
 ## Publish
 
@@ -54,8 +51,9 @@ After the service definition activates, create or publish a service binding for:
 ZUI_NXR_PROF_APPLY_BND
 ```
 
-CAP default URL currently expects:
+CAP default URL currently expects the published OData V2 binding:
 
 ```text
-/sap/opu/odata4/sap/zui_nxr_prof_apply_bnd/srvd/sap/zui_nxr_profile_apply_o4/0001
+/sap/opu/odata/sap/ZUI_NXR_PROF_APPLY_BND
+sap-client=324
 ```

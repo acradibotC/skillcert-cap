@@ -73,13 +73,16 @@
         }
       },
       "ZUI_NXR_PROFILE_APPLY_O4": {
-        "kind": "odata-v4",
+        "kind": "odata-v2",
         "model": "srv/external/ZUI_NXR_PROFILE_APPLY_O4",
         "csrf": true,
         "csrfInBatch": true,
         "credentials": {
-          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata4/sap/zui_nxr_prof_apply_bnd/srvd/sap/zui_nxr_profile_apply_o4/0001",
-          "authentication": "BasicAuthentication"
+          "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata/sap/ZUI_NXR_PROF_APPLY_BND",
+          "authentication": "BasicAuthentication",
+          "queries": {
+            "sap-client": "324"
+          }
         }
       }
     }

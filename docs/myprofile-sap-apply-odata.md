@@ -16,6 +16,8 @@ CAP now supports a fail-closed SAP staging adapter:
 - default strategy: `PROFILE_APPLY_STRATEGY=create`
 - default entity path: `PROFILE_APPLY_ENTITY_PATH=/ProfileApplyRequest`
 - optional legacy action path: `PROFILE_APPLY_ACTION_PATH`
+- current published SAP binding used by CAP: OData V2 UI binding
+  `ZUI_NXR_PROF_APPLY_BND`
 
 HR approval users are resolved by SAP organization assignment:
 
@@ -49,17 +51,17 @@ Rechecked on S40/324 on 2026-08-06 with MCP users `DEV-271` / `DEV-269`.
   - `ZBP_NXR_I_PROFAPPLY`
   - `ZNXR_PROFILE_APPLY_JOB`
 
-`ZUI_NXR_PROF_APPLY_BND` was created and the ADT publish helper returned:
-`Local Service Endpoint of service ZUI_NXR_PROF_APPLY_BND with version 0001 is
-activated locally`. However, a direct OData metadata check still returned
-`/IWBEP/CM_V4_COS/014 Service group 'ZUI_NXR_PROF_APPLY_BND' not published`.
-Open the service binding once in Eclipse ADT and publish/refresh the local
-endpoint if this persists.
+`ZUI_NXR_PROF_APPLY_BND` is published as an OData V2 UI binding. A direct V2
+metadata check returned HTTP `200` and exposed entity set
+`ProfileApplyRequest`. The OData V4 route for the same binding is not published,
+so CAP uses the V2 endpoint for the staging create.
 
-CAP default remote URL for this staging service:
+CAP default remote URL for this staging service, with the SAP client supplied as
+a destination query parameter:
 
 ```text
-/sap/opu/odata4/sap/zui_nxr_prof_apply_bnd/srvd/sap/zui_nxr_profile_apply_o4/0001
+/sap/opu/odata/sap/ZUI_NXR_PROF_APPLY_BND
+sap-client=324
 ```
 
 Created shell objects that may need ADT cleanup if they remain visible:
@@ -68,9 +70,10 @@ Created shell objects that may need ADT cleanup if they remain visible:
 - `ZA_NXR_PROFAPPLY_RESULT`
 - `ZA_NXR_PROFAPPLY_DECISION`
 
-## Required SAP OData V4 staging entity
+## Required SAP OData V2 staging entity
 
-Expose a create-enabled OData V4 entity in service `ZUI_NXR_PROFILE_APPLY_O4`:
+Expose a create-enabled OData entity set in service binding
+`ZUI_NXR_PROF_APPLY_BND`:
 
 ```text
 ProfileApplyRequest(
