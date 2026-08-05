@@ -4,7 +4,6 @@ sap.ui.define([
     "sap/ui/model/Sorter",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "sap/ui/core/Fragment",
     "sap/m/MessageBox",
     "sap/m/MessageToast",
     "znxr09/znxr09f300/model/profileFormatter",
@@ -16,7 +15,6 @@ sap.ui.define([
     Sorter,
     Filter,
     FilterOperator,
-    Fragment,
     MessageBox,
     MessageToast,
     formatter,
@@ -60,9 +58,21 @@ sap.ui.define([
                 errorKey: "",
                 hasData: false,
                 hasEditableField: false,
-                hasPendingRequest: false
+                hasPendingRequest: false,
+                isEditingProfile: false
             }), "profileUi");
             this.getView().setModel(new JSONModel({}), "profile");
+            this.getView().setModel(new JSONModel({
+                values: {},
+                original: {},
+                states: {},
+                remark: "",
+                isRevision: false,
+                requestId: "",
+                expectedVersion: 0,
+                isBankTransfer: false,
+                busy: false
+            }), "profileEdit");
             this.getView().setModel(new JSONModel({ rows: [] }), "profileRequests");
             this.getView().setModel(new JSONModel({
                 paymentMethods: [
@@ -96,7 +106,8 @@ sap.ui.define([
                 errorKey: sKey,
                 hasData: false,
                 hasEditableField: false,
-                hasPendingRequest: false
+                hasPendingRequest: false,
+                isEditingProfile: false
             });
             this.getView().getModel("profileRequests").setProperty("/rows", []);
         },
@@ -155,7 +166,8 @@ sap.ui.define([
                     }),
                     hasPendingRequest: aRequests.some(function (oRequest) {
                         return oRequest.Status === "01" || oRequest.Status === "04";
-                    })
+                    }),
+                    isEditingProfile: false
                 });
             }.bind(this)).catch(function (oError) {
                 var oInfo = ProfileApi.errorInfo(oError);
@@ -215,24 +227,25 @@ sap.ui.define([
             this.refresh();
         },
 
-        _openProfileEditDialog: function (oEditState) {
-            this.getView().setModel(new JSONModel(oEditState), "profileEdit");
+        _startProfileEdit: function (oEditState) {
+            this.getView().getModel("profileEdit").setData(oEditState);
+            this.getView().getModel("profileUi").setProperty("/isEditingProfile", true);
+            this._applyValidationErrors({});
+            this._focusFirstEditableProfileField();
+        },
 
-            if (!this._pEditDialog) {
-                this._pEditDialog = Fragment.load({
-                    id: this.getView().getId(),
-                    name: "znxr09.znxr09f300.view.ProfileEditDialog",
-                    controller: this
-                }).then(function (oDialog) {
-                    this.getView().addDependent(oDialog);
-                    return oDialog;
-                }.bind(this));
-            }
-            this._pEditDialog.then(function (oDialog) {
-                oDialog.open();
-            }).catch(function () {
-                MessageBox.error(this._bundle().getText("profileErrorEditDialog"));
-            }.bind(this));
+        _focusFirstEditableProfileField: function () {
+            window.setTimeout(function () {
+                var oFirstEditable = Object.keys(CONTROL_BY_FIELD).map(function (sCode) {
+                    return this.byId(CONTROL_BY_FIELD[sCode]);
+                }.bind(this)).find(function (oControl) {
+                    return oControl && (!oControl.getEnabled || oControl.getEnabled()) &&
+                        (!oControl.getVisible || oControl.getVisible());
+                });
+                if (oFirstEditable && oFirstEditable.focus) {
+                    oFirstEditable.focus();
+                }
+            }.bind(this), 0);
         },
 
         onEditProfile: function () {
@@ -252,7 +265,7 @@ sap.ui.define([
                 });
             });
 
-            this._openProfileEditDialog({
+            this._startProfileEdit({
                 values: oValues,
                 original: oOriginal,
                 states: mStates,
@@ -298,7 +311,7 @@ sap.ui.define([
                     oValues[sCode] = oItem.NewValue || "";
                     mStates[sCode].EffectiveEditable = true;
                 });
-                this._openProfileEditDialog({
+                this._startProfileEdit({
                     values: oValues,
                     original: oOriginal,
                     states: mStates,
@@ -333,18 +346,6 @@ sap.ui.define([
             this._clearControlState(oEvent.getSource());
         },
 
-        onProfileDialogAfterOpen: function () {
-            var oFirstEditable = Object.keys(CONTROL_BY_FIELD).map(function (sCode) {
-                return this.byId(CONTROL_BY_FIELD[sCode]);
-            }.bind(this)).find(function (oControl) {
-                return oControl && (!oControl.getEnabled || oControl.getEnabled()) &&
-                    (!oControl.getVisible || oControl.getVisible());
-            });
-            if (oFirstEditable && oFirstEditable.focus) {
-                oFirstEditable.focus();
-            }
-        },
-
         _clearControlState: function (oControl) {
             if (oControl && oControl.setValueState) {
                 oControl.setValueState("None");
@@ -353,10 +354,8 @@ sap.ui.define([
         },
 
         onCancelProfileEdit: function () {
-            this.byId("profileEditDialog").close();
-        },
-
-        onProfileDialogAfterClose: function () {
+            this.getView().getModel("profileUi").setProperty("/isEditingProfile", false);
+            this._applyValidationErrors({});
             var oEditButton = this.byId("profilePreviewEditButton");
             if (oEditButton) {
                 oEditButton.focus();
@@ -393,7 +392,7 @@ sap.ui.define([
             }
 
             ProfileApi.executeAction(this._model(), oEdit.isRevision ? "resubmitProfileChange" : "submitProfileChange", mParameters).then(function () {
-                this.byId("profileEditDialog").close();
+                this.getView().getModel("profileUi").setProperty("/isEditingProfile", false);
                 MessageToast.show(this._bundle().getText(oEdit.isRevision ?
                     "profileResubmitSuccess" : "profileSubmitSuccess"));
                 return this.refresh();
@@ -414,13 +413,6 @@ sap.ui.define([
                 oControl.setValueState(sKey ? "Error" : "None");
                 oControl.setValueStateText(sKey ? this._bundle().getText(sKey) : "");
             }.bind(this));
-        },
-
-        onExit: function () {
-            if (this._pEditDialog) {
-                this._pEditDialog.then(function (oDialog) { oDialog.destroy(); });
-                this._pEditDialog = null;
-            }
         },
 
         _errorKey: function (oError) {

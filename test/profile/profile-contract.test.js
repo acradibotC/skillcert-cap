@@ -35,7 +35,9 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(employeeController, /\/MyProfile/);
     assert.match(employeeController, /\/MyProfileFields/);
     assert.match(employeeController, /\/MyProfileRequests/);
-    assert.match(employeeController, /Fragment\.load/);
+    assert.doesNotMatch(employeeController, /Fragment\.load/);
+    assert.match(employeeController, /_startProfileEdit/);
+    assert.match(employeeController, /\/isEditingProfile/);
     assert.match(employeeController, /validator\.validateProfileChange/);
     assert.match(employeeController, /hasPendingRequest/);
     assert.match(employeeController, /executeAction\(this\._model\(\), oEdit\.isRevision \? "resubmitProfileChange" : "submitProfileChange"/);
@@ -47,16 +49,16 @@ test('ProfileService metadata matches the UI contract', async () => {
     const employeeView = fs.readFileSync('app/profile/webapp/view/MyProfile.view.xml', 'utf8');
     assert.match(employeeView, /profilePreviewEditButton/);
     assert.match(employeeView, /profilePreviewEditButton[\s\S]*?enabled="\{profileUi>\/hasEditableField\}"/);
+    assert.match(employeeView, /profileInlineEditCard/);
+    assert.match(employeeView, /visible="\{profileUi>\/isEditingProfile\}"/);
     assert.match(employeeView, /press="onEditProfile"/);
+    assert.doesNotMatch(employeeView, /profileEmployeeIdInput/);
     assert.match(employeeView, /visible="\{profile>\/HasBankTransfer\}"/);
     assert.doesNotMatch(employeeView, /profileReadOnlySap/);
-    assert.doesNotMatch(employeeView, /profileEditWorkflowNotice/);
     assert.match(employeeView, /profileRequestHistory/);
     assert.match(employeeView, /profileRequestHistoryTable/);
     assert.match(employeeView, /profileResubmitButton/);
-
-    const editDialog = fs.readFileSync('app/profile/webapp/view/ProfileEditDialog.fragment.xml', 'utf8');
-    assert.match(editDialog, /profileEditWorkflowNotice/);
+    assert.match(employeeView, /profileEditWorkflowNotice/);
 
     const approvalDialog = fs.readFileSync('app/profile/webapp/view/ProfileApprovalDetailDialog.fragment.xml', 'utf8');
     const profileCss = fs.readFileSync('app/profile/webapp/css/style.css', 'utf8');

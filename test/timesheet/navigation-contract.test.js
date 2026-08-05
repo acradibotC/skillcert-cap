@@ -4,6 +4,7 @@ const fs = require('node:fs');
 
 const view = fs.readFileSync('app/timesheet/webapp/view/App.view.xml', 'utf8');
 const controller = fs.readFileSync('app/timesheet/webapp/controller/App.controller.js', 'utf8');
+const service = fs.readFileSync('srv/service.js', 'utf8');
 const launchpadView = fs.readFileSync('app/launchpad/webapp/view/App.view.xml', 'utf8');
 const launchpadController = fs.readFileSync('app/launchpad/webapp/controller/App.controller.js', 'utf8');
 
@@ -69,6 +70,31 @@ test('Calendar request uses the selected calendar date and attendance times', ()
     assert.match(controller, /getSelectedDates\(\)/);
     assert.match(controller, /Date: sDateKey/);
     assert.match(controller, /this\._showCreateRequestDialog\(\{/);
+});
+
+test('Create request rejects day-off and WFH ranges where end is before start', () => {
+    assert.match(controller, /_validateRequestDateRange: function/);
+    assert.match(controller, /if \(oEnd < oStart\)/);
+    assert.match(controller, /ValueState\.Error/);
+    assert.match(controller, /MessageBox\.error\(sMessage\)/);
+    assert.match(controller, /if \(!this\._validateRequestDateRange\(sPrefix, true\)\) return/);
+
+    for (const file of [
+        'app/timesheet/webapp/i18n/i18n.properties',
+        'app/timesheet/webapp/i18n/i18n_en.properties',
+        'app/timesheet/webapp/i18n/i18n_vi.properties'
+    ]) {
+        const bundle = fs.readFileSync(file, 'utf8');
+        assert.match(bundle, /^msgEndBeforeStart=/m);
+    }
+
+    assert.match(service, /data\.RequestType === 'DAYOFF' \|\| data\.RequestType === 'WFH'/);
+    assert.match(service, /if \(end < start\) \{/);
+    assert.match(service, /req\.reject\(400, 'End Date\/Time cannot be earlier than Start Date\/Time\.'\)/);
+});
+
+test('Work Calendar hides generated week-number index column', () => {
+    assert.match(view, /id="attendanceCalendar"[\s\S]*?showWeekNumbers="false"/);
 });
 
 test('Embedded Timesheet navigation has an accessible collapse toggle', () => {

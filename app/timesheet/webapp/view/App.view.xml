@@ -145,6 +145,7 @@
                                         select="onDateSelect"
                                         startDateChange="onStartDateChange"
                                         width="100%"
+                                        showWeekNumbers="false"
                                         legend="calendarLegend" />
                                 </VBox>
                                 

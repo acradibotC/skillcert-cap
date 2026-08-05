@@ -290,6 +290,23 @@
     gap: 0.75rem;
 }
 
+.profileInlineEditCard {
+    border-color: var(--sapContent_ForegroundBorderColor, #b8c6d9);
+    box-shadow: var(--sapContent_Shadow0, 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08));
+}
+
+.profileInlineEditCard .sapUiFormResGrid,
+.profileInlineEditCard .sapUiFormResGridCont {
+    padding: 0 !important;
+}
+
+.profileInlineEditActions {
+    border-top: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
+    margin-top: 1rem;
+    padding-top: 1rem;
+    gap: 0.75rem;
+}
+
 .profileDecisionPanel {
     border: 1px solid var(--sapGroup_ContentBorderColor, #d9d9d9);
     border-radius: 0.75rem;

@@ -254,6 +254,9 @@ module.exports = {
             if ((data.RequestType === 'DAYOFF' || data.RequestType === 'WFH') && data.StartDate && data.EndDate) {
                 const start = new Date(data.StartDate);
                 const end = new Date(data.EndDate);
+                if (end < start) {
+                    return req.reject(400, 'End Date/Time cannot be earlier than Start Date/Time.');
+                }
                 let diffDays = 0;
                 let current = new Date(start.getTime());
                 end.setHours(23, 59, 59, 999);

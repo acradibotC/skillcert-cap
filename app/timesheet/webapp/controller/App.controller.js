@@ -780,6 +780,40 @@ sap.ui.define([
             this.onCalcDuration();
         },
 
+        _setDateRangeState: function (sPrefix, sState, sText) {
+            [sPrefix + "StartDate", sPrefix + "EndDate"].forEach(function (sId) {
+                var oPicker = this.byId(sId);
+                if (oPicker && oPicker.setValueState) {
+                    oPicker.setValueState(sState);
+                    oPicker.setValueStateText(sText || "");
+                }
+            }.bind(this));
+        },
+
+        _validateRequestDateRange: function (sPrefix, bShowMessage) {
+            var oStartPicker = this.byId(sPrefix + "StartDate");
+            var oEndPicker = this.byId(sPrefix + "EndDate");
+            var oStart = oStartPicker && oStartPicker.getDateValue();
+            var oEnd = oEndPicker && oEndPicker.getDateValue();
+            var sMessage = this.getText("msgEndBeforeStart");
+
+            if (!oStart || !oEnd) {
+                this._setDateRangeState(sPrefix, ValueState.None, "");
+                return true;
+            }
+
+            if (oEnd < oStart) {
+                this._setDateRangeState(sPrefix, ValueState.Error, sMessage);
+                if (bShowMessage) {
+                    sap.m.MessageBox.error(sMessage);
+                }
+                return false;
+            }
+
+            this._setDateRangeState(sPrefix, ValueState.None, "");
+            return true;
+        },
+
         onCalcDuration: function () {
             var oView = this.getView();
             var sTab = oView.byId("requestTabBar").getSelectedKey();
@@ -789,6 +823,11 @@ sap.ui.define([
                 var oStart = oView.byId(sPrefix + "StartDate").getDateValue();
                 var oEnd = oView.byId(sPrefix + "EndDate").getDateValue();
                 if (oStart && oEnd) {
+                    if (!this._validateRequestDateRange(sPrefix, false)) {
+                        oView.byId(sPrefix + "Duration").setValue("0");
+                        return;
+                    }
+
                     var diffDays = 0;
                     var currentDate = new Date(oStart.getTime());
                     var endDate = new Date(oEnd.getTime());
@@ -852,6 +891,7 @@ sap.ui.define([
                 var doEnd = oView.byId(sPrefix + "EndDate").getDateValue();
                 var doReason = oView.byId(sPrefix + "Reason").getValue();
                 if (!doStart || !doEnd || !doReason) return sap.m.MessageToast.show(this.getText("msgFillRequired"));
+                if (!this._validateRequestDateRange(sPrefix, true)) return;
                 
                 oPayload.StartDate = this.getDateKey(doStart);
                 oPayload.EndDate = this.getDateKey(doEnd);
