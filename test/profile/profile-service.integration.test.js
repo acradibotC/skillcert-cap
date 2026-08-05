@@ -556,6 +556,95 @@ test('ProfileApprovalRequests includes SAP-staged profile requests for HR admins
     }
 });
 
+test('HR can approve a SAP-staged profile request even when local SQLite history is absent', async () => {
+    const oldApplyMode = process.env.PROFILE_APPLY_MODE;
+    const oldApplyService = process.env.PROFILE_APPLY_SERVICE;
+    const oldApplyPath = process.env.PROFILE_APPLY_ACTION_PATH;
+    const oldApplyStrategy = process.env.PROFILE_APPLY_STRATEGY;
+    const oldApplyHttpClient = process.env.PROFILE_APPLY_HTTP_CLIENT;
+    const sapRequestId = '44444444-5555-6666-7777-888888888888';
+    const sentRequests = [];
+
+    process.env.PROFILE_APPLY_MODE = 'sap';
+    process.env.PROFILE_APPLY_SERVICE = 'ZUI_NXR_PROFILE_APPLY_O4';
+    process.env.PROFILE_APPLY_STRATEGY = 'create';
+    process.env.PROFILE_APPLY_HTTP_CLIENT = 'cap';
+    delete process.env.PROFILE_APPLY_ACTION_PATH;
+    cds.connect.to = async function (name) {
+        if (name === 'ZUI_NXR_PROFILE_APPLY_O4') {
+            return {
+                send: async request => {
+                    sentRequests.push(request);
+                    if (request.method === 'GET') {
+                        assert.equal(request.path, `/ProfileApplyRequest(guid'${sapRequestId}')`);
+                        return {
+                            RequestId: sapRequestId,
+                            RequestNo: 'PRSAPONLYAPPROVE',
+                            Pernr: '90000005',
+                            EmployeeName: 'Ta Nam Son',
+                            RequestedByEmail: 'haonguyen022202@gmail.com',
+                            RevisionNo: 1,
+                            Status: '01',
+                            ApplyState: 'PENDING_APPROVAL',
+                            ApplyMessage: 'SAP-only pending row',
+                            ChangedFields: 'TELEPHONE',
+                            Telephone: '0389431327',
+                            CreatedAt: '/Date(1784514628000)/',
+                            LastChangedAt: '/Date(1784514628000)/'
+                        };
+                    }
+                    if (request.method === 'MERGE') {
+                        return {
+                            Applied: true,
+                            ApplyState: 'QUEUED',
+                            Message: 'Queued SAP-only approval.'
+                        };
+                    }
+                    throw new Error(`Unexpected SAP profile apply mock request ${request.method}`);
+                }
+            };
+        }
+        return originalConnectTo.call(cds.connect, name);
+    };
+
+    try {
+        const approved = await service.send(new cds.Request({
+            event: 'approveProfileChange',
+            data: {
+                RequestId: sapRequestId,
+                ExpectedVersion: 1,
+                HrComment: ''
+            },
+            user: user('hr@example.com', '90000099', true)
+        }));
+
+        assert.equal(approved.ID, sapRequestId);
+        assert.equal(approved.RequestNo, 'PRSAPONLYAPPROVE');
+        assert.equal(approved.Status, '02');
+        assert.equal(approved.Pernr, '90000005');
+        assert.equal(approved.ApplyState, 'QUEUED');
+        assert.equal(sentRequests.length, 2);
+        assert.equal(sentRequests[1].method, 'MERGE');
+        assert.equal(sentRequests[1].path, `/ProfileApplyRequest(guid'${sapRequestId}')`);
+        assert.equal(sentRequests[1].data.Status, '02');
+        assert.equal(sentRequests[1].data.DecisionByEmail, 'hr@example.com');
+        assert.equal(sentRequests[1].data.ChangedFields, 'TELEPHONE');
+        assert.equal(sentRequests[1].data.Telephone, '0389431327');
+    } finally {
+        if (oldApplyMode === undefined) delete process.env.PROFILE_APPLY_MODE;
+        else process.env.PROFILE_APPLY_MODE = oldApplyMode;
+        if (oldApplyService === undefined) delete process.env.PROFILE_APPLY_SERVICE;
+        else process.env.PROFILE_APPLY_SERVICE = oldApplyService;
+        if (oldApplyPath === undefined) delete process.env.PROFILE_APPLY_ACTION_PATH;
+        else process.env.PROFILE_APPLY_ACTION_PATH = oldApplyPath;
+        if (oldApplyStrategy === undefined) delete process.env.PROFILE_APPLY_STRATEGY;
+        else process.env.PROFILE_APPLY_STRATEGY = oldApplyStrategy;
+        if (oldApplyHttpClient === undefined) delete process.env.PROFILE_APPLY_HTTP_CLIENT;
+        else process.env.PROFILE_APPLY_HTTP_CLIENT = oldApplyHttpClient;
+        cds.connect.to = originalConnectTo;
+    }
+});
+
 test('SAP profile must match the authenticated Pernr', async () => {
     await assert.rejects(() => service.send(new cds.Request({
         event: 'READ',

@@ -57,6 +57,14 @@ test('ProfileService metadata matches the UI contract', async () => {
 
     const editDialog = fs.readFileSync('app/profile/webapp/view/ProfileEditDialog.fragment.xml', 'utf8');
     assert.match(editDialog, /profileEditWorkflowNotice/);
+
+    const approvalDialog = fs.readFileSync('app/profile/webapp/view/ProfileApprovalDetailDialog.fragment.xml', 'utf8');
+    const profileCss = fs.readFileSync('app/profile/webapp/css/style.css', 'utf8');
+    assert.match(approvalDialog, /headerText="\{i18n>profileHrComment\}"/);
+    assert.match(approvalDialog, /profileDecisionPanel/);
+    assert.match(approvalDialog, /profileHrCommentHelp/);
+    assert.match(approvalDialog, /width="100%"/);
+    assert.match(profileCss, /\.profileDecisionPanel/);
 });
 
 test('existing skill approval actions remain explicitly unbound', async () => {

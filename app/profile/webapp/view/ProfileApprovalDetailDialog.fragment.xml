@@ -58,16 +58,25 @@
                     </items>
                 </Table>
 
-                <Label text="{i18n>profileHrComment}" labelFor="profileHrCommentInput" class="sapUiMediumMarginTop"/>
-                <TextArea
-                    id="profileHrCommentInput"
-                    value="{hrDetail>/comment}"
-                    maxLength="500"
-                    rows="4"
-                    growing="true"
-                    growingMaxLines="6"
-                    editable="{= ${hrDetail>/request/Status} === '01' }"
-                    placeholder="{i18n>profileHrCommentPlaceholder}"/>
+                <Panel
+                    headerText="{i18n>profileHrComment}"
+                    expandable="false"
+                    class="profileDecisionPanel sapUiMediumMarginTop">
+                    <VBox class="profileDecisionBox">
+                        <Text text="{i18n>profileHrCommentHelp}" class="profileDecisionHelp" wrapping="true"/>
+                        <TextArea
+                            id="profileHrCommentInput"
+                            value="{hrDetail>/comment}"
+                            maxLength="500"
+                            rows="3"
+                            growing="true"
+                            growingMaxLines="6"
+                            width="100%"
+                            editable="{= ${hrDetail>/request/Status} === '01' }"
+                            placeholder="{i18n>profileHrCommentPlaceholder}"
+                            class="profileDecisionTextArea"/>
+                    </VBox>
+                </Panel>
             </VBox>
         </content>
         <buttons>

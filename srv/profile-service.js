@@ -232,6 +232,45 @@ function sapProfileItemDtos(row) {
     });
 }
 
+function sapProfileApplyRequest(row) {
+    const dto = sapProfileRequestDto(row);
+    return {
+        ID: dto.ID,
+        requestNo: dto.RequestNo,
+        employeePernr: dto.Pernr,
+        employeeName: dto.EmployeeName,
+        requestedByEmail: row.RequestedByEmail || row.requestedByEmail || '',
+        status: dto.Status,
+        version: Number(row.Version || row.version || 1),
+        revisionNo: dto.RevisionNo,
+        employeeRemark: dto.Remark,
+        hrComment: dto.HrComment,
+        applyState: dto.ApplyState,
+        applyMessage: dto.ApplyMessage,
+        payMethod: row.PayMethod || row.payMethod || '',
+        createdAt: dto.SubmittedAt,
+        modifiedAt: dto.ModifiedAt
+    };
+}
+
+function sapProfileApplyItems(row) {
+    return sapProfileItemDtos(row).map(item => {
+        const definition = FIELD_CATALOG[item.FieldCode] || {};
+        return {
+            fieldName: item.FieldCode,
+            fieldGroup: item.FieldGroup,
+            oldValue: item.OldValue,
+            newValue: item.NewValue,
+            oldValueHash: stableHash(item.OldValue || ''),
+            isSensitive: item.IsSensitive,
+            mappingStatus: item.MappingStatus,
+            sapInfotype: definition.sapInfotype || '',
+            sapSubtype: definition.sapSubtype || '',
+            sapField: definition.sapField || ''
+        };
+    });
+}
+
 function profileEventDto(row) {
     if (!row) return null;
     return {
@@ -565,6 +604,17 @@ function sapApplyErrorMessage(error) {
     return String(message).replace(/\s+/g, ' ').slice(0, 500);
 }
 
+function sapApplyErrorStatus(error) {
+    return Number(
+        error?.statusCode ||
+        error?.status ||
+        error?.response?.status ||
+        error?.reason?.statusCode ||
+        error?.reason?.status ||
+        error?.reason?.response?.status
+    ) || 0;
+}
+
 function normalizeApplyResult(result, defaults = {}) {
     const body = Array.isArray(result)
         ? result[0]
@@ -635,6 +685,39 @@ async function readSapProfileApplyByRequestNo(sapApply, requestNo) {
         path: `${entityPath}?%24filter=${filter}&%24top=1`
     });
     return remoteRows(result)[0] || null;
+}
+
+async function readSapProfileApplyByRequestId(sapApply, requestId) {
+    const entityPath = profileApplyEntityPath();
+    const normalizedRequestId = String(requestId || '').replace(/[{}]/g, '').trim();
+    if (!normalizedRequestId) return null;
+
+    if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(normalizedRequestId)) {
+        try {
+            const result = await sapApply.send({
+                method: 'GET',
+                path: `${entityPath}(guid'${normalizedRequestId.toLowerCase()}')`
+            });
+            const row = remoteRows(result)[0];
+            if (row) return row;
+        } catch (error) {
+            if (sapApplyErrorStatus(error) && sapApplyErrorStatus(error) !== 404) {
+                throw error;
+            }
+        }
+    }
+
+    const result = await sapApply.send({
+        method: 'GET',
+        path: `${entityPath}?%24top=200`
+    });
+    return remoteRows(result).find(row => {
+        const sapRequestId = String(row.RequestId || row.requestId || row.ID || row.Id || '')
+            .replace(/[{}]/g, '')
+            .trim();
+        const sapRequestNo = String(row.RequestNo || row.requestNo || '').trim();
+        return sapRequestId === normalizedRequestId || sapRequestNo === normalizedRequestId;
+    }) || null;
 }
 
 async function readSapProfileApplyRows(req, context = {}, options = {}) {
@@ -842,13 +925,17 @@ async function sendProfileApplyCreate(sapApply, actionPayload, stagingPayload) {
 }
 
 async function sendProfileApplyUpdateByRequestNo(sapApply, requestNo, stagingPayload) {
-    const entityPath = profileApplyEntityPath();
     const remoteRow = await readSapProfileApplyByRequestNo(sapApply, requestNo);
     if (!remoteRow) {
         const error = new Error(`SAP profile staging request ${requestNo} was not found.`);
         error.statusCode = 404;
         throw error;
     }
+    return sendProfileApplyUpdateByRemoteRow(sapApply, remoteRow, stagingPayload);
+}
+
+async function sendProfileApplyUpdateByRemoteRow(sapApply, remoteRow, stagingPayload) {
+    const entityPath = profileApplyEntityPath();
     return sapApply.send({
         method: String(process.env.PROFILE_APPLY_UPDATE_METHOD || 'MERGE').trim().toUpperCase(),
         path: profileApplyKeyPath(entityPath, remoteRow),
@@ -1051,6 +1138,84 @@ async function syncProfileDecision(req, request, items, context, comment, toStat
         applyState: normalized.applyState,
         applyMessage: normalized.message
     };
+}
+
+async function syncSapOnlyProfileDecision(req, remoteRow, context, comment, toStatus) {
+    const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
+    if (mode !== 'sap') {
+        return reject(req, 404, 'PROFILE_REQUEST_NOT_FOUND', 'The profile request was not found.');
+    }
+    const request = sapProfileApplyRequest(remoteRow);
+    const items = sapProfileApplyItems(remoteRow);
+    if (toStatus === STATUS.APPROVED && !items.length) {
+        return reject(req, 400, 'SAP_PROFILE_WRITE_EMPTY_PAYLOAD', 'There are no current profile changes to apply.');
+    }
+
+    const sapApply = await connectProfileApplyService(req);
+    const defaults = decisionApplyDefaults(toStatus);
+    const stagingPayload = profileApplyStagingPayload(request, items, context, comment, {
+        status: toStatus,
+        applyState: defaults.applyState,
+        applyMessage: defaults.message
+    });
+    let result;
+    try {
+        result = await sendProfileApplyUpdateByRemoteRow(sapApply, remoteRow, stagingPayload);
+    } catch (error) {
+        return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
+    }
+
+    const normalized = normalizeApplyResult(result, defaults);
+    if (!normalized.applied) {
+        return reject(req, 502, 'SAP_PROFILE_WRITE_REJECTED', normalized.message);
+    }
+
+    const now = utcNow();
+    return {
+        ...sapProfileRequestDto({
+            ...remoteRow,
+            ...stagingPayload,
+            ApplyState: normalized.applyState,
+            ApplyMessage: normalized.message,
+            LastChangedAt: now
+        }),
+        Version: Number(request.version || 1) + 1,
+        HrComment: comment,
+        ApplyState: normalized.applyState,
+        ApplyMessage: normalized.message,
+        ModifiedAt: now
+    };
+}
+
+async function decideSapOnlyProfileRequest(req, action, toStatus, commentRequired, context) {
+    const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
+    if (mode !== 'sap') {
+        return reject(req, 404, 'PROFILE_REQUEST_NOT_FOUND', 'The profile request was not found.');
+    }
+
+    const comment = normalizeRemark(req.data.HrComment);
+    if (commentRequired && !comment) {
+        return reject(req, 400, 'PROFILE_HR_COMMENT_REQUIRED', 'An HR comment is required.');
+    }
+
+    const sapApply = await connectProfileApplyService(req);
+    let remoteRow;
+    try {
+        remoteRow = await readSapProfileApplyByRequestId(sapApply, req.data.RequestId);
+    } catch (error) {
+        return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
+    }
+    if (!remoteRow) {
+        return reject(req, 404, 'PROFILE_REQUEST_NOT_FOUND', 'The profile request was not found.');
+    }
+
+    const request = sapProfileApplyRequest(remoteRow);
+    assertExpectedVersion(req, request, req.data.ExpectedVersion);
+    if (!canTransition(request.status, action)) {
+        return reject(req, 409, 'PROFILE_REQUEST_INVALID_STATE', 'The profile request is not in a pending state.');
+    }
+
+    return syncSapOnlyProfileDecision(req, remoteRow, context, comment, toStatus);
 }
 
 async function insertProfileNotificationOutbox(tx, requestId, eventType, recipientType, recipientKey, now) {
@@ -1409,7 +1574,7 @@ module.exports = async function ProfileService() {
         const tx = cds.tx(req);
         const request = await readRequest(tx, req.data.RequestId);
         if (!request) {
-            return reject(req, 404, 'PROFILE_REQUEST_NOT_FOUND', 'The profile request was not found.');
+            return decideSapOnlyProfileRequest(req, action, toStatus, commentRequired, context);
         }
         assertExpectedVersion(req, request, req.data.ExpectedVersion);
         if (!canTransition(request.status, action)) {

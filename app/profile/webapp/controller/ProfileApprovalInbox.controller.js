@@ -260,7 +260,8 @@ sap.ui.define([
                 SAP_PROFILE_WRITE_SERVICE_UNAVAILABLE: "profileErrorSapApplyUnavailable",
                 SAP_PROFILE_WRITE_FAILED: "profileErrorSapApplyUnavailable",
                 SAP_PROFILE_WRITE_REJECTED: "profileErrorSapApplyUnavailable",
-                SAP_PROFILE_WRITE_EMPTY_PAYLOAD: "profileErrorSapApplyUnavailable"
+                SAP_PROFILE_WRITE_EMPTY_PAYLOAD: "profileErrorSapApplyUnavailable",
+                PROFILE_REQUEST_NOT_FOUND: "profileErrorRequestNotFound"
             }[oInfo.code] || {
                 401: "profileErrorUnauthorized",
                 403: "profileErrorForbidden",
