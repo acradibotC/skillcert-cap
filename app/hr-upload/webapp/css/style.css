@@ -45,4 +45,10 @@
     font-weight: bold;
 }
 
+.hrToolsShell {
+    min-height: 34rem;
+}
 
+.hrToolsMainContent {
+    width: auto;
+}

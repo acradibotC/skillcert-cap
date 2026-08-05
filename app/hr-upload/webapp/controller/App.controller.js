@@ -26,7 +26,8 @@ sap.ui.define([
             });
             this.getView().setModel(oUploadModel, "uploadModel");
             this.getView().setModel(new JSONModel({
-                selectedTab: "upload"
+                selectedTab: "upload",
+                sideExpanded: true
             }), "hrTools");
             this._rawFile = null;
 
@@ -80,6 +81,21 @@ sap.ui.define([
 
         onHrToolTabSelect: function (oEvent) {
             this._selectHrToolTab(oEvent.getParameter("key"));
+        },
+
+        onHrSideNavSelect: function (oEvent) {
+            var oItem = oEvent.getParameter("item");
+            var sKey = oItem && oItem.getKey && oItem.getKey();
+            if (sKey === "toggleNavigation") {
+                this.onSideNavButtonPress();
+                return;
+            }
+            this._selectHrToolTab(sKey);
+        },
+
+        onSideNavButtonPress: function () {
+            var oHrToolsModel = this.getView().getModel("hrTools");
+            oHrToolsModel.setProperty("/sideExpanded", !oHrToolsModel.getProperty("/sideExpanded"));
         },
 
         _selectHrToolTab: function (sKey) {

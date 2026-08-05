@@ -192,6 +192,46 @@ function profileItemDto(row) {
     };
 }
 
+function sapProfileItemDtos(row) {
+    if (!row) return [];
+    const requestId = String(row.RequestId || row.requestId || row.ID || row.Id || row.RequestNo || '')
+        .replace(/[{}]/g, '')
+        .trim();
+    if (!requestId) return [];
+
+    const revisionNo = Number(row.RevisionNo || row.revisionNo || 1);
+    const changedFields = String(row.ChangedFields || row.changedFields || '')
+        .split(',')
+        .map(field => field.trim().toUpperCase())
+        .filter(field => FIELD_CATALOG[field]);
+    const fallbackFields = Object.keys(DTO_PROPERTY_BY_FIELD).filter(fieldCode => {
+        const dtoProperty = DTO_PROPERTY_BY_FIELD[fieldCode];
+        const value = row[dtoProperty] ?? row[dtoProperty.charAt(0).toLowerCase() + dtoProperty.slice(1)];
+        return value !== undefined && value !== null && String(value).trim() !== '';
+    });
+    const fieldCodes = [...new Set(changedFields.length ? changedFields : fallbackFields)];
+
+    return fieldCodes.map((fieldCode, index) => {
+        const definition = FIELD_CATALOG[fieldCode];
+        const dtoProperty = DTO_PROPERTY_BY_FIELD[fieldCode];
+        const newValue = row[dtoProperty] ?? row[dtoProperty.charAt(0).toLowerCase() + dtoProperty.slice(1)] ?? '';
+        return {
+            ID: `${requestId}:${revisionNo}:${index + 1}:${fieldCode}`,
+            RequestId: requestId,
+            Pernr: row.Pernr || row.pernr || '',
+            Sequence: index + 1,
+            RevisionNo: revisionNo,
+            FieldCode: fieldCode,
+            FieldGroup: definition.group,
+            OldValue: '',
+            NewValue: String(newValue),
+            IsSensitive: Boolean(definition.sensitive),
+            MappingStatus: definition.mappingStatus,
+            IsCurrent: true
+        };
+    });
+}
+
 function profileEventDto(row) {
     if (!row) return null;
     return {
@@ -597,7 +637,7 @@ async function readSapProfileApplyByRequestNo(sapApply, requestNo) {
     return remoteRows(result)[0] || null;
 }
 
-async function readSapProfileApplyHistory(req, context) {
+async function readSapProfileApplyRows(req, context = {}, options = {}) {
     const mode = String(process.env.PROFILE_APPLY_MODE || 'disabled').trim().toLowerCase();
     if (mode !== 'sap') return [];
     if (profileApplyActionPathConfigured() || profileApplyStrategy() === 'action') return [];
@@ -605,18 +645,32 @@ async function readSapProfileApplyHistory(req, context) {
     try {
         const sapApply = await connectProfileApplyService(req);
         const entityPath = profileApplyEntityPath();
-        const filter = encodeURIComponent(`Pernr eq ${odataStringLiteral(context.pernr)}`);
+        const requestedTop = Number(options.top || 100);
+        const top = Number.isFinite(requestedTop) ? Math.max(1, Math.min(requestedTop, 500)) : 100;
+        const filters = [];
+        if (!options.allEmployees && context.pernr) {
+            filters.push(`Pernr eq ${odataStringLiteral(context.pernr)}`);
+        }
+        const query = filters.length
+            ? `?%24filter=${encodeURIComponent(filters.join(' and '))}&%24top=${top}`
+            : `?%24top=${top}`;
         const result = await sapApply.send({
             method: 'GET',
-            path: `${entityPath}?%24filter=${filter}&%24top=100`
+            path: `${entityPath}${query}`
         });
-        return remoteRows(result)
-            .map(sapProfileRequestDto)
-            .filter(row => row && (!row.Pernr || row.Pernr === context.pernr));
+        return remoteRows(result);
     } catch (error) {
         console.warn('[ProfileService] SAP profile request history read failed:', sapApplyErrorMessage(error));
         return [];
     }
+}
+
+async function readSapProfileApplyHistory(req, context, options = {}) {
+    const rows = await readSapProfileApplyRows(req, context, options);
+    return rows
+        .map(sapProfileRequestDto)
+        .filter(row => row && row.ID)
+        .filter(row => options.allEmployees || !context?.pernr || !row.Pernr || row.Pernr === context.pernr);
 }
 
 async function connectProfileApplyService(req) {
@@ -1146,9 +1200,11 @@ module.exports = async function ProfileService() {
     });
 
     this.on('READ', 'ProfileApprovalRequests', async req => {
-        userContext(req, true);
+        const context = userContext(req, true);
         const rows = await cds.tx(req).run(SELECT.from(REQUESTS));
-        return sortByCreatedDesc(rows).map(profileRequestDto);
+        const localRows = sortByCreatedDesc(rows).map(profileRequestDto);
+        const sapRows = await readSapProfileApplyHistory(req, context, { allEmployees: true, top: 200 });
+        return sortProfileRequestDtos(mergeProfileRequestDtos(localRows, sapRows));
     });
 
     this.on('READ', ['MyProfileRequestItems', 'ProfileApprovalRequestItems'], async req => {
@@ -1169,9 +1225,24 @@ module.exports = async function ProfileService() {
             rows = rows.filter(row => Boolean(row.isCurrent) === Boolean(isCurrent));
         }
         const pernrByRequest = new Map(visibleRequests.map(request => [request.ID, request.employeePernr]));
-        return rows
+        const localItems = rows
             .sort((left, right) => Number(left.sequence || 0) - Number(right.sequence || 0))
             .map(row => profileItemDto({ ...row, Pernr: pernrByRequest.get(row.request_ID) }));
+        if (!requestId || localItems.length) {
+            return localItems;
+        }
+
+        const sapRows = await readSapProfileApplyRows(req, context, { allEmployees: isApprovalRead, top: 200 });
+        const normalizedRequestId = String(requestId).replace(/[{}]/g, '').trim();
+        const sapRequest = sapRows.find(row => {
+            const sapRequestId = String(row.RequestId || row.requestId || row.ID || row.Id || '')
+                .replace(/[{}]/g, '')
+                .trim();
+            const sapRequestNo = String(row.RequestNo || row.requestNo || '').trim();
+            const pernrVisible = isApprovalRead || !row.Pernr || row.Pernr === context.pernr;
+            return pernrVisible && (sapRequestId === normalizedRequestId || sapRequestNo === normalizedRequestId);
+        });
+        return sapProfileItemDtos(sapRequest);
     });
 
     this.on('READ', 'ProfileRequestEvents', async req => {

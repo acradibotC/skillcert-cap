@@ -5,6 +5,7 @@
     xmlns:u="sap.ui.unified"
     xmlns:table="sap.ui.table"
     xmlns:layout="sap.ui.layout"
+    xmlns:tnt="sap.tnt"
     xmlns:core="sap.ui.core"
     displayBlock="true"
     height="100%">
@@ -12,20 +13,30 @@
     <App id="app">
         <Page id="uploadPage" showHeader="false">
         <content>
-            <VBox class="sapUiResponsiveMargin">
-                <IconTabBar
-                    id="hrToolsTabBar"
-                    selectedKey="{hrTools>/selectedTab}"
-                    select=".onHrToolTabSelect"
-                    expandable="false"
-                    headerMode="Inline"
-                    class="sapUiSmallMarginBottom">
-                    <items>
-                        <IconTabFilter key="upload" text="{i18n>tabUploadTimesheet}" icon="sap-icon://upload"/>
-                        <IconTabFilter key="profileApprovals" text="{i18n>tabProfileApprovals}" icon="sap-icon://approvals" visible="{user>/isHrAdmin}"/>
-                    </items>
-                </IconTabBar>
-
+            <tnt:ToolPage id="hrToolsPage" sideExpanded="{hrTools>/sideExpanded}" class="hrToolsShell">
+                <tnt:sideContent>
+                    <tnt:SideNavigation
+                        id="hrToolsSideNavigation"
+                        expanded="{hrTools>/sideExpanded}"
+                        selectedKey="{hrTools>/selectedTab}"
+                        itemSelect=".onHrSideNavSelect">
+                        <tnt:item>
+                            <tnt:NavigationList>
+                                <tnt:NavigationListItem key="upload" text="{i18n>tabUploadTimesheet}" icon="sap-icon://upload"/>
+                                <tnt:NavigationListItem key="profileApprovals" text="{i18n>tabProfileApprovals}" icon="sap-icon://approvals" visible="{user>/isHrAdmin}"/>
+                            </tnt:NavigationList>
+                        </tnt:item>
+                        <tnt:fixedItem>
+                            <tnt:NavigationList>
+                                <tnt:NavigationListItem key="toggleNavigation" icon="sap-icon://menu2" tooltip="{i18n>tooltipToggleMenu}"/>
+                            </tnt:NavigationList>
+                        </tnt:fixedItem>
+                    </tnt:SideNavigation>
+                </tnt:sideContent>
+                <tnt:mainContents>
+                    <Page id="hrToolsMainPage" showHeader="false">
+                        <content>
+                            <VBox class="sapUiResponsiveMargin hrToolsMainContent">
                 <VBox visible="{= ${hrTools>/selectedTab} === 'upload' }">
                 <!-- Custom Modern Header -->
                 <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
@@ -140,7 +151,11 @@
                     <mvc:XMLView id="profileApprovalInboxView" viewName="znxr09.znxr09f300.view.ProfileApprovalInbox"/>
                 </VBox>
 
-            </VBox>
+                            </VBox>
+                        </content>
+                    </Page>
+                </tnt:mainContents>
+            </tnt:ToolPage>
         </content>
         </Page>
     </App>

@@ -472,6 +472,90 @@ test('MyProfileRequests includes staged SAP profile request history', async () =
     }
 });
 
+test('ProfileApprovalRequests includes SAP-staged profile requests for HR admins', async () => {
+    const oldApplyMode = process.env.PROFILE_APPLY_MODE;
+    const oldApplyService = process.env.PROFILE_APPLY_SERVICE;
+    const oldApplyPath = process.env.PROFILE_APPLY_ACTION_PATH;
+    const oldApplyStrategy = process.env.PROFILE_APPLY_STRATEGY;
+    const oldApplyHttpClient = process.env.PROFILE_APPLY_HTTP_CLIENT;
+    const sentRequests = [];
+    const sapRows = [{
+        RequestId: '33333333-4444-5555-6666-777777777777',
+        RequestNo: 'PRHRHISTORY',
+        Pernr: '90000005',
+        EmployeeName: 'Ta Nam Son',
+        RevisionNo: 1,
+        Status: '01',
+        ApplyState: 'PENDING_APPROVAL',
+        ApplyMessage: 'SAP pending HR inbox row',
+        ChangedFields: 'TELEPHONE,WORK_EMAIL',
+        Telephone: '0389431327',
+        WorkEmail: 'haonguyen022202@gmail.com',
+        CreatedAt: '/Date(1784514628000)/',
+        LastChangedAt: '/Date(1784514628000)/'
+    }];
+
+    process.env.PROFILE_APPLY_MODE = 'sap';
+    process.env.PROFILE_APPLY_SERVICE = 'ZUI_NXR_PROFILE_APPLY_O4';
+    process.env.PROFILE_APPLY_STRATEGY = 'create';
+    process.env.PROFILE_APPLY_HTTP_CLIENT = 'cap';
+    delete process.env.PROFILE_APPLY_ACTION_PATH;
+    cds.connect.to = async function (name) {
+        if (name === 'ZUI_NXR_PROFILE_APPLY_O4') {
+            return {
+                send: async request => {
+                    sentRequests.push(request);
+                    assert.equal(request.method, 'GET');
+                    return { d: { results: sapRows } };
+                }
+            };
+        }
+        return originalConnectTo.call(cds.connect, name);
+    };
+
+    try {
+        const inbox = await service.send(new cds.Request({
+            event: 'READ',
+            query: SELECT.from('ProfileService.ProfileApprovalRequests'),
+            user: user('hr@example.com', '90000099', true)
+        }));
+
+        const sapInboxRow = inbox.find(request => request.RequestNo === 'PRHRHISTORY');
+        assert.ok(sapInboxRow);
+        assert.equal(sapInboxRow.ID, '33333333-4444-5555-6666-777777777777');
+        assert.equal(sapInboxRow.Pernr, '90000005');
+        assert.equal(sapInboxRow.Status, '01');
+        assert.match(sentRequests[0].path, /\/ProfileApplyRequest\?%24top=200/);
+        assert.doesNotMatch(sentRequests[0].path, /Pernr/);
+
+        const items = await service.send(new cds.Request({
+            event: 'READ',
+            query: SELECT.from('ProfileService.ProfileApprovalRequestItems').where({
+                RequestId: sapInboxRow.ID,
+                IsCurrent: true
+            }),
+            user: user('hr@example.com', '90000099', true)
+        }));
+
+        assert.equal(items.length, 2);
+        assert.equal(items[0].FieldCode, 'TELEPHONE');
+        assert.equal(items[0].NewValue, '0389431327');
+        assert.equal(items[1].FieldCode, 'WORK_EMAIL');
+    } finally {
+        if (oldApplyMode === undefined) delete process.env.PROFILE_APPLY_MODE;
+        else process.env.PROFILE_APPLY_MODE = oldApplyMode;
+        if (oldApplyService === undefined) delete process.env.PROFILE_APPLY_SERVICE;
+        else process.env.PROFILE_APPLY_SERVICE = oldApplyService;
+        if (oldApplyPath === undefined) delete process.env.PROFILE_APPLY_ACTION_PATH;
+        else process.env.PROFILE_APPLY_ACTION_PATH = oldApplyPath;
+        if (oldApplyStrategy === undefined) delete process.env.PROFILE_APPLY_STRATEGY;
+        else process.env.PROFILE_APPLY_STRATEGY = oldApplyStrategy;
+        if (oldApplyHttpClient === undefined) delete process.env.PROFILE_APPLY_HTTP_CLIENT;
+        else process.env.PROFILE_APPLY_HTTP_CLIENT = oldApplyHttpClient;
+        cds.connect.to = originalConnectTo;
+    }
+});
+
 test('SAP profile must match the authenticated Pernr', async () => {
     await assert.rejects(() => service.send(new cds.Request({
         event: 'READ',

@@ -34,16 +34,24 @@ test('HR profile approvals are hosted by the HR Tools application', () => {
     const hrController = fs.readFileSync('app/hr-upload/webapp/controller/App.controller.js', 'utf8');
     const hrComponent = fs.readFileSync('app/hr-upload/webapp/Component.js', 'utf8');
     const hrManifest = fs.readFileSync('app/hr-upload/webapp/manifest.json', 'utf8');
+    const launchpadI18n = fs.readFileSync('app/launchpad/webapp/i18n/i18n.properties', 'utf8');
     const profileView = fs.readFileSync('app/profile/webapp/view/SkillList.view.xml', 'utf8');
     const launchpadController = fs.readFileSync('app/launchpad/webapp/controller/App.controller.js', 'utf8');
 
-    assert.match(hrView, /IconTabFilter key="profileApprovals"[\s\S]*visible="\{user>\/isHrAdmin\}"/);
+    assert.match(hrView, /<tnt:ToolPage[\s\S]*sideExpanded="\{hrTools>\/sideExpanded\}"/);
+    assert.match(hrView, /<tnt:SideNavigation[\s\S]*selectedKey="\{hrTools>\/selectedTab\}"[\s\S]*itemSelect="\.onHrSideNavSelect"/);
+    assert.match(hrView, /<tnt:NavigationListItem key="profileApprovals"[\s\S]*visible="\{user>\/isHrAdmin\}"/);
     assert.match(hrView, /viewName="znxr09\.znxr09f300\.view\.ProfileApprovalInbox"/);
     assert.match(hrController, /NavToHrToolsTab/);
     assert.match(hrController, /znxr09\.hrTools\.selectedTab/);
+    assert.match(hrController, /sideExpanded:\s*true/);
+    assert.match(hrController, /onHrSideNavSelect/);
+    assert.match(hrController, /toggleNavigation/);
     assert.match(hrController, /getController\(\)\.activate/);
     assert.match(hrComponent, /"znxr09\/znxr09f300": "\/profile\/webapp"/);
     assert.match(hrManifest, /"profileService"/);
+    assert.match(hrManifest, /"sap\.tnt"/);
+    assert.match(launchpadI18n, /tileHrUpload=HR Tools/);
     assert.doesNotMatch(profileView, /key="profileApprovals"/);
     assert.match(launchpadController, /onNavToHrUpload\("profileApprovals"\)/);
 });

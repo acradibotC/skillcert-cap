@@ -30,6 +30,7 @@
                 "sap.ui.core": {},
                 "sap.ui.layout": {},
                 "sap.ui.table": {},
+                "sap.tnt": {},
                 "sap.ui.unified": {}
             }
         },
