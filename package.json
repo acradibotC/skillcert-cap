@@ -17,6 +17,7 @@
     "@sap-cloud-sdk/util": "^4.7.0",
     "@sap/cds": "^8.0.0",
     "@sap/cds-dk": "^9.9.2",
+    "axios": "^1.18.0",
     "dotenv": "^17.4.2",
     "express": "^4.19.0",
     "express-session": "^1.19.0",
@@ -75,7 +76,10 @@
       "ZUI_NXR_PROFILE_APPLY_O4": {
         "kind": "odata-v2",
         "model": "srv/external/ZUI_NXR_PROFILE_APPLY_O4",
-        "csrf": true,
+        "csrf": {
+          "method": "get",
+          "url": "/"
+        },
         "csrfInBatch": true,
         "credentials": {
           "url": "https://s40lp1.ucc.cit.tum.de:443/sap/opu/odata/sap/ZUI_NXR_PROF_APPLY_BND",

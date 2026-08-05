@@ -285,12 +285,14 @@ test('profile approval applies changes through configured SAP profile OData adap
     const oldApplyService = process.env.PROFILE_APPLY_SERVICE;
     const oldApplyPath = process.env.PROFILE_APPLY_ACTION_PATH;
     const oldApplyStrategy = process.env.PROFILE_APPLY_STRATEGY;
+    const oldApplyHttpClient = process.env.PROFILE_APPLY_HTTP_CLIENT;
     const sentRequests = [];
     const sapRequestId = '11111111-2222-3333-4444-555555555555';
 
     process.env.PROFILE_APPLY_MODE = 'sap';
     process.env.PROFILE_APPLY_SERVICE = 'ZUI_NXR_PROFILE_APPLY_O4';
     process.env.PROFILE_APPLY_STRATEGY = 'create';
+    process.env.PROFILE_APPLY_HTTP_CLIENT = 'cap';
     delete process.env.PROFILE_APPLY_ACTION_PATH;
     cds.connect.to = async function (name) {
         if (name === 'ZUI_NXR_PROFILE_APPLY_O4') {
@@ -392,6 +394,8 @@ test('profile approval applies changes through configured SAP profile OData adap
         else process.env.PROFILE_APPLY_ACTION_PATH = oldApplyPath;
         if (oldApplyStrategy === undefined) delete process.env.PROFILE_APPLY_STRATEGY;
         else process.env.PROFILE_APPLY_STRATEGY = oldApplyStrategy;
+        if (oldApplyHttpClient === undefined) delete process.env.PROFILE_APPLY_HTTP_CLIENT;
+        else process.env.PROFILE_APPLY_HTTP_CLIENT = oldApplyHttpClient;
         cds.connect.to = originalConnectTo;
     }
 });

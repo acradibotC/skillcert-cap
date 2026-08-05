@@ -16,6 +16,9 @@ CAP now supports a fail-closed SAP staging adapter:
 - default strategy: `PROFILE_APPLY_STRATEGY=create`
 - default entity path: `PROFILE_APPLY_ENTITY_PATH=/ProfileApplyRequest`
 - default update method for the OData V2 row: `PROFILE_APPLY_UPDATE_METHOD=MERGE`
+- default HTTP client: `PROFILE_APPLY_HTTP_CLIENT=auto`; this uses manual
+  CSRF/cookie handling for SAP Gateway OData V2 because CAP's generic remote
+  CSRF middleware can fail token validation on this endpoint
 - optional legacy action path: `PROFILE_APPLY_ACTION_PATH`
 - current published SAP binding used by CAP: OData V2 UI binding
   `ZUI_NXR_PROF_APPLY_BND`

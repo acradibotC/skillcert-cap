@@ -1,5 +1,7 @@
 const cds = require('@sap/cds');
 const crypto = require('node:crypto');
+const https = require('node:https');
+const axios = require('axios');
 require('dotenv').config();
 const {
     STATUS,
@@ -32,6 +34,9 @@ const DTO_PROPERTY_BY_FIELD = Object.freeze({
 
 const DEFAULT_PROFILE_DISPLAY_SERVICE = 'ZUI_NXR_PROFILE_O4';
 const DEFAULT_PROFILE_DISPLAY_FALLBACK_SERVICE = 'ZUI_NXR_SKILLREQ_O4';
+const allowInsecureSapTls = process.env.NODE_ENV !== 'production'
+    && process.env.ALLOW_INSECURE_SAP_TLS === 'true';
+const sapHttpsAgent = new https.Agent({ rejectUnauthorized: !allowInsecureSapTls });
 
 function reject(req, status, code, message) {
     return req.reject({ status, code, message });
@@ -476,6 +481,14 @@ function profileApplyEntityPath() {
     return String(process.env.PROFILE_APPLY_ENTITY_PATH || '/ProfileApplyRequest').trim() || '/ProfileApplyRequest';
 }
 
+function profileApplyActionPathConfigured() {
+    return Boolean(String(process.env.PROFILE_APPLY_ACTION_PATH || '').trim());
+}
+
+function profileApplyStrategy() {
+    return String(process.env.PROFILE_APPLY_STRATEGY || 'create').trim().toLowerCase();
+}
+
 function odataStringLiteral(value) {
     return `'${String(value || '').replace(/'/g, "''")}'`;
 }
@@ -511,6 +524,19 @@ async function readSapProfileApplyByRequestNo(sapApply, requestNo) {
 
 async function connectProfileApplyService(req) {
     const serviceName = String(process.env.PROFILE_APPLY_SERVICE || 'ZUI_NXR_PROFILE_APPLY_O4').trim();
+    if (shouldUseManualProfileApplyClient(serviceName)) {
+        try {
+            return createManualProfileApplyClient(serviceName);
+        } catch (error) {
+            return reject(
+                req,
+                503,
+                'SAP_PROFILE_WRITE_SERVICE_UNAVAILABLE',
+                error.message || `SAP profile write service ${serviceName} is not available.`
+            );
+        }
+    }
+
     try {
         ensureRemoteServiceCredentials(serviceName);
         const sapApply = await cds.connect.to(serviceName);
@@ -526,6 +552,120 @@ async function connectProfileApplyService(req) {
     }
 }
 
+function shouldUseManualProfileApplyClient(serviceName) {
+    const explicitClient = String(process.env.PROFILE_APPLY_HTTP_CLIENT || 'auto').trim().toLowerCase();
+    if (explicitClient === 'cap') return false;
+    if (explicitClient === 'manual') return true;
+    if (profileApplyActionPathConfigured() || profileApplyStrategy() === 'action') return false;
+
+    const serviceConfig = cds.env.requires?.[serviceName] || {};
+    const kind = String(serviceConfig.kind || '').toLowerCase();
+    const url = String(serviceConfig.credentials?.url || '').toLowerCase();
+    return kind === 'odata-v2' || url.includes('/sap/opu/odata/sap/');
+}
+
+function profileApplyConnectionConfig(serviceName) {
+    ensureRemoteServiceCredentials(serviceName);
+    const serviceConfig = cds.env.requires?.[serviceName] || {};
+    const credentials = serviceConfig.credentials || {};
+    const username = credentials.username || process.env.UI5_USERNAME;
+    const password = credentials.password || process.env.UI5_PASSWORD;
+    const url = String(credentials.url || '').trim();
+    if (!url) {
+        throw new Error(`SAP profile write service ${serviceName} has no remote URL.`);
+    }
+    if (!username || !password) {
+        throw new Error(`SAP profile write service ${serviceName} is missing UI5 credentials.`);
+    }
+    return {
+        url,
+        queries: {
+            ...(credentials.queryParameters || {}),
+            ...(credentials.queries || {})
+        },
+        authHeader: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+    };
+}
+
+function profileApplyAbsoluteUrl(config, path = '/') {
+    const normalizedBase = `${String(config.url || '').replace(/\/+$/, '')}/`;
+    const normalizedPath = String(path || '/').replace(/^\/+/, '');
+    const url = new URL(normalizedPath, normalizedBase);
+    Object.entries(config.queries || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '' && !url.searchParams.has(key)) {
+            url.searchParams.set(key, String(value));
+        }
+    });
+    return url.toString();
+}
+
+function cookieHeader(setCookie) {
+    return (Array.isArray(setCookie) ? setCookie : [setCookie])
+        .filter(Boolean)
+        .map(cookie => String(cookie).split(';')[0])
+        .join('; ');
+}
+
+async function fetchProfileApplyCsrf(config) {
+    const response = await axios.get(profileApplyAbsoluteUrl(config, '/'), {
+        headers: {
+            Authorization: config.authHeader,
+            'x-csrf-token': 'Fetch',
+            Accept: 'application/json'
+        },
+        httpsAgent: sapHttpsAgent
+    });
+    const token = response.headers['x-csrf-token'];
+    if (!token) {
+        const error = new Error('SAP profile write service did not return a CSRF token.');
+        error.statusCode = 403;
+        throw error;
+    }
+    return {
+        token,
+        cookie: cookieHeader(response.headers['set-cookie'])
+    };
+}
+
+function createManualProfileApplyClient(serviceName) {
+    const config = profileApplyConnectionConfig(serviceName);
+    return {
+        send: async request => {
+            const method = String(request.method || 'GET').trim().toUpperCase();
+            const path = request.path || '/';
+            const url = profileApplyAbsoluteUrl(config, path);
+            const baseHeaders = {
+                Authorization: config.authHeader,
+                Accept: 'application/json'
+            };
+
+            if (method === 'GET') {
+                const response = await axios.get(url, {
+                    headers: baseHeaders,
+                    httpsAgent: sapHttpsAgent
+                });
+                return response.data;
+            }
+
+            const csrf = await fetchProfileApplyCsrf(config);
+            const response = await axios({
+                method,
+                url,
+                data: request.data,
+                headers: {
+                    ...baseHeaders,
+                    'x-csrf-token': csrf.token,
+                    'Content-Type': 'application/json',
+                    ...(csrf.cookie ? { Cookie: csrf.cookie } : {}),
+                    ...(method === 'MERGE' || method === 'PATCH' || method === 'PUT' ? { 'If-Match': '*' } : {})
+                },
+                httpsAgent: sapHttpsAgent
+            });
+            return response.data;
+        }
+    };
+}
+
 async function sendProfileApplyCreate(sapApply, actionPayload, stagingPayload) {
     const configuredPath = String(process.env.PROFILE_APPLY_ACTION_PATH || '').trim();
     if (configuredPath) {
@@ -536,8 +676,7 @@ async function sendProfileApplyCreate(sapApply, actionPayload, stagingPayload) {
         });
     }
 
-    const strategy = String(process.env.PROFILE_APPLY_STRATEGY || 'create').trim().toLowerCase();
-    if (strategy === 'action') {
+    if (profileApplyStrategy() === 'action') {
         return sapApply.send({
             event: 'applyProfileChanges',
             data: actionPayload
@@ -668,8 +807,7 @@ async function applyProfileChanges(req, request, items, context, comment) {
             applyMessage: defaults.message
         });
         try {
-            const strategy = String(process.env.PROFILE_APPLY_STRATEGY || 'create').trim().toLowerCase();
-            if (String(process.env.PROFILE_APPLY_ACTION_PATH || '').trim() || strategy === 'action') {
+            if (profileApplyActionPathConfigured() || profileApplyStrategy() === 'action') {
                 result = await sendProfileApplyCreate(
                     sapApply,
                     profileApplyPayload(request, items, context, comment),

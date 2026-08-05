@@ -24,6 +24,7 @@ PROFILE_APPLY_MODE=sap
 PROFILE_APPLY_STRATEGY=create
 PROFILE_APPLY_ENTITY_PATH=/ProfileApplyRequest
 PROFILE_APPLY_UPDATE_METHOD=MERGE
+PROFILE_APPLY_HTTP_CLIENT=auto
 ```
 
 When the employee submits a MyProfile request, CAP creates a
