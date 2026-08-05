@@ -1,0 +1,19 @@
+@EndUserText.label : 'Attendance Request Mail Log'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table ztb_nxr_attmail {
+  key client       : abap.clnt not null;
+  key event_id     : sysuuid_x16 not null;
+  request_id       : sysuuid_x16 not null;
+  event_type       : abap.char(20);
+  recipient_email  : abap.char(241);
+  mail_status      : abap.char(10);
+  retry_count      : abap.int4;
+  last_error       : abap.char(220);
+  created_at       : timestampl;
+  sent_at          : timestampl;
+  created_by       : syuname;
+
+}
