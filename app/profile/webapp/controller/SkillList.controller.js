@@ -621,20 +621,12 @@ sap.ui.define([
 
             var oViewModel = this.getView().getModel("view");
 
-            if (sKey === "profileApprovals" &&
-                    !this.getOwnerComponent().getModel("user").getProperty("/isHrAdmin")) {
+            if (sKey === "profileApprovals") {
                 oViewModel.setProperty("/selectedTab", "myProfile");
                 return;
             }
 
             oViewModel.setProperty("/selectedTab", sKey);
-
-            if (sKey === "profileApprovals") {
-                var oInboxView = this.byId("profileApprovalInboxView");
-                if (oInboxView && oInboxView.getController && oInboxView.getController().activate) {
-                    oInboxView.getController().activate();
-                }
-            }
             
             var oTable;
             if (sKey === "mySkills") {

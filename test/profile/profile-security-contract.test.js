@@ -25,11 +25,16 @@ test('profile authorization is based on employee link or HR role, not manager st
     assert.doesNotMatch(source, /ProfileSnapshots/);
 });
 
-test('profile HR approver access is derived from HR organization unit', () => {
+test('profile HR approver access is derived from HR organization unit or configured HR email', () => {
     const source = fs.readFileSync('srv/server.js', 'utf8');
     assert.match(source, /function isProfileHrAdmin\(email, orgUnitId\)/);
-    assert.match(source, /configuredEmailOverride \|\| canUseHrTools\(orgUnitId\)/);
+    assert.match(source, /function isConfiguredProfileHrEmail\(email\)/);
+    assert.match(source, /PROFILE_HR_EMAILS/);
+    assert.match(source, /return isConfiguredProfileHrEmail\(email\) \|\| isHrOrgUnit\(orgUnitId\)/);
+    assert.match(source, /function canUseHrTools\(orgUnitId, email\)/);
+    assert.match(source, /return isConfiguredProfileHrEmail\(email\) \|\| isHrOrgUnit\(orgUnitId\)/);
     assert.match(source, /isHrAdmin:\s*isProfileHrAdmin\(email, profile\.OrgUnitId\)/);
+    assert.match(source, /canUseHrTools:\s*canUseHrTools\(profile\.OrgUnitId,\s*email\)/);
     assert.match(source, /req\.session\.userInfo\.isHrAdmin = isProfileHrAdmin\(req\.session\.userInfo\.email, req\.session\.userInfo\.orgUnitId\)/);
     assert.match(source, /isHrAdmin:\s*isProfileHrAdmin\(email, resp\.data\.OrgUnitId\)/);
 });

@@ -2,12 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-test('HR Tools authorization is derived from SAP OrgUnitId and fails closed', () => {
+test('HR Tools authorization is derived from SAP OrgUnitId or configured HR email and fails closed', () => {
     const source = fs.readFileSync('srv/server.js', 'utf8');
 
     assert.match(source, /HR_ORG_UNIT_IDS\s*\|\|\s*'50009040'/);
+    assert.match(source, /PROFILE_HR_EMAILS/);
+    assert.match(source, /function canUseHrTools\(orgUnitId, email\)/);
+    assert.match(source, /return isConfiguredProfileHrEmail\(email\) \|\| isHrOrgUnit\(orgUnitId\)/);
     assert.match(source, /orgUnitId:\s*String\(profile\.OrgUnitId/);
-    assert.match(source, /canUseHrTools:\s*canUseHrTools\(profile\.OrgUnitId\)/);
+    assert.match(source, /canUseHrTools:\s*canUseHrTools\(profile\.OrgUnitId,\s*email\)/);
     assert.match(source, /const ensureHrToolsAuthorized/);
     assert.match(source, /HR_TOOLS_FORBIDDEN/);
     assert.match(source, /app\.use\(\s*['"]\/hr-upload\/webapp['"][\s\S]*ensureHrToolsAuthorized/);
@@ -24,4 +27,23 @@ test('launchpad hides and guards HR navigation when permission is absent', () =>
     assert.match(controller, /onNavToHrUpload:[\s\S]*getProperty\(["']\/canUseHrTools["']\)/);
     assert.match(view, /<Button id="navHr"[^\r\n]*visible="\{user>\/canUseHrTools\}"/);
     assert.match(view, /header="\{i18n>tileHrUpload\}"[\s\S]*visible="\{user>\/canUseHrTools\}"/);
+});
+
+test('HR profile approvals are hosted by the HR Tools application', () => {
+    const hrView = fs.readFileSync('app/hr-upload/webapp/view/App.view.xml', 'utf8');
+    const hrController = fs.readFileSync('app/hr-upload/webapp/controller/App.controller.js', 'utf8');
+    const hrComponent = fs.readFileSync('app/hr-upload/webapp/Component.js', 'utf8');
+    const hrManifest = fs.readFileSync('app/hr-upload/webapp/manifest.json', 'utf8');
+    const profileView = fs.readFileSync('app/profile/webapp/view/SkillList.view.xml', 'utf8');
+    const launchpadController = fs.readFileSync('app/launchpad/webapp/controller/App.controller.js', 'utf8');
+
+    assert.match(hrView, /IconTabFilter key="profileApprovals"[\s\S]*visible="\{user>\/isHrAdmin\}"/);
+    assert.match(hrView, /viewName="znxr09\.znxr09f300\.view\.ProfileApprovalInbox"/);
+    assert.match(hrController, /NavToHrToolsTab/);
+    assert.match(hrController, /znxr09\.hrTools\.selectedTab/);
+    assert.match(hrController, /getController\(\)\.activate/);
+    assert.match(hrComponent, /"znxr09\/znxr09f300": "\/profile\/webapp"/);
+    assert.match(hrManifest, /"profileService"/);
+    assert.doesNotMatch(profileView, /key="profileApprovals"/);
+    assert.match(launchpadController, /onNavToHrUpload\("profileApprovals"\)/);
 });

@@ -30,7 +30,6 @@
                     <tnt:NavigationListItem text="{i18n>tabMySkills}" icon="sap-icon://education" key="mySkills" />
                     <tnt:NavigationListItem text="{i18n>tabMyCerts}" icon="sap-icon://badge" key="myCerts" />
                     <tnt:NavigationListItem text="{i18n>tabTeamMgmt}" icon="sap-icon://group" key="team" visible="{user>/isManager}" />
-                    <tnt:NavigationListItem text="{i18n>tabProfileApprovals}" icon="sap-icon://approvals" key="profileApprovals" visible="{user>/isHrAdmin}" />
                 </tnt:NavigationList>
                 <tnt:fixedItem>
                     <tnt:NavigationList>
@@ -87,11 +86,6 @@
                     <!-- Section 0: My Profile -->
                     <VBox visible="{= ${view>/selectedTab} === 'myProfile' }" class="sapUiResponsiveMargin">
                         <mvc:XMLView id="myProfileView" viewName="znxr09.znxr09f300.view.MyProfile"/>
-                    </VBox>
-
-                    <!-- Section 5: HR Profile Approval Inbox -->
-                    <VBox visible="{= ${view>/selectedTab} === 'profileApprovals' &amp;&amp; ${user>/isHrAdmin} }" class="sapUiResponsiveMargin">
-                        <mvc:XMLView id="profileApprovalInboxView" viewName="znxr09.znxr09f300.view.ProfileApprovalInbox"/>
                     </VBox>
 
                     <!-- Section 1: My Skills -->

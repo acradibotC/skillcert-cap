@@ -13,7 +13,20 @@
         <Page id="uploadPage" showHeader="false">
         <content>
             <VBox class="sapUiResponsiveMargin">
+                <IconTabBar
+                    id="hrToolsTabBar"
+                    selectedKey="{hrTools>/selectedTab}"
+                    select=".onHrToolTabSelect"
+                    expandable="false"
+                    headerMode="Inline"
+                    class="sapUiSmallMarginBottom">
+                    <items>
+                        <IconTabFilter key="upload" text="{i18n>tabUploadTimesheet}" icon="sap-icon://upload"/>
+                        <IconTabFilter key="profileApprovals" text="{i18n>tabProfileApprovals}" icon="sap-icon://approvals" visible="{user>/isHrAdmin}"/>
+                    </items>
+                </IconTabBar>
 
+                <VBox visible="{= ${hrTools>/selectedTab} === 'upload' }">
                 <!-- Custom Modern Header -->
                 <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
                     <core:Icon src="sap-icon://upload" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
@@ -121,6 +134,11 @@
                             showValue="true" />
                     </VBox>
                 </Panel>
+                </VBox>
+
+                <VBox visible="{= ${hrTools>/selectedTab} === 'profileApprovals' &amp;&amp; ${user>/isHrAdmin} }" class="sapUiResponsiveContentPadding">
+                    <mvc:XMLView id="profileApprovalInboxView" viewName="znxr09.znxr09f300.view.ProfileApprovalInbox"/>
+                </VBox>
 
             </VBox>
         </content>

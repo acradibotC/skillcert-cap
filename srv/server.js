@@ -45,14 +45,17 @@ function getSapCredentials() {
     return { username, password };
 }
 
-function isProfileHrAdmin(email, orgUnitId) {
+function isConfiguredProfileHrEmail(email) {
     const normalized = String(email || '').trim().toLowerCase();
-    const configuredEmailOverride = String(process.env.PROFILE_HR_EMAILS || '')
+    return String(process.env.PROFILE_HR_EMAILS || '')
         .split(',')
         .map(value => value.trim().toLowerCase())
         .filter(Boolean)
         .includes(normalized);
-    return configuredEmailOverride || canUseHrTools(orgUnitId);
+}
+
+function isProfileHrAdmin(email, orgUnitId) {
+    return isConfiguredProfileHrEmail(email) || isHrOrgUnit(orgUnitId);
 }
 
 function configuredHrOrgUnitIds() {
@@ -64,9 +67,13 @@ function configuredHrOrgUnitIds() {
     );
 }
 
-function canUseHrTools(orgUnitId) {
+function isHrOrgUnit(orgUnitId) {
     const normalized = String(orgUnitId || '').trim();
     return Boolean(normalized && configuredHrOrgUnitIds().has(normalized));
+}
+
+function canUseHrTools(orgUnitId, email) {
+    return isConfiguredProfileHrEmail(email) || isHrOrgUnit(orgUnitId);
 }
 
 function sessionUserMatches(req) {
@@ -228,7 +235,10 @@ cds.on('bootstrap', app => {
                     });
                 }
                 req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email, req.session.userInfo.orgUnitId);
-                req.session.userInfo.canUseHrTools = canUseHrTools(req.session.userInfo.orgUnitId);
+                req.session.userInfo.canUseHrTools = canUseHrTools(
+                    req.session.userInfo.orgUnitId,
+                    req.session.userInfo.email
+                );
                 return res.json(req.session.userInfo);
             }
         }
@@ -340,7 +350,7 @@ cds.on('bootstrap', app => {
                     department: profile.OrgUnitName || profile.OrgUnitId || '',
                     isManager: profile.IsManager === true || profile.IsManager === 'X' || profile.IsManager === 'x',
                     isHrAdmin: isProfileHrAdmin(email, profile.OrgUnitId),
-                    canUseHrTools: canUseHrTools(profile.OrgUnitId)
+                    canUseHrTools: canUseHrTools(profile.OrgUnitId, email)
                 };
                 if (req.session) req.session.userInfo = userInfo;
                 res.json(userInfo);
@@ -1081,7 +1091,7 @@ cds.on('bootstrap', app => {
             });
         }
 
-        const authorized = canUseHrTools(userInfo.orgUnitId);
+        const authorized = canUseHrTools(userInfo.orgUnitId, userInfo.email);
         userInfo.canUseHrTools = authorized;
         if (!authorized) {
             return res.status(403).json({

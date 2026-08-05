@@ -325,13 +325,26 @@ sap.ui.define([
             this._navigateToApp("timesheetPage", "znxr09.timesheet", "/timesheet/webapp");
         },
 
-        onNavToHrUpload: function () {
+        onNavToHrUpload: function (vTab) {
             if (!this.getView().getModel("user").getProperty("/canUseHrTools")) {
                 return;
             }
+            var sTab = typeof vTab === "string" ? vTab : "";
             this._setLaunchpadNavActive("hr");
-            this._setRoute("hr-upload");
+            this._setRoute("hr-upload", sTab);
             this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
+            if (sTab) {
+                try {
+                    window.sessionStorage.setItem("znxr09.hrTools.selectedTab", sTab);
+                } catch (e) {
+                    // Session storage can be unavailable; the event bus below is the fallback.
+                }
+                setTimeout(function () {
+                    sap.ui.getCore().getEventBus().publish("Launchpad", "NavToHrToolsTab", {
+                        tab: sTab
+                    });
+                }, 0);
+            }
         },
 
         _getRouteState: function () {
@@ -416,6 +429,13 @@ sap.ui.define([
             if (sApp === "hr-upload" &&
                 this.getView().getModel("user").getProperty("/canUseHrTools")) {
                 this._setLaunchpadNavActive("hr");
+                if (oRoute.tab) {
+                    try {
+                        window.sessionStorage.setItem("znxr09.hrTools.selectedTab", oRoute.tab);
+                    } catch (e) {
+                        // Session storage can be unavailable; HR Tools also reads the URL tab.
+                    }
+                }
                 this._navigateToApp("hrUploadPage", "znxr09.hrupload", "/hr-upload/webapp");
                 return;
             }
@@ -786,17 +806,7 @@ sap.ui.define([
                 if (this.byId("notificationPopover")) {
                     this.byId("notificationPopover").close();
                 }
-                try {
-                    window.sessionStorage.setItem("znxr09.profile.selectedTab", "profileApprovals");
-                } catch (e) {
-                    // Session storage can be unavailable; the event bus below is the fallback.
-                }
-                this.onNavToProfile("profileApprovals");
-                setTimeout(function () {
-                    sap.ui.getCore().getEventBus().publish("Launchpad", "NavToProfileTab", {
-                        tab: "profileApprovals"
-                    });
-                }, 0);
+                this.onNavToHrUpload("profileApprovals");
             } else if (oData.navigateTo === "profile") {
                 if (this.byId("notificationPopover")) {
                     this.byId("notificationPopover").close();

@@ -6,7 +6,15 @@
         "title": "{{appTitle}}",
         "description": "{{appDescription}}",
         "applicationVersion": { "version": "1.0.0" },
-        "dataSources": {}
+        "dataSources": {
+            "profileService": {
+                "uri": "/api/profile/v1/",
+                "type": "OData",
+                "settings": {
+                    "odataVersion": "4.0"
+                }
+            }
+        }
     },
     "sap.ui5": {
         "rootView": {
@@ -30,6 +38,18 @@
                 "type": "sap.ui.model.resource.ResourceModel",
                 "settings": {
                     "bundleName": "znxr09.hrupload.i18n.i18n"
+                }
+            },
+            "profileService": {
+                "dataSource": "profileService",
+                "preload": false,
+                "settings": {
+                    "synchronizationMode": "None",
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": false,
+                    "groupId": "$auto",
+                    "updateGroupId": "$direct"
                 }
             }
         },

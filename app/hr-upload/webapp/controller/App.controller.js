@@ -25,15 +25,97 @@ sap.ui.define([
                 uploadProgressText: ""
             });
             this.getView().setModel(oUploadModel, "uploadModel");
+            this.getView().setModel(new JSONModel({
+                selectedTab: "upload"
+            }), "hrTools");
             this._rawFile = null;
 
             // Preload SheetJS for the embedded Launchpad component. Do not show
             // an error yet: onParseFile retries and reports a user-facing error.
             this._ensureSheetJs().catch(function () {});
+
+            this._onLaunchpadHrToolsTab = this._onLaunchpadHrToolsTab.bind(this);
+            sap.ui.getCore().getEventBus().subscribe(
+                "Launchpad",
+                "NavToHrToolsTab",
+                this._onLaunchpadHrToolsTab,
+                this
+            );
+
+            this.getOwnerComponent().pUserLoaded.then(function () {
+                this._selectHrToolTab(this._consumeHrToolsTabTarget() || "upload");
+            }.bind(this));
         },
 
         onNavBack: function () {
             window.history.back();
+        },
+
+        _consumeHrToolsTabTarget: function () {
+            var sTab = "";
+            try {
+                sTab = window.sessionStorage.getItem("znxr09.hrTools.selectedTab") || "";
+                if (sTab) {
+                    window.sessionStorage.removeItem("znxr09.hrTools.selectedTab");
+                }
+            } catch (e) {
+                sTab = "";
+            }
+
+            if (!sTab) {
+                try {
+                    var oUrl = new URL(window.location.href);
+                    sTab = oUrl.searchParams.get("tab") || "";
+                } catch (e) {
+                    sTab = "";
+                }
+            }
+
+            return sTab;
+        },
+
+        _onLaunchpadHrToolsTab: function (sChannel, sEvent, oData) {
+            this._selectHrToolTab(oData && oData.tab);
+        },
+
+        onHrToolTabSelect: function (oEvent) {
+            this._selectHrToolTab(oEvent.getParameter("key"));
+        },
+
+        _selectHrToolTab: function (sKey) {
+            var sSelectedKey = sKey === "profileApprovals" ? "profileApprovals" : "upload";
+            var oUserModel = this.getOwnerComponent().getModel("user");
+            if (sSelectedKey === "profileApprovals" &&
+                    !(oUserModel && oUserModel.getProperty("/isHrAdmin"))) {
+                sSelectedKey = "upload";
+            }
+
+            this.getView().getModel("hrTools").setProperty("/selectedTab", sSelectedKey);
+            this._setLaunchpadTabRoute(sSelectedKey);
+
+            if (sSelectedKey === "profileApprovals") {
+                var oInboxView = this.byId("profileApprovalInboxView");
+                if (oInboxView && oInboxView.getController && oInboxView.getController().activate) {
+                    oInboxView.getController().activate();
+                }
+            }
+        },
+
+        _setLaunchpadTabRoute: function (sSelectedKey) {
+            try {
+                var oUrl = new URL(window.location.href);
+                if (oUrl.searchParams.get("app") !== "hr-upload") {
+                    return;
+                }
+                if (sSelectedKey && sSelectedKey !== "upload") {
+                    oUrl.searchParams.set("tab", sSelectedKey);
+                } else {
+                    oUrl.searchParams.delete("tab");
+                }
+                window.history.replaceState(window.history.state, document.title, oUrl.pathname + oUrl.search + oUrl.hash);
+            } catch (e) {
+                // Route synchronization is best effort; the active tab model remains authoritative.
+            }
         },
 
         _isSheetJsReady: function () {
@@ -572,6 +654,15 @@ sap.ui.define([
                     MessageBox.error(oBundle.getText("msgUploadFailed") + "\n" + sErr);
                 }
             });
+        },
+
+        onExit: function () {
+            sap.ui.getCore().getEventBus().unsubscribe(
+                "Launchpad",
+                "NavToHrToolsTab",
+                this._onLaunchpadHrToolsTab,
+                this
+            );
         }
     });
 });
