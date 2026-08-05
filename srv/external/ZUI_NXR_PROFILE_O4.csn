@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "creator": "cds-dk 9.9.2"
+  },
+  "$version": "2.0",
+  "definitions": {
+    "ZUI_NXR_PROFILE_O4": {
+      "kind": "service",
+      "@cds.external": true,
+      "@Capabilities.SupportedFormats": [
+        "application/json"
+      ]
+    },
+    "ZUI_NXR_PROFILE_O4.UserProfile": {
+      "kind": "entity",
+      "@cds.external": true,
+      "@cds.persistence.skip": true,
+      "@Common.Label": "MyProfile Display",
+      "@Capabilities.SearchRestrictions.Searchable": false,
+      "@Capabilities.InsertRestrictions.Insertable": false,
+      "@Capabilities.DeleteRestrictions.Deletable": false,
+      "@Capabilities.UpdateRestrictions.Updatable": false,
+      "elements": {
+        "UserId": {
+          "key": true,
+          "type": "cds.String",
+          "length": 255,
+          "notNull": true
+        },
+        "Pernr": {
+          "type": "cds.String",
+          "length": 8,
+          "notNull": true
+        },
+        "EmployeeName": {
+          "type": "cds.String",
+          "length": 120
+        },
+        "DateOfBirth": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "Gender": {
+          "type": "cds.String",
+          "length": 20
+        },
+        "Nationality": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "MaritalStatus": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "PositionId": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "PositionName": {
+          "type": "cds.String",
+          "length": 120
+        },
+        "OrgUnitId": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "OrgUnitName": {
+          "type": "cds.String",
+          "length": 120
+        },
+        "IdNumber": {
+          "type": "cds.String",
+          "length": 20
+        },
+        "Telephone": {
+          "type": "cds.String",
+          "length": 30
+        },
+        "PermanentAddress": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "WorkEmail": {
+          "type": "cds.String",
+          "length": 241
+        },
+        "CurrentAddress": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "TaxCode": {
+          "type": "cds.String",
+          "length": 10
+        },
+        "PayMethod": {
+          "type": "cds.String",
+          "length": 1
+        },
+        "PayMethodText": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "BankCountry": {
+          "type": "cds.String",
+          "length": 3
+        },
+        "BankKey": {
+          "type": "cds.String",
+          "length": 15
+        },
+        "BankAccount": {
+          "type": "cds.String",
+          "length": 18
+        },
+        "BankName": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "JoinDate": {
+          "type": "cds.String",
+          "length": 8
+        },
+        "ContractType": {
+          "type": "cds.String",
+          "length": 60
+        },
+        "DependentsSummary": {
+          "type": "cds.String",
+          "length": 255
+        },
+        "IsManager": {
+          "type": "cds.String",
+          "length": 1
+        }
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ const { SELECT } = cds.ql;
 
 let service;
 let originalConnectTo;
+let profileDisplayShouldFail = false;
 
 function user(email = 'haonguyen022202@gmail.com', pernr = '90000005', isHrAdmin = false) {
     return new cds.User({
@@ -25,21 +26,46 @@ test.before(async () => {
     await cds.deploy('srv/service.cds').to('sqlite::memory:');
     originalConnectTo = cds.connect.to;
     cds.connect.to = async function (name) {
+        if (name === 'ZUI_NXR_PROFILE_O4') {
+            return {
+                run: async () => {
+                    if (profileDisplayShouldFail) {
+                        throw Object.assign(new Error('Mocked profile display outage'), { status: 503 });
+                    }
+                    return {
+                        UserId: 'HAONGUYEN022202@GMAIL.COM',
+                        Pernr: '90000005',
+                        EmployeeName: 'Ta Nam Son',
+                        DateOfBirth: '20040926',
+                        Gender: 'Male',
+                        Nationality: 'Vietnamese',
+                        MaritalStatus: 'Married',
+                        PositionId: '00001234',
+                        PositionName: 'SAP Developer',
+                        OrgUnitId: '00005678',
+                        OrgUnitName: 'Technology',
+                        WorkEmail: 'haonguyen022202@gmail.com',
+                        Telephone: '0901234567',
+                        PermanentAddress: '123 SAP Street',
+                        CurrentAddress: '456 UI5 Avenue',
+                        PayMethod: 'C',
+                        JoinDate: '20240101',
+                        IsManager: 'X'
+                    };
+                }
+            };
+        }
         if (name === 'ZUI_NXR_SKILLREQ_O4') {
             return {
                 run: async () => ({
                     UserId: 'HAONGUYEN022202@GMAIL.COM',
                     Pernr: '90000005',
                     EmployeeName: 'Ta Nam Son',
-                    DateOfBirth: '1990-09-15',
-                    Gender: 'Male',
-                    Nationality: 'Vietnamese',
-                    MaritalStatus: 'Married',
-                    PositionId: '00001234',
-                    PositionName: 'SAP Developer',
-                    OrgUnitId: '00005678',
-                    OrgUnitName: 'Technology',
-                    IsManager: ''
+                    PositionId: '60009500',
+                    PositionName: 'Chief Financial Officer',
+                    OrgUnitId: '50009050',
+                    OrgUnitName: 'Accounting Finance Dept',
+                    IsManager: 'X'
                 })
             };
         }
@@ -65,13 +91,41 @@ test('MyProfile is mapped from SAP UserProfile without ProfileSnapshots', async 
     assert.equal(profile.PositionName, 'SAP Developer');
     assert.equal(profile.OrgUnitName, 'Technology');
     assert.equal(profile.WorkEmail, 'haonguyen022202@gmail.com');
-    assert.equal(profile.DateOfBirth, '1990-09-15');
+    assert.equal(profile.DateOfBirth, '2004-09-26');
     assert.equal(profile.Gender, 'Male');
     assert.equal(profile.Nationality, 'Vietnamese');
     assert.equal(profile.MaritalStatus, 'Married');
+    assert.equal(profile.Telephone, '0901234567');
+    assert.equal(profile.PermanentAddress, '123 SAP Street');
+    assert.equal(profile.CurrentAddress, '456 UI5 Avenue');
+    assert.equal(profile.PayMethod, 'C');
+    assert.equal(profile.PayMethodText, 'Cash');
+    assert.equal(profile.JoinDate, '2024-01-01');
     assert.equal(profile.IsSimulation, false);
     assert.equal(profile.IdNumber, '');
     assert.ok(profile.ProfileVersion);
+});
+
+test('MyProfile falls back to legacy SkillReq UserProfile while display OData is unavailable', async () => {
+    profileDisplayShouldFail = true;
+    try {
+        const rows = await service.send(new cds.Request({
+            event: 'READ',
+            query: SELECT.from('ProfileService.MyProfile'),
+            user: user()
+        }));
+        const profile = rows.Pernr ? rows : rows[0];
+
+        assert.equal(profile.Pernr, '90000005');
+        assert.equal(profile.EmployeeName, 'Ta Nam Son');
+        assert.equal(profile.PositionName, 'Chief Financial Officer');
+        assert.equal(profile.OrgUnitName, 'Accounting Finance Dept');
+        assert.equal(profile.WorkEmail, 'haonguyen022202@gmail.com');
+        assert.equal(profile.DateOfBirth, null);
+        assert.equal(profile.Gender, '');
+    } finally {
+        profileDisplayShouldFail = false;
+    }
 });
 
 test('MyProfileFields exposes the workflow editable field catalog', async () => {
@@ -275,7 +329,7 @@ test('profile approval applies changes through configured SAP profile OData adap
         assert.deepEqual(sentRequest.data.Changes[0], {
             FieldCode: 'CURR_ADDRESS',
             FieldGroup: 'CONTACT',
-            OldValue: '',
+            OldValue: '456 UI5 Avenue',
             NewValue: '123 Local Street',
             SapInfotype: '0006',
             SapSubtype: '',

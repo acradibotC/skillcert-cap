@@ -28,6 +28,9 @@ const DTO_PROPERTY_BY_FIELD = Object.freeze({
     BANK_ACCT: 'BankAccount'
 });
 
+const DEFAULT_PROFILE_DISPLAY_SERVICE = 'ZUI_NXR_PROFILE_O4';
+const DEFAULT_PROFILE_DISPLAY_FALLBACK_SERVICE = 'ZUI_NXR_SKILLREQ_O4';
+
 function reject(req, status, code, message) {
     return req.reject({ status, code, message });
 }
@@ -176,7 +179,7 @@ function profileDto(sapProfile, context) {
     const dto = {
         Pernr: String(sapProfile.Pernr || context.pernr),
         EmployeeName: sapProfile.EmployeeName || context.name,
-        DateOfBirth: sapProfile.DateOfBirth || null,
+        DateOfBirth: normalizeDate(sapProfile.DateOfBirth),
         Gender: sapProfile.Gender || '',
         Nationality: sapProfile.Nationality || '',
         MaritalStatus: sapProfile.MaritalStatus || '',
@@ -189,12 +192,12 @@ function profileDto(sapProfile, context) {
         CurrentAddress: sapProfile.CurrentAddress || '',
         TaxCode: sapProfile.TaxCode || '',
         PayMethod: sapProfile.PayMethod || '',
-        PayMethodText: sapProfile.PayMethodText || '',
+        PayMethodText: sapProfile.PayMethodText || paymentMethodText(sapProfile.PayMethod),
         BankCountry: sapProfile.BankCountry || '',
         BankKey: sapProfile.BankKey || '',
         BankAccount: sapProfile.BankAccount || '',
         BankName: sapProfile.BankName || '',
-        JoinDate: sapProfile.JoinDate || null,
+        JoinDate: normalizeDate(sapProfile.JoinDate),
         ContractType: sapProfile.ContractType || '',
         DependentsSummary: sapProfile.DependentsSummary || '',
         IsSimulation: false
@@ -326,6 +329,37 @@ function asBoolean(value) {
     return false;
 }
 
+function envBool(name, defaultValue = false) {
+    const value = process.env[name];
+    if (value === undefined || value === null || value === '') return defaultValue;
+    return ['true', 'x', 'yes', 'y', '1'].includes(String(value).trim().toLowerCase());
+}
+
+function configuredServiceName(name, defaultValue) {
+    return String(process.env[name] || defaultValue).trim();
+}
+
+function paymentMethodText(code) {
+    switch (String(code || '').trim().toUpperCase()) {
+        case 'C':
+            return 'Cash';
+        case 'T':
+            return 'Bank Transfer';
+        default:
+            return '';
+    }
+}
+
+function normalizeDate(value) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    if (/^\d{8}$/.test(text)) {
+        return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+    }
+    return null;
+}
+
 function profileApplyPayload(request, items, context, comment) {
     return {
         RequestId: request.ID,
@@ -440,24 +474,98 @@ async function applyProfileChanges(req, request, items, context, comment) {
 }
 
 module.exports = async function ProfileService() {
-    const sap = await cds.connect.to('ZUI_NXR_SKILLREQ_O4');
+    const profileDisplayServiceName = configuredServiceName('PROFILE_DISPLAY_SERVICE', DEFAULT_PROFILE_DISPLAY_SERVICE);
+    const profileDisplayFallbackServiceName = configuredServiceName(
+        'PROFILE_DISPLAY_FALLBACK_SERVICE',
+        DEFAULT_PROFILE_DISPLAY_FALLBACK_SERVICE
+    );
+    const allowProfileDisplayFallback = envBool('PROFILE_DISPLAY_ALLOW_FALLBACK', true);
 
-    async function readSapProfile(req, context) {
-        const candidates = [...new Set([
+    async function connectProfileService(serviceName) {
+        if (!serviceName) {
+            return { serviceName, service: null, error: null };
+        }
+        try {
+            return { serviceName, service: await cds.connect.to(serviceName), error: null };
+        } catch (error) {
+            return { serviceName, service: null, error };
+        }
+    }
+
+    const profileDisplay = await connectProfileService(profileDisplayServiceName);
+    const profileDisplayFallback = profileDisplayFallbackServiceName === profileDisplayServiceName
+        ? profileDisplay
+        : await connectProfileService(profileDisplayFallbackServiceName);
+
+    function profileLookupCandidates(context) {
+        return [...new Set([
             context.sapUserId,
             context.email,
-            context.sapUserId.toUpperCase(),
-            context.email.toUpperCase()
+            context.sapUserId?.toUpperCase(),
+            context.email?.toUpperCase(),
+            context.sapUserId?.toLowerCase(),
+            context.email?.toLowerCase()
         ].filter(Boolean))];
+    }
 
+    async function findProfile(connection, context) {
+        if (!connection.service) {
+            if (connection.error) throw connection.error;
+            return null;
+        }
+
+        for (const userId of profileLookupCandidates(context)) {
+            const profile = await connection.service.run(SELECT.one.from('UserProfile').where({ UserId: userId }));
+            if (profile) return profile;
+        }
+        if (context.pernr) {
+            return connection.service.run(SELECT.one.from('UserProfile').where({ Pernr: context.pernr }));
+        }
+        return null;
+    }
+
+    async function readSapProfile(req, context) {
+        let primaryError;
         let profile;
-        for (const userId of candidates) {
-            profile = await sap.run(SELECT.one.from('UserProfile').where({ UserId: userId }));
-            if (profile) break;
+        try {
+            profile = await findProfile(profileDisplay, context);
+        } catch (error) {
+            primaryError = error;
+            if (!allowProfileDisplayFallback) {
+                return reject(
+                    req,
+                    error.statusCode || error.status || 503,
+                    'SAP_PROFILE_DISPLAY_SERVICE_UNAVAILABLE',
+                    `SAP profile display service ${profileDisplay.serviceName} is not available.`
+                );
+            }
         }
-        if (!profile && context.pernr) {
-            profile = await sap.run(SELECT.one.from('UserProfile').where({ Pernr: context.pernr }));
+
+        if (!profile && allowProfileDisplayFallback && profileDisplayFallback.serviceName) {
+            try {
+                profile = await findProfile(profileDisplayFallback, context);
+            } catch (error) {
+                const serviceName = primaryError
+                    ? `${profileDisplay.serviceName} and ${profileDisplayFallback.serviceName}`
+                    : profileDisplayFallback.serviceName;
+                return reject(
+                    req,
+                    error.statusCode || error.status || 503,
+                    'SAP_PROFILE_DISPLAY_SERVICE_UNAVAILABLE',
+                    `SAP profile display service ${serviceName} is not available.`
+                );
+            }
         }
+
+        if (!profile && primaryError) {
+            return reject(
+                req,
+                primaryError.statusCode || primaryError.status || 503,
+                'SAP_PROFILE_DISPLAY_SERVICE_UNAVAILABLE',
+                `SAP profile display service ${profileDisplay.serviceName} is not available.`
+            );
+        }
+
         if (!profile) {
             return reject(req, 404, 'SAP_PROFILE_NOT_FOUND', 'No employee profile was found in SAP.');
         }

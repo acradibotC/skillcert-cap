@@ -1,0 +1,4 @@
+@EndUserText.label: 'MyProfile Display OData V4 Service'
+define service ZUI_NXR_PROFILE_O4 {
+  expose ZC_NXR_PROFILE_DISPLAY as UserProfile;
+}

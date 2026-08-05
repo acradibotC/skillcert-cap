@@ -86,6 +86,13 @@ cds.on('bootstrap', app => {
         }
     }
 
+    if (cds.env.requires && cds.env.requires.ZUI_NXR_PROFILE_O4 && cds.env.requires.ZUI_NXR_PROFILE_O4.credentials) {
+        if (process.env.UI5_USERNAME && process.env.UI5_PASSWORD) {
+            cds.env.requires.ZUI_NXR_PROFILE_O4.credentials.username = process.env.UI5_USERNAME;
+            cds.env.requires.ZUI_NXR_PROFILE_O4.credentials.password = process.env.UI5_PASSWORD;
+        }
+    }
+
     if (cds.env.requires && cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4 && cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials) {
         if (process.env.UI5_USERNAME && process.env.UI5_PASSWORD) {
             cds.env.requires.ZUI_NXR_WORKSCHEDULE_O4.credentials.username = process.env.UI5_USERNAME;
