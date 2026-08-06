@@ -19,8 +19,24 @@ sap.ui.define([
             // Intercept browser back button to prevent navigating back to Google SSO
             window.history.pushState(null, null, window.location.href);
             window.addEventListener('popstate', function(event) {
+                // Embedded UI5 applications (currently Profile) own their
+                // internal hash routes. UI5 may use the browser history API
+                // while navigating from a list row to a detail page. Do not
+                // interpret that internal transition as a Launchpad back
+                // navigation; otherwise the shell drops ?app=profile and
+                // returns to Home before the detail page can render.
+                var sHash = window.location.hash || "";
                 var oNavContainer = this.byId("navContainer");
-                if (oNavContainer && oNavContainer.getCurrentPage() && oNavContainer.getCurrentPage().getId() !== this.createId("homePage")) {
+                var oCurrentPage = oNavContainer && oNavContainer.getCurrentPage();
+                var bProfilePage = oCurrentPage &&
+                    oCurrentPage.getId() === this.createId("profilePage");
+                var bProfileShellRoute = new URL(window.location.href).searchParams.get("app") === "profile";
+                if ((bProfilePage && bProfileShellRoute) ||
+                    /^#\/?(?:cert|skill|request)(?:\/|$)/i.test(sHash)) {
+                    return;
+                }
+
+                if (oNavContainer && oCurrentPage && oCurrentPage.getId() !== this.createId("homePage")) {
                     this.onNavToHome();
                 }
                 // Always push state again to trap the back button within the app

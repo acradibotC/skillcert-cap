@@ -271,12 +271,17 @@ sap.ui.define([
             var oItem = oEvent.getParameter("listItem") || oEvent.getSource();
             var oContext = oItem.getBindingContext("odata");
             if (!oContext) {
+                console.warn("Skill/certification navigation skipped: no binding context");
                 return;
             }
             var sRequestId = oContext.getProperty("RequestId");
+            if (!sRequestId) {
+                console.warn("Skill/certification navigation skipped: RequestId is empty");
+                return;
+            }
 
             this.getOwnerComponent().getRouter().navTo("certDetail", {
-                certIndex: sRequestId
+                certIndex: encodeURIComponent(String(sRequestId))
             });
         },
 

@@ -1,5 +1,20 @@
 /* Skill & Certs App - Custom Styles */
 
+/* Shared page header aligned with the TimeSheet application */
+.timesheetPageHeader {
+    background: linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    color: white;
+}
+
+.timesheetHeaderTitle {
+    color: white !important;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    font-size: 1.5rem !important;
+    font-weight: bold;
+}
 
 
 /* Status badges */

@@ -52,6 +52,18 @@
 
                 <!-- Summary Cards for Skills and Certs (Filterable) -->
                 <!-- Summary Cards for Skills and Certs (Premium) -->
+                <HBox visible="{= ${view>/selectedTab} === 'mySkills' }"
+                      alignItems="Center"
+                      class="timesheetPageHeader sapUiSmallMarginBottom">
+                    <core:Icon src="sap-icon://education" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                    <Title text="{i18n>tabMySkills}" class="timesheetHeaderTitle" level="H2" />
+                </HBox>
+                <HBox visible="{= ${view>/selectedTab} === 'myCerts' }"
+                      alignItems="Center"
+                      class="timesheetPageHeader sapUiSmallMarginBottom">
+                    <core:Icon src="sap-icon://badge" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                    <Title text="{i18n>tabMyCerts}" class="timesheetHeaderTitle" level="H2" />
+                </HBox>
                 <HBox justifyContent="Start" wrap="Wrap" class="sapUiMediumMarginBottom" visible="{= ${view>/selectedTab} === 'mySkills' || ${view>/selectedTab} === 'myCerts' }">
                     <VBox id="cardTotal" class="profileStatCard">
                         <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%">
@@ -200,6 +212,10 @@
 
                     <!-- Section 3: Team Management (Manager Only) -->
                     <VBox visible="{= ${view>/selectedTab} === 'team' &amp;&amp; ${user>/isManager} }">
+                        <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                            <core:Icon src="sap-icon://group" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                            <Title text="{i18n>tabTeamMgmt}" class="timesheetHeaderTitle" level="H2" />
+                        </HBox>
                         <l:Splitter height="750px">
                                     <Page id="teamMasterPage" title="{i18n>teamMembersTitle}" showHeader="true">
                                         <layoutData>

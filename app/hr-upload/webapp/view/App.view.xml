@@ -148,6 +148,10 @@
                 </VBox>
 
                 <VBox visible="{= ${hrTools>/selectedTab} === 'profileApprovals' &amp;&amp; ${user>/isHrAdmin} }" class="sapUiResponsiveContentPadding">
+                    <HBox alignItems="Center" class="timesheetPageHeader sapUiSmallMarginBottom">
+                        <core:Icon src="sap-icon://approvals" size="2rem" color="#fff" class="sapUiMediumMarginEnd" />
+                        <Title text="{i18n>profileApprovalPageTitle}" class="timesheetHeaderTitle" level="H2" />
+                    </HBox>
                     <mvc:XMLView id="profileApprovalInboxView" viewName="znxr09.znxr09f300.view.ProfileApprovalInbox"/>
                 </VBox>
 
