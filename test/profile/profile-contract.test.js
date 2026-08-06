@@ -16,7 +16,8 @@ test('ProfileService metadata matches the UI contract', async () => {
         'ProfileApprovalRequestItems',
         'ProfileRequestEvents',
         'ProfilePaymentMethods',
-        'ProfileBanks'
+        'ProfileBanks',
+        'ProfileMaritalStatuses'
     ]) {
         assert.match(edmx, new RegExp(`EntitySet Name="${entitySet}"`));
     }
@@ -35,6 +36,8 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(employeeController, /\/MyProfile/);
     assert.match(employeeController, /\/MyProfileFields/);
     assert.match(employeeController, /\/MyProfileRequests/);
+    assert.match(employeeController, /\/ProfileBanks/);
+    assert.match(employeeController, /\/ProfileMaritalStatuses/);
     assert.doesNotMatch(employeeController, /Fragment\.load/);
     assert.match(employeeController, /_startProfileEdit/);
     assert.match(employeeController, /\/isEditingProfile/);

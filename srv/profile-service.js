@@ -1355,6 +1355,33 @@ module.exports = async function ProfileService() {
         return profileDto(await readSapProfile(req, context), context);
     }
 
+    async function readSapValueHelp(req, entity, mapper, options = {}) {
+        if (!profileDisplay.service) {
+            return reject(
+                req,
+                503,
+                'SAP_PROFILE_VALUE_HELP_UNAVAILABLE',
+                `SAP profile value help service ${profileDisplay.serviceName} is not available.`
+            );
+        }
+
+        try {
+            ensureRemoteServiceCredentials(profileDisplay.serviceName, profileDisplay.service);
+            let query = SELECT.from(entity).limit(options.limit || 200);
+            if (options.where) query = query.where(options.where);
+            let rows = await profileDisplay.service.run(query);
+            if (typeof options.filter === 'function') rows = (rows || []).filter(options.filter);
+            return (rows || []).map(mapper);
+        } catch (error) {
+            return reject(
+                req,
+                error.statusCode || error.status || 503,
+                'SAP_PROFILE_VALUE_HELP_UNAVAILABLE',
+                `SAP profile value help ${entity} is not available.`
+            );
+        }
+    }
+
     this.on('READ', 'MyProfile', currentProfile);
     this.on('READ', 'MyProfileFields', async req => {
         const context = userContext(req);
@@ -1431,13 +1458,35 @@ module.exports = async function ProfileService() {
         { Code: 'C', Text: 'Cash', Category: 'CASH', IsBankTransfer: false },
         { Code: 'T', Text: 'Bank Transfer', Category: 'BANK', IsBankTransfer: true }
     ]);
-    this.on('READ', 'ProfileBanks', () => [
-        { BankCountry: 'VN', BankKey: 'VCBVM02', BankName: 'Vietcombank HNI branch', IsSimulation: false },
-        { BankCountry: 'VN', BankKey: 'BIDVVNVX', BankName: 'BIDV', IsSimulation: false },
-        { BankCountry: 'VN', BankKey: 'VNVX', BankName: 'Vietnam Bank for Agriculture and Rural Development', IsSimulation: false },
-        { BankCountry: 'VN', BankKey: 'TCBVVNVX', BankName: 'Techcombank', IsSimulation: false },
-        { BankCountry: 'VN', BankKey: 'VPBank', BankName: 'VPBank', IsSimulation: false }
-    ]);
+    this.on('READ', 'ProfileBanks', req => readSapValueHelp(
+        req,
+        'BankValueHelp',
+        row => ({
+            BankCountry: String(row.BankCountry || row.Banks || 'VN').trim(),
+            BankKey: String(row.BankKey || row.Bankl || '').trim(),
+            BankName: String(row.BankName || row.Banka || '').trim(),
+            IsSimulation: false
+        }),
+        {
+            limit: 200,
+            where: { BankCountry: String(process.env.PROFILE_BANK_COUNTRY || 'VN').trim() }
+        }
+    ));
+
+    this.on('READ', 'ProfileMaritalStatuses', req => readSapValueHelp(
+        req,
+        'MaritalStatusValueHelp',
+        row => ({
+            MaritalStatusCode: String(row.MaritalStatusCode || row.Famst || '').trim(),
+            MaritalStatusText: String(row.MaritalStatusText || row.Ftext || '').trim(),
+            Language: String(row.Language || row.Sprsl || '').trim(),
+            IsSimulation: false
+        }),
+        {
+            limit: 50,
+            where: { Language: String(process.env.PROFILE_LANGUAGE || 'EN').trim() }
+        }
+    ));
 
     this.on('submitProfileChange', async req => {
         const context = userContext(req);

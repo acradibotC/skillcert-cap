@@ -133,6 +133,60 @@
           "length": 1
         }
       }
+    },
+    "ZUI_NXR_PROFILE_O4.BankValueHelp": {
+      "kind": "entity",
+      "@cds.external": true,
+      "@cds.persistence.skip": true,
+      "@Common.Label": "MyProfile Bank Value Help",
+      "@Capabilities.InsertRestrictions.Insertable": false,
+      "@Capabilities.DeleteRestrictions.Deletable": false,
+      "@Capabilities.UpdateRestrictions.Updatable": false,
+      "elements": {
+        "BankCountry": {
+          "key": true,
+          "type": "cds.String",
+          "length": 3,
+          "notNull": true
+        },
+        "BankKey": {
+          "key": true,
+          "type": "cds.String",
+          "length": 15,
+          "notNull": true
+        },
+        "BankName": {
+          "type": "cds.String",
+          "length": 60
+        }
+      }
+    },
+    "ZUI_NXR_PROFILE_O4.MaritalStatusValueHelp": {
+      "kind": "entity",
+      "@cds.external": true,
+      "@cds.persistence.skip": true,
+      "@Common.Label": "MyProfile Marital Status Value Help",
+      "@Capabilities.InsertRestrictions.Insertable": false,
+      "@Capabilities.DeleteRestrictions.Deletable": false,
+      "@Capabilities.UpdateRestrictions.Updatable": false,
+      "elements": {
+        "MaritalStatusCode": {
+          "key": true,
+          "type": "cds.String",
+          "length": 1,
+          "notNull": true
+        },
+        "Language": {
+          "key": true,
+          "type": "cds.String",
+          "length": 2,
+          "notNull": true
+        },
+        "MaritalStatusText": {
+          "type": "cds.String",
+          "length": 60
+        }
+      }
     }
   }
 }

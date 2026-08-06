@@ -28,7 +28,20 @@ test.before(async () => {
     cds.connect.to = async function (name) {
         if (name === 'ZUI_NXR_PROFILE_O4') {
             return {
-                run: async () => {
+                run: async query => {
+                    const source = query?.SELECT?.from?.ref?.[0] || query?.SELECT?.from;
+                    if (source === 'BankValueHelp') {
+                        return [
+                            { BankCountry: 'VN', BankKey: 'VCBVM02', BankName: 'Vietcombank HNI branch' },
+                            { BankCountry: 'VN', BankKey: 'BIDVVNVX', BankName: 'BIDV' }
+                        ];
+                    }
+                    if (source === 'MaritalStatusValueHelp') {
+                        return [
+                            { MaritalStatusCode: '0', Language: 'EN', MaritalStatusText: 'Single' },
+                            { MaritalStatusCode: '1', Language: 'EN', MaritalStatusText: 'Married' }
+                        ];
+                    }
                     if (profileDisplayShouldFail) {
                         throw Object.assign(new Error('Mocked profile display outage'), { status: 503 });
                     }
@@ -142,6 +155,23 @@ test('MyProfileFields exposes the workflow editable field catalog', async () => 
     assert.ok(fields.every(field => field.Editable === true));
     assert.ok(fields.every(field => field.Locked === false));
     assert.equal(fields.find(field => field.FieldCode === 'WORK_EMAIL').Value, 'haonguyen022202@gmail.com');
+});
+
+test('profile value helps are read from SAP OData entities', async () => {
+    const banks = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.ProfileBanks'),
+        user: user()
+    }));
+    const maritalStatuses = await service.send(new cds.Request({
+        event: 'READ',
+        query: SELECT.from('ProfileService.ProfileMaritalStatuses'),
+        user: user()
+    }));
+
+    assert.deepEqual(banks.map(row => row.BankKey), ['VCBVM02', 'BIDVVNVX']);
+    assert.deepEqual(maritalStatuses.map(row => row.MaritalStatusCode), ['0', '1']);
+    assert.equal(maritalStatuses[1].MaritalStatusText, 'Married');
 });
 
 test('profile edit submits a pending request, locks fields, and keeps SAP apply fail-safe', async () => {

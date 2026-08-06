@@ -238,6 +238,14 @@ service ProfileService @(path: '/api/profile/v1') {
         IsSimulation           : Boolean;
     }
 
+    @readonly @cds.persistence.skip
+    entity ProfileMaritalStatuses {
+        key MaritalStatusCode : String(1);
+        MaritalStatusText     : String(60);
+        Language              : String(2);
+        IsSimulation          : Boolean;
+    }
+
     type ProfileChangeInput {
         FieldCode              : String(30);
         NewValue               : String(500);

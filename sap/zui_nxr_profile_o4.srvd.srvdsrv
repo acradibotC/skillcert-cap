@@ -1,4 +1,6 @@
 @EndUserText.label: 'MyProfile Display OData V4 Service'
 define service ZUI_NXR_PROFILE_O4 {
   expose ZC_NXR_PROFILE_DISPLAY as UserProfile;
+  expose ZC_NXR_PROFILE_BANK_VH as BankValueHelp;
+  expose ZC_NXR_PROFILE_MARITAL_VH as MaritalStatusValueHelp;
 }

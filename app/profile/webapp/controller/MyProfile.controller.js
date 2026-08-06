@@ -80,12 +80,7 @@ sap.ui.define([
                     { Code: "C", DisplayText: this._bundle().getText("profilePaymentCash") },
                     { Code: "T", DisplayText: this._bundle().getText("profilePaymentBankTransfer") }
                 ],
-                maritalStatuses: [
-                    { Code: "0", DisplayText: this._bundle().getText("profileMaritalSingle") },
-                    { Code: "1", DisplayText: this._bundle().getText("profileMaritalMarried") },
-                    { Code: "2", DisplayText: this._bundle().getText("profileMaritalWidowed") },
-                    { Code: "3", DisplayText: this._bundle().getText("profileMaritalDivorced") }
-                ],
+                maritalStatuses: [],
                 banks: []
             }), "profileCatalog");
 
@@ -137,7 +132,8 @@ sap.ui.define([
                 ProfileApi.requestList(oModel, "/MyProfileRequests", [], [
                     new Sorter("SubmittedAt", true)
                 ], {}, 100),
-                ProfileApi.requestList(oModel, "/ProfileBanks", [], [], {}, 200).catch(function () { return []; })
+                ProfileApi.requestList(oModel, "/ProfileBanks", [], [], {}, 200).catch(function () { return []; }),
+                ProfileApi.requestList(oModel, "/ProfileMaritalStatuses", [], [], {}, 50).catch(function () { return []; })
             ]).then(function (aResults) {
                 var oProfile = aResults[0];
                 if (!oProfile) {
@@ -157,6 +153,14 @@ sap.ui.define([
                 this._setProfileEditDisplayState(oProfile);
                 var aRequests = aResults[2] || [];
                 var aBanks = aResults[3] || [];
+                var aMaritalStatuses = (aResults[4] || []).map(function (oStatus) {
+                    return {
+                        Code: oStatus.Code || oStatus.MaritalStatusCode,
+                        DisplayText: oStatus.DisplayText || oStatus.MaritalStatusText || oStatus.MaritalStatusCode,
+                        Language: oStatus.Language,
+                        IsSimulation: oStatus.IsSimulation === true
+                    };
+                });
                 if (oProfile.BankKey && !aBanks.some(function (oBank) {
                     return String(oBank.BankCountry || "") === String(oProfile.BankCountry || "VN") &&
                         String(oBank.BankKey || "") === String(oProfile.BankKey || "");
@@ -169,6 +173,17 @@ sap.ui.define([
                     });
                 }
                 this.getView().getModel("profileCatalog").setProperty("/banks", aBanks);
+                if (oProfile.MaritalStatusCode && !aMaritalStatuses.some(function (oStatus) {
+                    return String(oStatus.Code || "") === String(oProfile.MaritalStatusCode);
+                })) {
+                    aMaritalStatuses.unshift({
+                        Code: oProfile.MaritalStatusCode,
+                        DisplayText: oProfile.MaritalStatus || oProfile.MaritalStatusCode,
+                        Language: "EN",
+                        IsSimulation: false
+                    });
+                }
+                this.getView().getModel("profileCatalog").setProperty("/maritalStatuses", aMaritalStatuses);
                 aRequests.forEach(function (oRequest) {
                     oRequest.StatusText = this._statusText(oRequest.Status);
                 }.bind(this));
