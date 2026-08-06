@@ -55,10 +55,13 @@ test('ProfileService metadata matches the UI contract', async () => {
     assert.match(employeeView, /profilePreviewEditButton[\s\S]*?enabled="\{profileUi>\/hasEditableField\}"/);
     assert.doesNotMatch(employeeView, /profileInlineEditCard/);
     assert.match(employeeView, /profileInlineEditFooter/);
-    assert.match(employeeView, /id="profileIdNumberInput"[\s\S]*?value="\{profileEdit>\/values\/ID_NUMBER\}"[\s\S]*?editable="\{= \$\{profileUi>\/isEditingProfile\}/);
+    assert.doesNotMatch(employeeView, /profileIdNumberInput|profileTaxCodeInput|profileIdNumber|profileTaxCode/);
+    assert.match(employeeView, /profileMaritalStatusEditInput[\s\S]*?valueHelpRequest="onMaritalStatusValueHelp"/);
     assert.match(employeeView, /id="profilePermanentAddressInput"[\s\S]*?value="\{profileEdit>\/values\/ADDRESS\}"[\s\S]*?editable="\{= \$\{profileUi>\/isEditingProfile\}/);
     assert.match(employeeView, /id="profileTelephoneInput"[\s\S]*?value="\{profileEdit>\/values\/TELEPHONE\}"[\s\S]*?editable="\{= \$\{profileUi>\/isEditingProfile\}/);
     assert.match(employeeView, /<Select[\s\S]*?visible="\{profileUi>\/isEditingProfile\}"[\s\S]*?id="profilePaymentMethodSelect"/);
+    assert.match(employeeView, /profileBankKeyInput[\s\S]*?valueHelpRequest="onBankKeyValueHelp"/);
+    assert.doesNotMatch(employeeView, /profileBankCountryInput/);
     assert.match(employeeView, /id="profileSubmitButton"[\s\S]*?visible="\{profileUi>\/isEditingProfile\}"/);
     assert.match(employeeView, /id="profileCancelEditButton"[\s\S]*?visible="\{profileUi>\/isEditingProfile\}"/);
     assert.doesNotMatch(employeeView, /profileDisplayIdNumberInput/);

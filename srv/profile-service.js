@@ -20,12 +20,11 @@ const EVENTS = 'znxr09.db.ProfileRequestEvents';
 const OUTBOX = 'znxr09.db.ProfileNotificationOutbox';
 
 const DTO_PROPERTY_BY_FIELD = Object.freeze({
-    ID_NUMBER: 'IdNumber',
     TELEPHONE: 'Telephone',
     ADDRESS: 'PermanentAddress',
     WORK_EMAIL: 'WorkEmail',
     CURR_ADDRESS: 'CurrentAddress',
-    TAX_CODE: 'TaxCode',
+    MARITAL_STATUS: 'MaritalStatusCode',
     PAY_METHOD: 'PayMethod',
     BANK_COUNTRY: 'BankCountry',
     BANK_KEY: 'BankKey',
@@ -338,13 +337,21 @@ function userContext(req, requireHr = false) {
 
 function profileDto(sapProfile, context) {
     const sapUserId = String(sapProfile.UserId || context.sapUserId || '').trim();
+    const maritalLabel = String(sapProfile.MaritalStatus || '').trim();
+    const maritalStatusCode = String(sapProfile.MaritalStatusCode || '').trim() || ({
+        'Single': '0',
+        'Married': '1',
+        'Widowed': '2',
+        'Divorced': '3'
+    }[maritalLabel] || '');
     const dto = {
         Pernr: String(sapProfile.Pernr || context.pernr),
         EmployeeName: sapProfile.EmployeeName || context.name,
         DateOfBirth: normalizeDate(sapProfile.DateOfBirth),
         Gender: sapProfile.Gender || '',
         Nationality: sapProfile.Nationality || '',
-        MaritalStatus: sapProfile.MaritalStatus || '',
+        MaritalStatus: maritalLabel,
+        MaritalStatusCode: maritalStatusCode,
         PositionName: sapProfile.PositionName || sapProfile.PositionId || '',
         OrgUnitName: sapProfile.OrgUnitName || sapProfile.OrgUnitId || '',
         IdNumber: sapProfile.IdNumber || '',
@@ -1424,7 +1431,13 @@ module.exports = async function ProfileService() {
         { Code: 'C', Text: 'Cash', Category: 'CASH', IsBankTransfer: false },
         { Code: 'T', Text: 'Bank Transfer', Category: 'BANK', IsBankTransfer: true }
     ]);
-    this.on('READ', 'ProfileBanks', () => []);
+    this.on('READ', 'ProfileBanks', () => [
+        { BankCountry: 'VN', BankKey: 'VCBVM02', BankName: 'Vietcombank HNI branch', IsSimulation: false },
+        { BankCountry: 'VN', BankKey: 'BIDVVNVX', BankName: 'BIDV', IsSimulation: false },
+        { BankCountry: 'VN', BankKey: 'VNVX', BankName: 'Vietnam Bank for Agriculture and Rural Development', IsSimulation: false },
+        { BankCountry: 'VN', BankKey: 'TCBVVNVX', BankName: 'Techcombank', IsSimulation: false },
+        { BankCountry: 'VN', BankKey: 'VPBank', BankName: 'VPBank', IsSimulation: false }
+    ]);
 
     this.on('submitProfileChange', async req => {
         const context = userContext(req);

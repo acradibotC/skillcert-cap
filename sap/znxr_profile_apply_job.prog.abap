@@ -10,8 +10,11 @@ PARAMETERS:
   p_caddr  TYPE subty DEFAULT '2',
   p_land1  TYPE p0006-land1 DEFAULT 'VN',
   p_city   TYPE p0006-ort01 DEFAULT 'Unknown',
+  p_pstlz  TYPE p0006-pstlz DEFAULT '700000',
   p_bankty TYPE subty DEFAULT '0',
-  p_idty   TYPE subty DEFAULT '01'.
+  p_apid   TYPE abap_bool AS CHECKBOX DEFAULT abap_false,
+  p_idmol  TYPE t5r05-molga DEFAULT 'VN',
+  p_idty   TYPE t5r05-ictyp DEFAULT ''.
 
 CONSTANTS:
   gc_status_approved TYPE ztb_nxr_profreq-status VALUE '02',
@@ -21,6 +24,7 @@ CONSTANTS:
   gc_state_failed     TYPE ztb_nxr_profreq-apply_state VALUE 'FAILED',
   gc_endda            TYPE endda VALUE '99991231',
   gc_infty_0006       TYPE infty VALUE '0006',
+  gc_infty_0002       TYPE infty VALUE '0002',
   gc_infty_0009       TYPE infty VALUE '0009',
   gc_infty_0105       TYPE infty VALUE '0105',
   gc_infty_0185       TYPE infty VALUE '0185'.
@@ -217,6 +221,9 @@ FORM get_changed_fields USING is_request TYPE ztb_nxr_profreq
   IF is_request-bank_account IS NOT INITIAL.
     APPEND 'BANK_ACCT' TO ct_fields.
   ENDIF.
+  IF is_request-marital_status IS NOT INITIAL.
+    APPEND 'MARITAL_STATUS' TO ct_fields.
+  ENDIF.
 ENDFORM.
 
 FORM validate_fields USING it_fields TYPE tt_field
@@ -241,7 +248,8 @@ FORM validate_fields USING it_fields TYPE tt_field
         OR 'PAY_METHOD'
         OR 'BANK_COUNTRY'
         OR 'BANK_KEY'
-        OR 'BANK_ACCT'.
+        OR 'BANK_ACCT'
+        OR 'MARITAL_STATUS'.
         CONTINUE.
       WHEN 'TAX_CODE'.
         cv_ok = abap_false.
@@ -266,9 +274,11 @@ FORM apply_profile_request USING is_request TYPE ztb_nxr_profreq
                                  it_fields  TYPE tt_field
                         CHANGING cv_ok TYPE abap_bool
                                  cv_message TYPE ztb_nxr_profreq-apply_message.
-  DATA lv_has TYPE abap_bool.
+  DATA:
+    lv_has        TYPE abap_bool,
+    lv_skipped_id TYPE abap_bool.
   cv_ok = abap_true.
-  CLEAR cv_message.
+  CLEAR: cv_message, lv_skipped_id.
 
   PERFORM has_field USING it_fields 'TELEPHONE' CHANGING lv_has.
   IF lv_has = abap_true AND cv_ok = abap_true.
@@ -304,6 +314,11 @@ FORM apply_profile_request USING is_request TYPE ztb_nxr_profreq
                        CHANGING cv_ok cv_message.
   ENDIF.
 
+  PERFORM has_field USING it_fields 'MARITAL_STATUS' CHANGING lv_has.
+  IF lv_has = abap_true AND cv_ok = abap_true.
+    PERFORM apply_0002 USING is_request CHANGING cv_ok cv_message.
+  ENDIF.
+
   IF cv_ok = abap_true.
     DATA(lv_bank_requested) = abap_false.
     PERFORM has_field USING it_fields 'PAY_METHOD' CHANGING lv_has.
@@ -330,12 +345,92 @@ FORM apply_profile_request USING is_request TYPE ztb_nxr_profreq
 
   PERFORM has_field USING it_fields 'ID_NUMBER' CHANGING lv_has.
   IF lv_has = abap_true AND cv_ok = abap_true.
-    PERFORM apply_0185 USING is_request CHANGING cv_ok cv_message.
+    IF p_apid = abap_true.
+      PERFORM apply_0185 USING is_request CHANGING cv_ok cv_message.
+    ELSE.
+      lv_skipped_id = abap_true.
+    ENDIF.
   ENDIF.
 
   IF cv_ok = abap_true.
-    cv_message = 'Applied requested MyProfile fields to SAP HR master data.'.
+    IF lv_skipped_id = abap_true.
+      IF lines( it_fields ) = 1.
+        cv_ok = abap_false.
+        cv_message =
+          'ID_NUMBER was not applied because PA0185 apply is disabled until T5R05 identification type is maintained.'.
+      ELSE.
+        cv_message =
+          'Applied requested MyProfile fields; ID_NUMBER was skipped because PA0185 apply is disabled until T5R05 is maintained.'.
+      ENDIF.
+    ELSE.
+      cv_message = 'Applied requested MyProfile fields to SAP HR master data.'.
+    ENDIF.
   ENDIF.
+ENDFORM.
+
+FORM apply_0002 USING is_request TYPE ztb_nxr_profreq
+             CHANGING cv_ok TYPE abap_bool
+                      cv_message TYPE ztb_nxr_profreq-apply_message.
+  DATA:
+    ls_pa0002_db TYPE pa0002,
+    ls_p0002     TYPE p0002,
+    ls_return    TYPE bapireturn1,
+    ls_key       TYPE bapipakey,
+    lv_operation TYPE pspar-actio,
+    lv_seqnr     TYPE seqnr,
+    lv_begda     TYPE begda,
+    lv_endda     TYPE endda.
+
+  CLEAR: ls_pa0002_db, ls_p0002, ls_return, ls_key,
+         lv_operation, lv_seqnr, lv_begda, lv_endda.
+
+  SELECT *
+    FROM pa0002
+    WHERE pernr = @is_request-pernr
+      AND sprps = @space
+      AND begda <= @p_begda
+      AND endda >= @p_begda
+    ORDER BY endda DESCENDING, begda DESCENDING, seqnr DESCENDING
+    INTO @ls_pa0002_db
+    UP TO 1 ROWS.
+  ENDSELECT.
+
+  IF sy-subrc = 0.
+    MOVE-CORRESPONDING ls_pa0002_db TO ls_p0002.
+    lv_operation = 'MOD'.
+    lv_seqnr = ls_pa0002_db-seqnr.
+    lv_begda = ls_pa0002_db-begda.
+    lv_endda = ls_pa0002_db-endda.
+  ELSE.
+    lv_operation = 'INS'.
+    lv_begda = p_begda.
+    lv_endda = gc_endda.
+  ENDIF.
+
+  ls_p0002-pernr = is_request-pernr.
+  ls_p0002-infty = gc_infty_0002.
+  ls_p0002-begda = lv_begda.
+  ls_p0002-endda = lv_endda.
+  ls_p0002-famst = is_request-marital_status.
+
+  CALL FUNCTION 'HR_INFOTYPE_OPERATION'
+    EXPORTING
+      infty         = gc_infty_0002
+      number        = is_request-pernr
+      validityend   = lv_endda
+      validitybegin = lv_begda
+      recordnumber  = lv_seqnr
+      record        = ls_p0002
+      operation     = lv_operation
+      tclas         = 'A'
+      dialog_mode   = '0'
+      nocommit      = abap_true
+    IMPORTING
+      return        = ls_return
+      key           = ls_key.
+
+  DATA(lv_context) = |PA0002 FAMST { is_request-marital_status }|.
+  PERFORM normalize_return USING ls_return lv_context CHANGING cv_ok cv_message.
 ENDFORM.
 
 FORM apply_0105 USING is_request TYPE ztb_nxr_profreq
@@ -487,6 +582,9 @@ FORM apply_0006 USING is_request TYPE ztb_nxr_profreq
   IF ls_p0006-ort01 IS INITIAL.
     ls_p0006-ort01 = lv_city.
   ENDIF.
+  IF ls_p0006-pstlz IS INITIAL.
+    ls_p0006-pstlz = p_pstlz.
+  ENDIF.
 
   CALL FUNCTION 'HR_INFOTYPE_OPERATION'
     EXPORTING
@@ -610,6 +708,26 @@ FORM apply_0185 USING is_request TYPE ztb_nxr_profreq
 
   CLEAR: ls_pa0185_db, ls_p0185, ls_return, ls_key,
          lv_operation, lv_seqnr, lv_begda, lv_endda.
+
+  IF p_idty IS INITIAL.
+    cv_ok = abap_false.
+    cv_message =
+      'PA0185 ID_NUMBER was not applied: selection parameter Identification Type is blank.'.
+    RETURN.
+  ENDIF.
+
+  DATA lv_ictyp TYPE t5r05-ictyp.
+  SELECT SINGLE ictyp
+    FROM t5r05
+    WHERE molga = @p_idmol
+      AND ictyp = @p_idty
+    INTO @lv_ictyp.
+  IF sy-subrc <> 0.
+    cv_ok = abap_false.
+    cv_message =
+      |PA0185 { p_idmol } { p_idty } ICNUM was not applied: no matching T5R05 identification type.|.
+    RETURN.
+  ENDIF.
 
   SELECT *
     FROM pa0185

@@ -135,7 +135,10 @@ test('MyProfileFields exposes the workflow editable field catalog', async () => 
         user: user()
     }));
 
-    assert.ok(fields.length >= 10);
+    assert.ok(fields.length >= 9);
+    assert.ok(fields.some(field => field.FieldCode === 'MARITAL_STATUS'));
+    assert.equal(fields.some(field => field.FieldCode === 'ID_NUMBER'), false);
+    assert.equal(fields.some(field => field.FieldCode === 'TAX_CODE'), false);
     assert.ok(fields.every(field => field.Editable === true));
     assert.ok(fields.every(field => field.Locked === false));
     assert.equal(fields.find(field => field.FieldCode === 'WORK_EMAIL').Value, 'haonguyen022202@gmail.com');

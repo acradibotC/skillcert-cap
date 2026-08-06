@@ -45,6 +45,9 @@ sap.ui.define([], function () {
         case "WORK_EMAIL":
             return sValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sValue) ?
                 "profileValidationEmail" : "";
+        case "MARITAL_STATUS":
+            return sValue && !["0", "1", "2", "3"].includes(sValue) ?
+                "profileValidationMaritalStatus" : "";
         case "TAX_CODE":
             return sValue && !/^\d{10}$/.test(sValue) ? "profileValidationTaxCode" : "";
         case "CURR_ADDRESS":

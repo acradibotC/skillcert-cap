@@ -9,6 +9,7 @@ define table ztb_nxr_profreq {
   request_no            : abap.char(24);
   pernr                 : abap.numc(8);
   employee_name         : abap.char(120);
+  marital_status        : abap.char(1);
   requested_by_email    : abap.char(255);
   revision_no           : abap.int4;
   status                : abap.char(2);

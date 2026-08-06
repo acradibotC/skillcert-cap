@@ -22,6 +22,7 @@ etag master LocalLastChangedAt
     RequestNo              = request_no;
     Pernr                  = pernr;
     EmployeeName           = employee_name;
+    MaritalStatusCode      = marital_status;
     RequestedByEmail       = requested_by_email;
     RevisionNo             = revision_no;
     Status                 = status;

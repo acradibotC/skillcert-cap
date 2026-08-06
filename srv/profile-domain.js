@@ -8,10 +8,6 @@ const STATUS = Object.freeze({
 });
 
 const FIELD_CATALOG = Object.freeze({
-    ID_NUMBER: {
-        property: 'idNumber', maxLength: 20, group: 'PERSONAL', sensitive: true,
-        mappingStatus: 'UNCONFIRMED', sapInfotype: '0185', sapSubtype: '', sapField: 'ICNUM'
-    },
     TELEPHONE: {
         property: 'telephone', maxLength: 30, group: 'CONTACT',
         pattern: /^[+\d][\d\s().-]{6,29}$/,
@@ -30,10 +26,10 @@ const FIELD_CATALOG = Object.freeze({
         property: 'currentAddress', maxLength: 60, group: 'CONTACT',
         mappingStatus: 'UNCONFIRMED', sapInfotype: '0006', sapSubtype: '', sapField: 'STRAS'
     },
-    TAX_CODE: {
-        property: 'taxCode', maxLength: 10, group: 'PAYMENT', sensitive: true,
-        pattern: /^\d{10}$/,
-        mappingStatus: 'UNCONFIRMED', sapInfotype: '', sapSubtype: '', sapField: ''
+    MARITAL_STATUS: {
+        property: 'maritalStatus', maxLength: 1, group: 'PERSONAL',
+        values: ['0', '1', '2', '3'],
+        mappingStatus: 'UNCONFIRMED', sapInfotype: '0002', sapSubtype: '', sapField: 'FAMST'
     },
     PAY_METHOD: {
         property: 'paymentMethod', maxLength: 1, group: 'PAYMENT',

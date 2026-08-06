@@ -44,6 +44,15 @@ sap.ui.define([
             return vValue === null || vValue === undefined || vValue === "" ? "—" : String(vValue);
         },
 
+        maritalStatusText: function (vValue) {
+            return {
+                "0": "Single",
+                "1": "Married",
+                "2": "Widowed",
+                "3": "Divorced"
+            }[String(vValue || "").trim()] || "";
+        },
+
         formatDate: function (vValue) {
             if (!vValue) {
                 return "—";

@@ -34,9 +34,6 @@
                     emptySpanL="0"
                     emptySpanM="0">
 
-                    <Label text="{i18n>profileIdNumber}" labelFor="profileIdNumberInput"/>
-                    <Input id="profileIdNumberInput" value="{profileEdit>/values/ID_NUMBER}" enabled="{profileEdit>/states/ID_NUMBER/EffectiveEditable}" maxLength="20" change="onProfileFieldChange"/>
-
                     <Label text="{i18n>profileTelephone}" labelFor="profileTelephoneInput"/>
                     <Input id="profileTelephoneInput" value="{profileEdit>/values/TELEPHONE}" enabled="{profileEdit>/states/TELEPHONE/EffectiveEditable}" maxLength="30" type="Tel" change="onProfileFieldChange"/>
 
@@ -49,19 +46,13 @@
                     <Label text="{i18n>profileCurrentAddress}" labelFor="profileCurrentAddressInput"/>
                     <Input id="profileCurrentAddressInput" value="{profileEdit>/values/CURR_ADDRESS}" enabled="{profileEdit>/states/CURR_ADDRESS/EffectiveEditable}" maxLength="60" change="onProfileFieldChange"/>
 
-                    <Label text="{i18n>profileTaxCode}" labelFor="profileTaxCodeInput"/>
-                    <Input id="profileTaxCodeInput" value="{profileEdit>/values/TAX_CODE}" enabled="{profileEdit>/states/TAX_CODE/EffectiveEditable}" maxLength="10" type="Text" change="onProfileFieldChange"/>
-
                     <Label text="{i18n>profilePaymentMethod}" labelFor="profilePaymentMethodSelect"/>
                     <Select id="profilePaymentMethodSelect" selectedKey="{profileEdit>/values/PAY_METHOD}" enabled="{profileEdit>/states/PAY_METHOD/EffectiveEditable}" change="onPaymentMethodChange" forceSelection="false" items="{profileCatalog>/paymentMethods}">
                         <core:Item key="{profileCatalog>Code}" text="{profileCatalog>DisplayText}"/>
                     </Select>
 
-                    <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankCountry}" labelFor="profileBankCountryInput" required="true"/>
-                    <Input visible="{profileEdit>/isBankTransfer}" id="profileBankCountryInput" value="{profileEdit>/values/BANK_COUNTRY}" enabled="{profileEdit>/states/BANK_COUNTRY/EffectiveEditable}" maxLength="3" change="onProfileFieldChange"/>
-
                     <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankKey}" labelFor="profileBankKeyInput" required="true"/>
-                    <Input visible="{profileEdit>/isBankTransfer}" id="profileBankKeyInput" value="{profileEdit>/values/BANK_KEY}" enabled="{profileEdit>/states/BANK_KEY/EffectiveEditable}" maxLength="15" change="onProfileFieldChange"/>
+                    <Input visible="{profileEdit>/isBankTransfer}" id="profileBankKeyInput" value="{profileEdit>/values/BANK_KEY}" showValueHelp="true" valueHelpOnly="true" valueHelpRequest="onBankKeyValueHelp" enabled="{profileEdit>/states/BANK_KEY/EffectiveEditable}" maxLength="15" change="onProfileFieldChange"/>
 
                     <Label visible="{profileEdit>/isBankTransfer}" text="{i18n>profileBankAccount}" labelFor="profileBankAccountInput" required="true"/>
                     <Input visible="{profileEdit>/isBankTransfer}" id="profileBankAccountInput" value="{profileEdit>/values/BANK_ACCT}" enabled="{profileEdit>/states/BANK_ACCT/EffectiveEditable}" maxLength="18" type="Text" change="onProfileFieldChange"/>

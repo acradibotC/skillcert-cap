@@ -7,6 +7,7 @@ define root view entity ZI_NXR_PROFILE_APPLY_REQUEST
       request_no            as RequestNo,
       pernr                 as Pernr,
       employee_name         as EmployeeName,
+      marital_status        as MaritalStatusCode,
       requested_by_email    as RequestedByEmail,
       revision_no           as RevisionNo,
       status                as Status,

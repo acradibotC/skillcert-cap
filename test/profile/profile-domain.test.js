@@ -28,12 +28,12 @@ test('validates a normal multi-field change', () => {
     assert.deepEqual(result.changes.map(change => change.fieldName), ['WORK_EMAIL', 'CURR_ADDRESS']);
 });
 
-test('rejects invalid email and tax code', () => {
+test('rejects invalid email and no-longer-editable tax code', () => {
     const result = validateChangeSet(baseProfile, [
         { fieldName: 'WORK_EMAIL', newValue: 'invalid' },
         { fieldName: 'TAX_CODE', newValue: '123' }
     ]);
-    assert.deepEqual(result.errors.map(error => error.code), ['INVALID_FORMAT', 'INVALID_FORMAT']);
+    assert.deepEqual(result.errors.map(error => error.code), ['INVALID_FORMAT', 'FIELD_NOT_EDITABLE']);
 });
 
 test('telephone must start with a digit or plus sign', () => {

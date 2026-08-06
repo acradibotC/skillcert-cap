@@ -28,6 +28,10 @@
           "type": "cds.String",
           "length": 120
         },
+        "MaritalStatusCode": {
+          "type": "cds.String",
+          "length": 1
+        },
         "RequestedByEmail": {
           "type": "cds.String",
           "length": 255

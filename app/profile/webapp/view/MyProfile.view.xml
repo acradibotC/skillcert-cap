@@ -59,9 +59,8 @@
                                     <Label text="{i18n>profileNationality}" labelFor="profileNationalityInput"/>
                                     <Input id="profileNationalityInput" value="{path:'profile>/Nationality', formatter:'.formatter.displayValue'}" editable="false" width="100%" class="profileReadOnlyInput"/>
                                     <Label text="{i18n>profileMaritalStatus}" labelFor="profileMaritalStatusInput"/>
-                                    <Input id="profileMaritalStatusInput" value="{path:'profile>/MaritalStatus', formatter:'.formatter.displayValue'}" editable="false" width="100%" class="profileReadOnlyInput"/>
-                                    <Label text="{i18n>profileIdNumber}" labelFor="profileIdNumberInput"/>
-                                    <Input id="profileIdNumberInput" value="{profileEdit>/values/ID_NUMBER}" placeholder="—" editable="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/states/ID_NUMBER/EffectiveEditable} }" enabled="{= !${profileEdit>/busy} }" width="100%" maxLength="20" change="onProfileFieldChange" class="profileReadOnlyInput"/>
+                                    <Input visible="{= !${profileUi>/isEditingProfile} }" id="profileMaritalStatusInput" value="{path:'profile>/MaritalStatus', formatter:'.formatter.displayValue'}" editable="false" width="100%" class="profileReadOnlyInput"/>
+                                    <Input visible="{profileUi>/isEditingProfile}" id="profileMaritalStatusEditInput" value="{path:'profileEdit>/values/MARITAL_STATUS', formatter:'.formatter.maritalStatusText'}" showValueHelp="true" valueHelpOnly="true" valueHelpRequest="onMaritalStatusValueHelp" enabled="{= ${profileEdit>/states/MARITAL_STATUS/EffectiveEditable} &amp;&amp; !${profileEdit>/busy} }" width="100%"/>
                                 </form:SimpleForm>
                             </VBox>
 
@@ -76,8 +75,6 @@
                                     <Input id="profilePermanentAddressInput" value="{profileEdit>/values/ADDRESS}" placeholder="—" editable="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/states/ADDRESS/EffectiveEditable} }" enabled="{= !${profileEdit>/busy} }" width="100%" maxLength="60" change="onProfileFieldChange" class="profileReadOnlyInput"/>
                                     <Label text="{i18n>profileCurrentAddress}" labelFor="profileCurrentAddressInput"/>
                                     <Input id="profileCurrentAddressInput" value="{profileEdit>/values/CURR_ADDRESS}" placeholder="—" editable="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/states/CURR_ADDRESS/EffectiveEditable} }" enabled="{= !${profileEdit>/busy} }" width="100%" maxLength="60" change="onProfileFieldChange" class="profileReadOnlyInput"/>
-                                    <Label text="{i18n>profileTaxCode}" labelFor="profileTaxCodeInput"/>
-                                    <Input id="profileTaxCodeInput" value="{profileEdit>/values/TAX_CODE}" placeholder="—" editable="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/states/TAX_CODE/EffectiveEditable} }" enabled="{= !${profileEdit>/busy} }" width="100%" maxLength="10" type="Text" change="onProfileFieldChange" class="profileReadOnlyInput"/>
                                     <Label text="{i18n>profilePaymentMethod}" labelFor="profilePaymentMethodSelect"/>
                                     <HBox visible="{= !${profileUi>/isEditingProfile} }" wrap="Wrap" alignItems="Center" class="profilePaymentChoice">
                                         <RadioButton text="{i18n>profilePaymentCash}" selected="{profile>/IsCashPayment}" enabled="false" groupName="profilePaymentDisplay"/>
@@ -87,10 +84,8 @@
                                     <Select visible="{profileUi>/isEditingProfile}" id="profilePaymentMethodSelect" selectedKey="{profileEdit>/values/PAY_METHOD}" enabled="{= ${profileEdit>/states/PAY_METHOD/EffectiveEditable} &amp;&amp; !${profileEdit>/busy} }" width="100%" change="onPaymentMethodChange" forceSelection="false" items="{profileCatalog>/paymentMethods}">
                                         <core:Item key="{profileCatalog>Code}" text="{profileCatalog>DisplayText}"/>
                                     </Select>
-                                    <Label visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" text="{i18n>profileBankCountry}" labelFor="profileBankCountryInput" required="true"/>
-                                    <Input visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" id="profileBankCountryInput" value="{profileEdit>/values/BANK_COUNTRY}" placeholder="VN" enabled="{= ${profileEdit>/states/BANK_COUNTRY/EffectiveEditable} &amp;&amp; !${profileEdit>/busy} }" width="100%" maxLength="3" change="onProfileFieldChange"/>
                                     <Label visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" text="{i18n>profileBankKey}" labelFor="profileBankKeyInput" required="true"/>
-                                    <Input visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" id="profileBankKeyInput" value="{profileEdit>/values/BANK_KEY}" enabled="{= ${profileEdit>/states/BANK_KEY/EffectiveEditable} &amp;&amp; !${profileEdit>/busy} }" width="100%" maxLength="15" change="onProfileFieldChange"/>
+                                    <Input visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" id="profileBankKeyInput" value="{profileEdit>/values/BANK_KEY}" showValueHelp="true" valueHelpOnly="true" valueHelpRequest="onBankKeyValueHelp" enabled="{= ${profileEdit>/states/BANK_KEY/EffectiveEditable} &amp;&amp; !${profileEdit>/busy} }" width="100%" maxLength="15" change="onProfileFieldChange"/>
                                     <Label visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" text="{i18n>profileBankAccount}" labelFor="profileBankAccountInput" required="true"/>
                                     <Input visible="{= ${profileUi>/isEditingProfile} &amp;&amp; ${profileEdit>/isBankTransfer} }" id="profileBankAccountInput" value="{profileEdit>/values/BANK_ACCT}" enabled="{= ${profileEdit>/states/BANK_ACCT/EffectiveEditable} &amp;&amp; !${profileEdit>/busy} }" width="100%" maxLength="18" type="Text" change="onProfileFieldChange"/>
                                     <Label visible="{= !${profileUi>/isEditingProfile} &amp;&amp; ${profile>/HasBankTransfer} }" text="{i18n>profileBankAccount}" labelFor="profileDisplayBankAccountInput"/>
@@ -193,7 +188,6 @@
                                 <Label text="{i18n>profileWorkEmail}"/><Text text="{path:'profile>/WorkEmail', formatter:'.formatter.displayValue'}"/>
                                 <Label text="{i18n>profilePermanentAddress}"/><Text text="{path:'profile>/PermanentAddress', formatter:'.formatter.displayValue'}" wrapping="true"/>
                                 <Label text="{i18n>profileCurrentAddress}"/><Text text="{path:'profile>/CurrentAddress', formatter:'.formatter.displayValue'}" wrapping="true"/>
-                                <Label text="{i18n>profileTaxCode}"/><Text text="{path:'profile>/TaxCode', formatter:'.formatter.displayValue'}"/>
                                 <Label text="{i18n>profilePaymentMethod}"/><Text text="{path:'profile>/PaymentMethodDisplay', formatter:'.formatter.displayValue'}"/>
                                 <Label visible="{profile>/HasBankTransfer}" text="{i18n>profileBankName}"/><Text visible="{profile>/HasBankTransfer}" text="{path:'profile>/BankName', formatter:'.formatter.displayValue'}"/>
                                 <Label visible="{profile>/HasBankTransfer}" text="{i18n>profileBankAccount}"/><Text visible="{profile>/HasBankTransfer}" text="{path:'profile>/BankAccount', formatter:'.formatter.maskBankAccount'}"/>

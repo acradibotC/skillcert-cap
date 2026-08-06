@@ -112,6 +112,7 @@ service ProfileService @(path: '/api/profile/v1') {
         Gender                 : String(20);
         Nationality            : String(60);
         MaritalStatus          : String(60);
+        MaritalStatusCode      : String(1);
         PositionName           : String(120);
         OrgUnitName            : String(120);
         IdNumber               : String(20);

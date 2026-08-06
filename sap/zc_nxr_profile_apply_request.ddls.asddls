@@ -8,6 +8,7 @@ define root view entity ZC_NXR_PROFILE_APPLY_REQUEST
       RequestNo,
       Pernr,
       EmployeeName,
+      MaritalStatusCode,
       RequestedByEmail,
       RevisionNo,
       Status,
