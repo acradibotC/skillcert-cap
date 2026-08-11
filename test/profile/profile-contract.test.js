@@ -105,4 +105,14 @@ test('existing skill approval actions remain explicitly unbound', async () => {
         assert.match(source, /bindContext\("\/approveRequest\(\.\.\.\)"\)/);
         assert.match(source, /setParameter\("RequestId"/);
     }
+
+    const skillServiceSource = fs.readFileSync('srv/service.js', 'utf8');
+    const approveHandler = skillServiceSource.match(
+        /this\.on\('approveRequest',[\s\S]*?\n\s*\}\);/
+    )?.[0] || '';
+    assert.match(
+        approveHandler,
+        /data:\s*\{\}/,
+        'Skill approveRequest must send an explicit empty JSON body to SAP OData V4'
+    );
 });

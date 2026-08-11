@@ -48,7 +48,10 @@ module.exports = {
         // We use external.send
         return external.send({
             method: 'POST',
-            path: `/Request(RequestId=${req.data.RequestId})/com.sap.gateway.srvd.zui_nxr_skillreq_o4.v0001.approveRequest`
+            path: `/Request(RequestId=${req.data.RequestId})/com.sap.gateway.srvd.zui_nxr_skillreq_o4.v0001.approveRequest`,
+            // RAP bound actions still require an explicit JSON body, even when
+            // the action has no parameters besides its bound entity.
+            data: {}
         });
     });
 
