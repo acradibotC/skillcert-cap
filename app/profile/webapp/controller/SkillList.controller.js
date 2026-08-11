@@ -443,11 +443,9 @@ sap.ui.define([
                 }
             }
 
-            if (bHasSkill) {
-                if (!oData.qualiId && (!oData.qualNameTyped || !oData.qualNameTyped.trim())) {
-                    MessageBox.error(oBundle.getText("msgErrSkillRequired"));
-                    return;
-                }
+            if (bHasSkill && !oData.qualiId) {
+                MessageBox.error(oBundle.getText("msgErrSkillRequired"));
+                return;
             }
 
             var oUserModel = this.getOwnerComponent().getModel("user");
@@ -462,11 +460,6 @@ sap.ui.define([
             if (bHasSkill) {
                 sQualiId = oData.qualiId || "";
                 sQualiName = oData.qualNameTyped || "";
-                
-                // If it's manual text, qualiId will match qualNameTyped or not be exactly 8 digits
-                if (sQualiId === sQualiName || !/^\\d{8}$/.test(sQualiId)) {
-                    sQualiId = "";
-                }
                 
                 iProficiency = parseInt(oData.proficiency, 10);
                 var aProfMap = { 1: "Beginner", 2: "Intermediate", 3: "Advanced", 4: "Expert" };
