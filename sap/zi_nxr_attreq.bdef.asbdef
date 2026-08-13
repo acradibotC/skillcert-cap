@@ -1,0 +1,46 @@
+managed implementation in class zbp_i_nxr_attreq unique;
+strict ( 2 );
+
+define behavior for ZI_NXR_ATTREQ alias AttendanceRequest
+persistent table ztb_nxr_attreq
+lock master
+authorization master ( instance )
+{
+  create;
+  update;
+  delete;
+
+  field ( readonly ) RequestId, CreatedAt, CreatedBy, LastChangedAt, LastChangedBy, LocalLastChangedAt;
+  field ( numbering : managed ) RequestId;
+
+  determination NotifySubmitted on modify { create; }
+
+  action ( features : instance ) Approve result [1] $self;
+  action ( features : instance ) Reject result [1] $self;
+
+  mapping for ztb_nxr_attreq
+  {
+    RequestId = request_id;
+    Pernr = pernr;
+    RequestType = request_type;
+    StartDate = start_date;
+    EndDate = end_date;
+    Duration = duration;
+    DurationUnit = duration_unit;
+    CorrectedDate = corrected_date;
+    CorrectedStartTime = corrected_start_time;
+    CorrectedEndTime = corrected_end_time;
+    OtBreakHours = ot_break_hours;
+    ApproverId = approver_id;
+    Status = status;
+    Reason = reason;
+    RejectionReason = rejection_reason;
+    SapPostStatus = sap_post_status;
+    SapPostMessage = sap_post_message;
+    CreatedBy = created_by;
+    CreatedAt = created_at;
+    LastChangedBy = last_changed_by;
+    LastChangedAt = last_changed_at;
+    LocalLastChangedAt = local_last_changed_at;
+  }
+}

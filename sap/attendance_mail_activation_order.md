@@ -12,10 +12,15 @@ Transports used during MCP setup:
    - Source: `sap/ztb_nxr_attmail.tabl.asddl`
    - Purpose: durable idempotency log for sent or failed attendance workflow emails.
 
-2. Program `ZNXR_ATTREQ_MAIL_JOB`
+2. Behavior implementation `ZBP_I_NXR_ATTREQ`
+   - Package: `ZPK_ZNXR09F410`
+   - Sources: `sap/zi_nxr_attreq.bdef.asbdef`, `sap/zbp_i_nxr_attreq.clas.locals_def.abap`, `sap/zbp_i_nxr_attreq.clas.locals_imp.abap`
+   - Purpose: trigger `SUBMITTED`, `APPROVED`, and `REJECTED` notifications directly from the RAP workflow.
+
+3. Program `ZNXR_ATTREQ_MAIL_JOB` (legacy recovery tool)
    - Package: `ZPK_ZNXR09F410`
    - Source: `sap/znxr_attreq_mail_job.prog.abap`
-   - Purpose: sends SAP Business Communication Services email with `CL_BCS`.
+   - Purpose: manually retry or recover mail rows in `ERROR/NEW`; it is not required for normal notification delivery.
 
 ## Business events
 
@@ -28,15 +33,16 @@ Transports used during MCP setup:
 1. Open database table `ZTB_NXR_ATTMAIL`.
 2. Replace the full source with `sap/ztb_nxr_attmail.tabl.asddl`.
 3. Activate the table.
-4. Create program `ZNXR_ATTREQ_MAIL_JOB` if it does not exist.
-5. Replace the full source with `sap/znxr_attreq_mail_job.prog.abap`.
-6. Activate the program.
+4. Update the behavior definition `ZI_NXR_ATTREQ` with the direct notification determination.
+5. Update the local handler definition and implementation of `ZBP_I_NXR_ATTREQ`.
+6. Activate the behavior definition and behavior pool.
+7. Keep `ZNXR_ATTREQ_MAIL_JOB` available as an operational recovery utility.
 
 Current S40 status after MCP deployment:
 
 - `ZTB_NXR_ATTMAIL` has been activated and queried successfully.
-- `ZNXR_ATTREQ_MAIL_JOB` has been updated and activated successfully.
-- MCP report execution through debug WebSocket failed with HTTP 500, so runtime send/test should be executed from ADT Run, `SA38`, or `SE38`.
+- The direct-trigger handler must be activated before runtime testing.
+- `ZNXR_ATTREQ_MAIL_JOB` remains available for manual recovery; no schedule is required for the normal path.
 
 ## Selection-screen labels
 
@@ -47,12 +53,12 @@ The report source uses `SELECTION-SCREEN COMMENT ... FOR FIELD ...` so the scree
 - `Maximum send retries for ERROR log rows`
 - `Event filter: ALL, SUBMITTED, APPROVED, REJECTED`
 
-## Test and scheduling
+## Test
 
-1. Run `ZNXR_ATTREQ_MAIL_JOB` with `p_test = X` and `p_event = ALL`.
-   - This previews the emails without inserting mail-log rows.
-2. Confirm SAPconnect is configured in `SCOT` and sent/error mails in `SOST`.
-3. Run with `p_test = space` to send.
-4. Schedule the report in `SM36`, for example every 5 minutes, or after the attendance sync job.
+1. Confirm SAPconnect is configured in `SCOT`.
+2. Submit a request and verify `SUBMITTED` in `ZTB_NXR_ATTMAIL` and `SOST`.
+3. Approve the request and verify `APPROVED` in `ZTB_NXR_ATTMAIL` and `SOST`.
+4. Reject a separate request and verify `REJECTED` in `ZTB_NXR_ATTMAIL` and `SOST`.
+5. If a send fails, verify `MAIL_STATUS = 'ERROR'` and use `ZNXR_ATTREQ_MAIL_JOB` manually for recovery.
 
-The mail job intentionally does not block RAP create/approval actions. Failed sends are logged in `ZTB_NXR_ATTMAIL` as `ERROR` and retried up to `p_retry`.
+The direct trigger intentionally catches mail errors, records `ERROR` in `ZTB_NXR_ATTMAIL`, and does not roll back the attendance request transaction.

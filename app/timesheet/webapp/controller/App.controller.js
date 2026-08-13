@@ -233,6 +233,12 @@ sap.ui.define([
                 String(oDate.getDate()).padStart(2, '0');
         },
 
+        getTimeKey: function (oDate) {
+            return String(oDate.getHours()).padStart(2, '0') + ':' +
+                String(oDate.getMinutes()).padStart(2, '0') + ':' +
+                String(oDate.getSeconds()).padStart(2, '0');
+        },
+
         getStatusInfo: function (iStatus, sShiftCode, oDate) {
             // Type08 = Green, Type01 = Yellow/Orange, Type03 = Red, Type06 = Blue, Type09 = Grey
             var sCode = (sShiftCode || "").toUpperCase();
@@ -896,6 +902,11 @@ sap.ui.define([
                 oPayload.StartDate = this.getDateKey(doStart);
                 oPayload.EndDate = this.getDateKey(doEnd);
                 oPayload.Reason = doReason;
+                if (sTab === "WFH") {
+                    // WFH is posted to PA2002 and must carry the daily attendance times.
+                    oPayload.CorrectedStartTime = this.getTimeKey(doStart);
+                    oPayload.CorrectedEndTime = this.getTimeKey(doEnd);
+                }
             } else if (sTab === "EDIT_TIMESHEET") {
                 var etDate = oView.byId("etDate").getDateValue();
                 var etStart = oView.byId("etStartTime").getValue();

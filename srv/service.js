@@ -274,6 +274,11 @@ module.exports = {
                 
                 data.Duration = diffDays;
                 data.DurationUnit = 'TAG';
+                if (data.RequestType === 'WFH') {
+                    // Keep old/direct clients compatible with the WFH UI defaults.
+                    data.CorrectedStartTime = data.CorrectedStartTime || '08:00:00';
+                    data.CorrectedEndTime = data.CorrectedEndTime || '17:30:00';
+                }
             } else if (data.RequestType === 'OVERTIME' && data.StartDate && data.EndDate) {
                 const start = new Date(data.StartDate);
                 const end = new Date(data.EndDate);
@@ -388,26 +393,19 @@ module.exports = {
             const key = attendanceRequestKey(RequestId);
 
             try {
-                // First try to use CAP UPDATE which handles OData V4 properly
-                console.log(`[AttendanceService] Attempting to REJECT request ${RequestId} via CAP UPDATE`);
-                const result = await attExternal.run(
-                    UPDATE('AttendanceRequest')
-                    .set({ Status: '03', RejectionReason: RejectionReason || '', SapPostStatus: 'SUCCESS' })
-                    .where({ RequestId: normalizeGuid(RequestId) })
+                // Persist the reason first, then use the RAP action so SAP owns
+                // the status transition and direct REJECTED notification.
+                await sapPatch(key, { RejectionReason: RejectionReason || '' });
+                const result = await sapPost(
+                    `${key}/com.sap.gateway.srvd.zsd_nxr_attreq_post.v0001.Reject`,
+                    {}
                 );
-                console.log(`[AttendanceService] REJECTED request ${RequestId} via CAP UPDATE`);
-                return { RequestId };
+                console.log(`[AttendanceService] REJECTED request ${RequestId} via RAP action`);
+                return result;
             } catch (error) {
-                console.warn(`[AttendanceService] CAP UPDATE failed, trying sapPatch:`, error.message);
-                try {
-                    const result = await sapPatch(key, { Status: '03', RejectionReason: RejectionReason || '', SapPostStatus: 'SUCCESS' });
-                    console.log(`[AttendanceService] REJECTED request ${RequestId} via status PATCH`);
-                    return result;
-                } catch (patchError) {
-                    const patchMsg = patchError.response?.data?.error?.message || patchError.response?.data || patchError.message;
-                    console.error(`[AttendanceService] Reject failed:`, patchMsg);
-                    return req.reject(500, typeof patchMsg === 'string' ? patchMsg : JSON.stringify(patchMsg));
-                }
+                const errMsg = getSapErrorMessage(error);
+                console.error(`[AttendanceService] Reject failed:`, errMsg);
+                return req.reject(error.response?.status || 500, errMsg);
             }
         });
 

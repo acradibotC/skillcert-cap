@@ -29,3 +29,26 @@ test('attendance mail job uses SAP BCS and a durable idempotent mail log', () =>
     assert.match(jobSource, /lo_request->send/);
     assert.match(jobSource, /EmployeeEmail[\s\S]*FROM zi_nxr_hr_team_members/i);
 });
+
+test('attendance notifications trigger from RAP workflow events without the scanner job', () => {
+    const bdefSource = fs.readFileSync('sap/zi_nxr_attreq.bdef.asbdef', 'utf8');
+    const definitionSource = fs.readFileSync('sap/zbp_i_nxr_attreq.clas.locals_def.abap', 'utf8');
+    const implementationSource = fs.readFileSync('sap/zbp_i_nxr_attreq.clas.locals_imp.abap', 'utf8');
+    const serviceSource = fs.readFileSync('srv/service.js', 'utf8');
+
+    assert.match(bdefSource, /determination NotifySubmitted on modify \{ create; \}/i);
+    assert.match(bdefSource, /action[\s\S]*Reject result \[1\] \$self/i);
+    assert.match(definitionSource, /NotifySubmitted FOR DETERMINE ON MODIFY/i);
+    assert.match(definitionSource, /send_notification/i);
+    assert.match(implementationSource, /iv_event\s*=\s*'SUBMITTED'/i);
+    assert.match(implementationSource, /iv_event\s*=\s*'APPROVED'/i);
+    assert.match(implementationSource, /iv_event\s*=\s*'REJECTED'/i);
+    assert.match(implementationSource, /cl_bcs=>create_persistent/i);
+    assert.match(implementationSource, /CATCH cx_uuid_error/i);
+    assert.match(implementationSource, /DATA\(lv_sent\)\s*=\s*lo_request->send/i);
+    assert.match(implementationSource, /IF lv_sent = abap_true/i);
+    assert.match(implementationSource, /mail_status\s*=\s*'SENT'/i);
+    assert.match(implementationSource, /CATCH cx_root/i);
+    assert.match(serviceSource, /zsd_nxr_attreq_post\.v0001\.Reject/i);
+    assert.doesNotMatch(serviceSource, /UPDATE\('AttendanceRequest'\)[\s\S]*Status: '03'/i);
+});

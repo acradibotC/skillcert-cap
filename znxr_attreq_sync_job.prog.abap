@@ -84,15 +84,18 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
           return        = ls_return
           key           = ls_key.
 
-    WHEN 'EDIT_TIMESHEET' OR 'OVERTIME' OR 'WORK_FROM_HOME'.
+    WHEN 'EDIT_TIMESHEET' OR 'OVERTIME' OR 'WFH' OR 'WORK_FROM_HOME'.
       lv_infty = '2002'.
       CASE <ls_req>-request_type.
         WHEN 'EDIT_TIMESHEET'.   lv_subty = '0800'.
         WHEN 'OVERTIME'.         lv_subty = '0900'.
+        WHEN 'WFH'.               lv_subty = '0800'.
         WHEN 'WORK_FROM_HOME'.   lv_subty = '0800'.
       ENDCASE.
 
-      IF <ls_req>-request_type = 'EDIT_TIMESHEET'.
+      IF <ls_req>-request_type = 'EDIT_TIMESHEET'
+         OR <ls_req>-request_type = 'WFH'
+         OR <ls_req>-request_type = 'WORK_FROM_HOME'.
         SELECT *
           FROM pa2002
           WHERE pernr = @<ls_req>-pernr
@@ -125,10 +128,24 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
       ls_p2002-awart = lv_subty.
       ls_p2002-begda = lv_date_start.
       ls_p2002-endda = lv_date_end.
+
+      IF <ls_req>-request_type = 'WFH'
+         OR <ls_req>-request_type = 'WORK_FROM_HOME'.
+        IF lv_time_start IS INITIAL.
+          lv_time_start = '080000'.
+        ENDIF.
+        IF lv_time_end IS INITIAL.
+          lv_time_end = '173000'.
+        ENDIF.
+      ENDIF.
+
       ls_p2002-beguz = lv_time_start.
       ls_p2002-enduz = lv_time_end.
 
-      IF <ls_req>-request_type = 'OVERTIME' OR <ls_req>-request_type = 'EDIT_TIMESHEET'.
+      IF <ls_req>-request_type = 'OVERTIME'
+         OR <ls_req>-request_type = 'EDIT_TIMESHEET'
+         OR <ls_req>-request_type = 'WFH'
+         OR <ls_req>-request_type = 'WORK_FROM_HOME'.
         " Calculate duration in hours if needed, standard STDAZ
         lv_start_seconds = CONV i( lv_time_start+0(2) ) * 3600 + CONV i( lv_time_start+2(2) ) * 60 + CONV i( lv_time_start+4(2) ).
         lv_end_seconds = CONV i( lv_time_end+0(2) ) * 3600 + CONV i( lv_time_end+2(2) ) * 60 + CONV i( lv_time_end+4(2) ).
@@ -166,7 +183,9 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
       ls_return-message = 'Unsupported request type.'.
   ENDCASE.
 
-  IF <ls_req>-request_type = 'EDIT_TIMESHEET'
+  IF ( <ls_req>-request_type = 'EDIT_TIMESHEET'
+       OR <ls_req>-request_type = 'WFH'
+       OR <ls_req>-request_type = 'WORK_FROM_HOME' )
      AND ls_return-type NA 'AEX'.
     " Persist PA2002 before verifying the actual SAP source of truth.
     COMMIT WORK AND WAIT.
