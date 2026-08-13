@@ -295,12 +295,12 @@ sap.ui.define([
             var oCalendar = this.byId("attendanceCalendar");
             if (!oCalendar || !oCalendar.$().length) return;
             var that = this;
-            oCalendar.$().find("[data-sap-ui-date]").each(function () {
-                var oDate = that._parseCalendarDomDate(this.getAttribute("data-sap-ui-date"));
+            oCalendar.$().find("[data-sap-day]").each(function () {
+                var oDate = that._parseCalendarDomDate(this.getAttribute("data-sap-day"));
                 if (!oDate) return;
                 var oOvertime = that._getOvertimeForDateKey(that.getDateKey(oDate));
                 this.classList.toggle("timesheetOtDate", Boolean(oOvertime));
-                if (oOvertime) this.setAttribute("title", "* OT " + oOvertime.overtimeText);
+                if (oOvertime) this.setAttribute("title", "OT: " + oOvertime.overtimeText);
             });
         },
 
