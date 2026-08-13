@@ -241,6 +241,76 @@ sap.ui.define([
                 String(oDate.getSeconds()).padStart(2, '0');
         },
 
+        _getTimeSeconds: function (sTime) {
+            var sValue = String(sTime || "").trim();
+            var aDuration = sValue.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
+            if (aDuration) {
+                return Number(aDuration[1] || 0) * 3600
+                    + Number(aDuration[2] || 0) * 60
+                    + Number(aDuration[3] || 0);
+            }
+            var sDigits = sValue.replace(/:/g, "");
+            if (!/^\d{4}(?:\d{2})?$/.test(sDigits)) return null;
+            var iHours = Number(sDigits.substring(0, 2));
+            var iMinutes = Number(sDigits.substring(2, 4));
+            var iSeconds = Number(sDigits.substring(4, 6) || 0);
+            if (iHours > 23 || iMinutes > 59 || iSeconds > 59) return null;
+            return iHours * 3600 + iMinutes * 60 + iSeconds;
+        },
+
+        _getOvertimeScheduleForDate: function (oDate) {
+            if (!oDate) return null;
+            var sDateKey = this.getDateKey(oDate);
+            return (this._aAttendanceData || []).find(function (oRow) {
+                return oRow.dateKey === sDateKey;
+            }) || null;
+        },
+
+        _validateOvertimeTimes: function (bShowMessage) {
+            var oView = this.getView();
+            var oDate = oView.byId("otDate").getDateValue();
+            var sStart = oView.byId("otStartTime").getValue();
+            var sEnd = oView.byId("otEndTime").getValue();
+            var iStart = this._getTimeSeconds(sStart);
+            var iEnd = this._getTimeSeconds(sEnd);
+            var fail = function (sMessage) {
+                oView.byId("otStartTime").setValueState(ValueState.Error);
+                oView.byId("otEndTime").setValueState(ValueState.Error);
+                oView.byId("otStartTime").setValueStateText(sMessage);
+                oView.byId("otEndTime").setValueStateText(sMessage);
+                if (bShowMessage) sap.m.MessageBox.error(sMessage);
+                return false;
+            };
+
+            if (iStart === null || iEnd === null) return fail("Please enter valid overtime start and end times.");
+            var iDuration = iEnd - iStart;
+            if (iDuration <= 0) iDuration += 24 * 60 * 60;
+            if (iDuration <= 0) return fail("Overtime duration must be greater than zero.");
+
+            var oSchedule = this._getOvertimeScheduleForDate(oDate);
+            var sShiftCode = String(oSchedule && oSchedule.shiftCode || "").toUpperCase();
+            var bNonWorking = !oSchedule || Boolean(oSchedule.isHoliday)
+                || !oSchedule.startTime || !oSchedule.endTime
+                || ["OFF", "FREE", "REST", "HOLIDAY", "NONWORK"].includes(sShiftCode);
+            if (!bNonWorking) {
+                var iScheduleStart = this._getTimeSeconds(oSchedule.startTime);
+                var iScheduleEnd = this._getTimeSeconds(oSchedule.endTime);
+                if (iScheduleStart !== null && iScheduleEnd !== null) {
+                    if (iScheduleEnd <= iScheduleStart) iScheduleEnd += 24 * 60 * 60;
+                    var iOvertimeEnd = iEnd;
+                    if (iOvertimeEnd <= iStart) iOvertimeEnd += 24 * 60 * 60;
+                    if (iStart < iScheduleEnd && iOvertimeEnd > iScheduleStart) {
+                        return fail("Overtime must be outside official working hours ("
+                            + oSchedule.startTime + "-" + oSchedule.endTime + ").");
+                    }
+                }
+            }
+
+            oView.byId("otStartTime").setValueState(ValueState.None);
+            oView.byId("otEndTime").setValueState(ValueState.None);
+            return true;
+        },
+
         _getTimeMinutes: function (sTime) {
             if (!sTime || sTime === "--:--") return null;
             var aParts = String(sTime).split(":");
@@ -1013,11 +1083,14 @@ sap.ui.define([
                 var sEndT = oView.byId("otEndTime").getValue();
                 
                 if (sStartT && sEndT) {
-                    var dStart = new Date("1970-01-01T" + sStartT + ":00");
-                    var dEnd = new Date("1970-01-01T" + sEndT + ":00");
-                    if (dEnd < dStart) dEnd.setDate(dEnd.getDate() + 1); // Cross midnight
-                    
-                    var diffHours = (dEnd - dStart) / (1000 * 60 * 60);
+                    var iStartSeconds = this._getTimeSeconds(sStartT);
+                    var iEndSeconds = this._getTimeSeconds(sEndT);
+                    var diffHours = 0;
+                    if (iStartSeconds !== null && iEndSeconds !== null) {
+                        var iDurationSeconds = iEndSeconds - iStartSeconds;
+                        if (iDurationSeconds <= 0) iDurationSeconds += 24 * 60 * 60;
+                        diffHours = iDurationSeconds / (60 * 60);
+                    }
                     oView.byId("otDuration").setValue(diffHours.toFixed(2));
                     
                     var breakHrs = 0;
@@ -1026,6 +1099,7 @@ sap.ui.define([
                     else if (diffHours > 4) breakHrs = 1.0;
                     
                     oView.byId("otBreak").setValue(breakHrs.toFixed(1));
+                    this._validateOvertimeTimes(false);
                 }
                 this._loadApprover(0, sTab);
             } else if (sTab === "EDIT_TIMESHEET") {
@@ -1082,6 +1156,7 @@ sap.ui.define([
                 var otEnd = oView.byId("otEndTime").getValue();
                 var otReason = oView.byId("otReason").getValue();
                 if (!otDate || !otStart || !otEnd || !otReason) return sap.m.MessageToast.show(this.getText("msgFillRequired"));
+                if (!this._validateOvertimeTimes(true)) return;
                 
                 // Construct Date + Time
                 var dtStart = new Date(otDate);
@@ -1094,6 +1169,8 @@ sap.ui.define([
 
                 oPayload.StartDate = this.getDateKey(dtStart);
                 oPayload.EndDate = this.getDateKey(dtEnd);
+                oPayload.CorrectedStartTime = otStart;
+                oPayload.CorrectedEndTime = otEnd;
                 oPayload.Reason = otReason;
             }
 

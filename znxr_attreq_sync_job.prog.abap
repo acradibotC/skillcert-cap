@@ -2,9 +2,12 @@ REPORT znxr_attreq_sync_job.
 
 DATA: lt_requests TYPE TABLE OF ztb_nxr_attreq,
       lt_existing_p2002 TYPE STANDARD TABLE OF pa2002 WITH EMPTY KEY,
+      lt_existing_p2005 TYPE STANDARD TABLE OF pa2005 WITH EMPTY KEY,
       ls_p2001    TYPE p2001,
       ls_p2002    TYPE p2002,
+      ls_p2005    TYPE p2005,
       ls_existing_p2002 TYPE pa2002,
+      ls_existing_p2005 TYPE pa2005,
       ls_return   TYPE bapireturn1,
       ls_key      TYPE bapipakey,
       lv_infty    TYPE infty,
@@ -28,11 +31,12 @@ ENDIF.
 WRITE: / 'Processing', lines( lt_requests ), 'requests...'.
 
 LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
-  CLEAR: ls_return, ls_p2001, ls_p2002, ls_existing_p2002,
+  CLEAR: ls_return, ls_p2001, ls_p2002, ls_p2005,
+         ls_existing_p2002, ls_existing_p2005,
          ls_key, lv_infty, lv_subty, lv_operation, lv_seqnr,
          lv_start_seconds, lv_end_seconds, lv_active_p2002_count,
          lv_verified_seqnr,
-         lv_success_message, lt_existing_p2002.
+         lv_success_message, lt_existing_p2002, lt_existing_p2005.
 
   DATA(lv_date_start) = <ls_req>-start_date.
   DATA(lv_date_end)   = COND d( WHEN <ls_req>-end_date IS INITIAL THEN <ls_req>-start_date ELSE <ls_req>-end_date ).
@@ -84,11 +88,86 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
           return        = ls_return
           key           = ls_key.
 
-    WHEN 'EDIT_TIMESHEET' OR 'OVERTIME' OR 'WFH' OR 'WORK_FROM_HOME'.
+    WHEN 'OVERTIME'.
+      " Overtime is stored in the standard SAP HCM overtime infotype.
+      lv_infty = '2005'.
+      lv_subty = space.
+
+      SELECT *
+        FROM pa2005
+        WHERE pernr = @<ls_req>-pernr
+          AND subty = @space
+          AND begda = @lv_date_start
+          AND endda = @lv_date_end
+          AND beguz = @lv_time_start
+          AND enduz = @lv_time_end
+          AND sprps = @space
+        INTO TABLE @lt_existing_p2005.
+
+      CASE lines( lt_existing_p2005 ).
+        WHEN 0.
+          lv_operation = 'INS'.
+        WHEN 1.
+          READ TABLE lt_existing_p2005 INDEX 1 INTO ls_existing_p2005.
+          MOVE-CORRESPONDING ls_existing_p2005 TO ls_p2005.
+          lv_operation = 'MOD'.
+          lv_seqnr = ls_existing_p2005-seqnr.
+        WHEN OTHERS.
+          ls_return-type = 'E'.
+          ls_return-message =
+            'Multiple active PA2005 overtime records exist for this date and time.'.
+      ENDCASE.
+
+      ls_p2005-pernr = <ls_req>-pernr.
+      ls_p2005-subty = space.
+      ls_p2005-begda = lv_date_start.
+      ls_p2005-endda = lv_date_end.
+      ls_p2005-beguz = lv_time_start.
+      ls_p2005-enduz = lv_time_end.
+
+      lv_start_seconds = CONV i( lv_time_start+0(2) ) * 3600
+                       + CONV i( lv_time_start+2(2) ) * 60
+                       + CONV i( lv_time_start+4(2) ).
+      lv_end_seconds = CONV i( lv_time_end+0(2) ) * 3600
+                     + CONV i( lv_time_end+2(2) ) * 60
+                     + CONV i( lv_time_end+4(2) ).
+      IF lv_end_seconds < lv_start_seconds.
+        lv_end_seconds = lv_end_seconds + 86400.
+      ENDIF.
+
+      ls_p2005-stdaz = ( lv_end_seconds - lv_start_seconds ) / 3600
+                     - <ls_req>-ot_break_hours.
+      IF <ls_req>-ot_break_hours > 0.
+        ls_p2005-punb1 = <ls_req>-ot_break_hours.
+      ENDIF.
+      IF ls_p2005-stdaz <= 0.
+        ls_return-type = 'E'.
+        ls_return-message = 'Calculated overtime duration must be greater than zero.'.
+      ENDIF.
+
+      IF ls_return-type NA 'AEX'.
+        CALL FUNCTION 'HR_INFOTYPE_OPERATION'
+          EXPORTING
+            infty         = lv_infty
+            number        = <ls_req>-pernr
+            subtype       = lv_subty
+            validitybegin = ls_p2005-begda
+            validityend   = ls_p2005-endda
+            recordnumber  = lv_seqnr
+            record        = ls_p2005
+            operation     = lv_operation
+            tclas         = 'A'
+            dialog_mode   = '0'
+            nocommit      = abap_true
+          IMPORTING
+            return        = ls_return
+            key           = ls_key.
+      ENDIF.
+
+    WHEN 'EDIT_TIMESHEET' OR 'WFH' OR 'WORK_FROM_HOME'.
       lv_infty = '2002'.
       CASE <ls_req>-request_type.
         WHEN 'EDIT_TIMESHEET'.   lv_subty = '0800'.
-        WHEN 'OVERTIME'.         lv_subty = '0900'.
         WHEN 'WFH'.               lv_subty = '0800'.
         WHEN 'WORK_FROM_HOME'.   lv_subty = '0800'.
       ENDCASE.
@@ -142,8 +221,7 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
       ls_p2002-beguz = lv_time_start.
       ls_p2002-enduz = lv_time_end.
 
-      IF <ls_req>-request_type = 'OVERTIME'
-         OR <ls_req>-request_type = 'EDIT_TIMESHEET'
+      IF <ls_req>-request_type = 'EDIT_TIMESHEET'
          OR <ls_req>-request_type = 'WFH'
          OR <ls_req>-request_type = 'WORK_FROM_HOME'.
         " Calculate duration in hours if needed, standard STDAZ
@@ -183,7 +261,61 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
       ls_return-message = 'Unsupported request type.'.
   ENDCASE.
 
-  IF ( <ls_req>-request_type = 'EDIT_TIMESHEET'
+  IF <ls_req>-request_type = 'OVERTIME'
+     AND ls_return-type NA 'AEX'.
+    " Persist PA2005 before verifying the actual SAP source of truth.
+    COMMIT WORK AND WAIT.
+
+    IF lv_operation = 'MOD'.
+      SELECT SINGLE seqnr
+        FROM pa2005
+        WHERE pernr = @<ls_req>-pernr
+          AND subty = @space
+          AND begda = @lv_date_start
+          AND endda = @lv_date_end
+          AND seqnr = @lv_seqnr
+          AND sprps = @space
+          AND beguz = @lv_time_start
+          AND enduz = @lv_time_end
+          AND stdaz > 0
+        INTO @lv_verified_seqnr.
+    ELSEIF ls_key-recordnr IS NOT INITIAL.
+      SELECT SINGLE seqnr
+        FROM pa2005
+        WHERE pernr = @<ls_req>-pernr
+          AND subty = @space
+          AND begda = @lv_date_start
+          AND endda = @lv_date_end
+          AND seqnr = @ls_key-recordnr
+          AND sprps = @space
+          AND beguz = @lv_time_start
+          AND enduz = @lv_time_end
+          AND stdaz > 0
+        INTO @lv_verified_seqnr.
+    ELSE.
+      SELECT SINGLE seqnr
+        FROM pa2005
+        WHERE pernr = @<ls_req>-pernr
+          AND subty = @space
+          AND begda = @lv_date_start
+          AND endda = @lv_date_end
+          AND sprps = @space
+          AND beguz = @lv_time_start
+          AND enduz = @lv_time_end
+          AND stdaz > 0
+        INTO @lv_verified_seqnr.
+    ENDIF.
+
+    IF sy-subrc <> 0.
+      ls_return-type = 'E'.
+      ls_return-message = 'PA2005 verification failed after overtime operation.'.
+    ELSEIF lv_operation = 'MOD'.
+      lv_success_message = 'Updated existing PA2005 overtime and verified.'.
+    ELSE.
+      lv_success_message = 'Inserted PA2005 overtime and verified.'.
+    ENDIF.
+
+  ELSEIF ( <ls_req>-request_type = 'EDIT_TIMESHEET'
        OR <ls_req>-request_type = 'WFH'
        OR <ls_req>-request_type = 'WORK_FROM_HOME' )
      AND ls_return-type NA 'AEX'.
@@ -247,9 +379,9 @@ LOOP AT lt_requests ASSIGNING FIELD-SYMBOL(<ls_req>).
       ls_return-type = 'E'.
       ls_return-message = 'PA2002 verification failed after infotype operation.'.
     ELSEIF ls_return-type NA 'AEX' AND lv_operation = 'MOD'.
-      lv_success_message = 'Updated existing PA2002 subtype 0800 and verified.'.
+      lv_success_message = |Updated existing PA2002 subtype { lv_subty } and verified.|.
     ELSEIF ls_return-type NA 'AEX'.
-      lv_success_message = 'Inserted PA2002 subtype 0800 and verified.'.
+      lv_success_message = |Inserted PA2002 subtype { lv_subty } and verified.|.
     ENDIF.
   ENDIF.
 

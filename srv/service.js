@@ -78,6 +78,7 @@ module.exports = {
     AttendanceService: async function() {
         const skillSrv = await cds.connect.to('ZUI_NXR_SKILLREQ_O4');
         const attExternal = await cds.connect.to('ZUI_NXR_ATTREQ_O4');
+        const calExternal = await cds.connect.to('ZUI_NXR_WORKSCHEDULE_O4');
         const axios = require('axios');
 
         // SAP OData V4 base URL and credentials
@@ -213,6 +214,153 @@ module.exports = {
             return time;
         }
 
+        function parseTimeSeconds(value, fieldName) {
+            const raw = String(value || '').trim();
+            const durationMatch = raw.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
+            if (durationMatch) {
+                return Number(durationMatch[1] || 0) * 3600
+                    + Number(durationMatch[2] || 0) * 60
+                    + Number(durationMatch[3] || 0);
+            }
+
+            const digits = raw.replace(/:/g, '');
+            if (!/^\d{4}(?:\d{2})?$/.test(digits)) {
+                const error = new Error(`${fieldName} must use HH:mm or HH:mm:ss.`);
+                error.statusCode = 400;
+                throw error;
+            }
+            const hours = Number(digits.slice(0, 2));
+            const minutes = Number(digits.slice(2, 4));
+            const seconds = Number(digits.slice(4, 6) || 0);
+            if (hours > 23 || minutes > 59 || seconds > 59) {
+                const error = new Error(`${fieldName} is not a valid time.`);
+                error.statusCode = 400;
+                throw error;
+            }
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+
+        function normalizeDateKey(value, fieldName) {
+            const dateKey = String(value || '').substring(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+                const error = new Error(`${fieldName} must use YYYY-MM-DD.`);
+                error.statusCode = 400;
+                throw error;
+            }
+            const parsed = new Date(`${dateKey}T00:00:00Z`);
+            if (Number.isNaN(parsed.getTime()) || parsed.toISOString().substring(0, 10) !== dateKey) {
+                const error = new Error(`${fieldName} is not a valid date.`);
+                error.statusCode = 400;
+                throw error;
+            }
+            return dateKey;
+        }
+
+        function dateDifferenceInDays(startDate, endDate) {
+            return Math.round((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000);
+        }
+
+        function overtimeBreakHours(grossHours) {
+            if (grossHours > 12) return 2.0;
+            if (grossHours > 8) return 1.5;
+            if (grossHours > 4) return 1.0;
+            return 0;
+        }
+
+        async function validateAndCalculateOvertime(data) {
+            const startDate = normalizeDateKey(data.StartDate, 'Overtime start date');
+            const endDate = normalizeDateKey(data.EndDate || data.StartDate, 'Overtime end date');
+            const startTime = normalizeTimeValue(data.CorrectedStartTime);
+            const endTime = normalizeTimeValue(data.CorrectedEndTime);
+            if (!startTime || !endTime) {
+                const error = new Error('Overtime start and end times are required.');
+                error.statusCode = 400;
+                throw error;
+            }
+
+            const startSeconds = parseTimeSeconds(startTime, 'Overtime start time');
+            const endSeconds = parseTimeSeconds(endTime, 'Overtime end time');
+            const dayDifference = dateDifferenceInDays(startDate, endDate);
+            if (dayDifference < 0) {
+                const error = new Error('Overtime end date cannot be earlier than start date.');
+                error.statusCode = 400;
+                throw error;
+            }
+
+            let durationSeconds = dayDifference * 86400 + endSeconds - startSeconds;
+            if (dayDifference === 0 && endSeconds < startSeconds) durationSeconds += 86400;
+            if (durationSeconds <= 0) {
+                const error = new Error('Overtime duration must be greater than zero.');
+                error.statusCode = 400;
+                throw error;
+            }
+
+            let scheduleRows;
+            try {
+                scheduleRows = await calExternal.run(
+                    SELECT.from('WorkSchedule')
+                        .columns('Pernr', 'WorkDate', 'ShiftCode', 'StartTime', 'EndTime', 'IsHoliday')
+                        .where({ Pernr: data.Pernr, WorkDate: startDate })
+                        .limit(1)
+                );
+            } catch (error) {
+                const validationError = new Error('Cannot validate overtime against the official work schedule.');
+                validationError.statusCode = 502;
+                validationError.cause = error;
+                throw validationError;
+            }
+
+            const schedule = Array.isArray(scheduleRows) ? scheduleRows[0] : scheduleRows;
+            const shiftCode = String(schedule?.ShiftCode || '').toUpperCase();
+            const isNonWorkingDay = !schedule || Boolean(schedule.IsHoliday)
+                || !schedule.StartTime || !schedule.EndTime
+                || ['OFF', 'FREE', 'REST', 'HOLIDAY', 'NONWORK'].includes(shiftCode);
+
+            if (!isNonWorkingDay) {
+                const scheduleStart = parseTimeSeconds(schedule.StartTime, 'Official work start time');
+                let scheduleEnd = parseTimeSeconds(schedule.EndTime, 'Official work end time');
+                if (scheduleEnd <= scheduleStart) scheduleEnd += 86400;
+
+                let overtimeEnd = dayDifference * 86400 + endSeconds;
+                if (dayDifference === 0 && endSeconds < startSeconds) overtimeEnd += 86400;
+                const overlapsOfficialHours = startSeconds < scheduleEnd && overtimeEnd > scheduleStart;
+                if (overlapsOfficialHours) {
+                    const error = new Error(
+                        `Overtime must be outside official working hours (${schedule.StartTime}-${schedule.EndTime}).`
+                    );
+                    error.statusCode = 400;
+                    throw error;
+                }
+            }
+
+            const grossHours = Number((durationSeconds / 3600).toFixed(2));
+            const monthStart = `${startDate.substring(0, 7)}-01`;
+            const existingRows = await attExternal.run(
+                SELECT.from('AttendanceRequest').where({
+                    Pernr: data.Pernr,
+                    RequestType: 'OVERTIME'
+                })
+            );
+            const existingMonthlyHours = (existingRows || []).reduce((total, row) => {
+                const rowDate = String(row.StartDate || '').substring(0, 10);
+                if (row.Status === '04' || rowDate < monthStart || rowDate.substring(0, 7) !== startDate.substring(0, 7)) return total;
+                return total + Number(row.Duration || 0);
+            }, 0);
+            if (existingMonthlyHours + grossHours > 40) {
+                const error = new Error('Overtime cannot exceed 40 hours in a calendar month.');
+                error.statusCode = 400;
+                throw error;
+            }
+
+            data.StartDate = startDate;
+            data.EndDate = endDate;
+            data.CorrectedStartTime = startTime;
+            data.CorrectedEndTime = endTime;
+            data.Duration = grossHours;
+            data.DurationUnit = 'STD';
+            data.OtBreakHours = overtimeBreakHours(grossHours);
+        }
+
         // Helper: PATCH to SAP with CSRF token
         async function sapPatch(path, data) {
             const { token, cookies } = await fetchCsrfToken();
@@ -279,17 +427,12 @@ module.exports = {
                     data.CorrectedStartTime = data.CorrectedStartTime || '08:00:00';
                     data.CorrectedEndTime = data.CorrectedEndTime || '17:30:00';
                 }
-            } else if (data.RequestType === 'OVERTIME' && data.StartDate && data.EndDate) {
-                const start = new Date(data.StartDate);
-                const end = new Date(data.EndDate);
-                const diffHours = Math.max((end - start) / (1000 * 60 * 60), 0);
-                data.Duration = parseFloat(diffHours.toFixed(2));
-                data.DurationUnit = 'STD';
-
-                if (diffHours > 12) data.OtBreakHours = 2.0;
-                else if (diffHours > 8) data.OtBreakHours = 1.5;
-                else if (diffHours > 4) data.OtBreakHours = 1.0;
-                else data.OtBreakHours = 0;
+            } else if (data.RequestType === 'OVERTIME') {
+                try {
+                    await validateAndCalculateOvertime(data);
+                } catch (error) {
+                    return req.reject(error.statusCode || 400, error.message);
+                }
             } else if (data.RequestType === 'EDIT_TIMESHEET') {
                 data.Duration = 1;
                 data.DurationUnit = 'TAG';

@@ -93,8 +93,31 @@ test('Create request rejects day-off and WFH ranges where end is before start', 
     assert.match(service, /req\.reject\(400, 'End Date\/Time cannot be earlier than Start Date\/Time\.'\)/);
 });
 
+test('Overtime sends the selected times and validates outside official working hours', () => {
+    assert.match(controller, /_validateOvertimeTimes: function/);
+    assert.match(controller, /Overtime must be outside official working hours/);
+    assert.match(controller, /oPayload\.CorrectedStartTime = otStart/);
+    assert.match(controller, /oPayload\.CorrectedEndTime = otEnd/);
+    assert.match(service, /validateAndCalculateOvertime/);
+    assert.match(service, /Overtime start and end times are required/);
+    assert.match(service, /Overtime must be outside official working hours/);
+    assert.match(service, /Overtime cannot exceed 40 hours in a calendar month/);
+});
+
 test('Work Calendar hides generated week-number index column', () => {
     assert.match(view, /id="attendanceCalendar"[\s\S]*?showWeekNumbers="false"/);
+});
+
+test('Calendar labels approved WFH and does not mark today absent', () => {
+    assert.match(controller, /getStatusInfo: function \(iStatus, sShiftCode, oDate, bIsWfh\)/);
+    assert.match(controller, /statusFullAttendanceWfh/);
+    assert.match(controller, /_getApprovedRequestForDate: function/);
+    assert.match(controller, /oRequest\.RequestType === sRequestType/);
+    assert.match(controller, /statusToday/);
+    assert.match(controller, /if \(bIsToday\)/);
+    assert.match(controller, /this\._applyCalendarColors\(\)/);
+    assert.match(service, /todayKey = new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+    assert.match(service, /row\.AttendanceStatus = 0/);
 });
 
 test('Attendance details are rendered below the calendar in the left column', () => {
