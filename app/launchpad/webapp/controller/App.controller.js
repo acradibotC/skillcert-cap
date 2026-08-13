@@ -124,12 +124,28 @@ sap.ui.define([
                     // Initialize notifications + WebSocket
                     this._initNotifications();
                 }.bind(this),
-                error: function () {
-                    oUserModel.setProperty("/authorized", true);
-                    this.byId("welcomeGreeting").setText("Hi, great to see you!");
-                    this._restoreRouteFromHash();
-                    this._loadTodos();
-                    this._initNotifications();
+                error: function (jqXHR) {
+                    // Fail closed: a 401/403/503 from currentUser must never
+                    // grant access to the launchpad or its child applications.
+                    oUserModel.setProperty("/authorized", false);
+
+                    var oError = jqXHR && jqXHR.responseJSON;
+                    if (!oError && jqXHR && jqXHR.responseText) {
+                        try {
+                            oError = JSON.parse(jqXHR.responseText);
+                        } catch (e) {
+                            oError = null;
+                        }
+                    }
+
+                    var sMsg = oError && oError.errorMessage;
+                    if (!sMsg) {
+                        sMsg = jqXHR && jqXHR.status === 401
+                            ? "Your session has expired. Please sign in again."
+                            : "Your email is not linked to any employee record.";
+                    }
+                    this.byId("errorMessage").setText(sMsg);
+                    this.byId("navContainer").to(this.byId("errorPage"));
                 }.bind(this)
             });
         },
