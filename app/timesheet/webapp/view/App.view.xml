@@ -147,32 +147,8 @@
                                         width="100%"
                                         showWeekNumbers="false"
                                         legend="calendarLegend" />
-                                </VBox>
-                                
-                                <VBox>
-                                    <layoutData>
-                                        <layout:GridData span="XL4 L4 M12 S12" />
-                                    </layoutData>
-                                    <Button
-                                        id="calendarCreateRequestButton"
-                                        text="{i18n>btnCreateRequest}"
-                                        icon="sap-icon://add"
-                                        type="Emphasized"
-                                        width="100%"
-                                        class="sapUiSmallMarginBottom"
-                                        press="onCreateRequestFromCalendar" />
-                                    <!-- Legend -->
-                                    <unified:CalendarLegend id="calendarLegend" class="sapUiSmallMarginBottom">
-                                        <unified:items>
-                                            <unified:CalendarLegendItem text="{i18n>statusFullAttendance}" type="Type08" />
-                                            <unified:CalendarLegendItem text="{i18n>statusLateLeaveEarly}" type="Type02" />
-                                            <unified:CalendarLegendItem text="{i18n>statusAbsent}" type="Type03" />
-                                            <unified:CalendarLegendItem text="{i18n>statusScheduled}" type="Type06" />
-                                            <unified:CalendarLegendItem text="{i18n>statusOffNoSchedule}" type="Type09" />
-                                        </unified:items>
-                                    </unified:CalendarLegend>
 
-                                    <!-- Detail Panel - 2 Column Layout -->
+                                    <!-- Attendance details stay below the calendar in the left column. -->
                                     <Panel id="detailPanel" headerText="{i18n>detPanelTitle}" visible="false" class="sapUiSmallMarginTop">
                                         <layout:Grid defaultSpan="XL6 L6 M12 S12" hSpacing="1" class="sapUiSmallMargin">
                                             <!-- Column 1: Scheduled Hours -->
@@ -207,11 +183,35 @@
                                             </VBox>
                                         </layout:Grid>
                                     </Panel>
-                                    
+
                                     <VBox id="placeholderDetail" alignItems="Center" class="sapUiLargeMarginTop" visible="true">
                                         <core:Icon src="sap-icon://appointment" size="3rem" color="#ccc" class="sapUiSmallMarginBottom"/>
                                         <Text text="{i18n>detPlaceholder}" textAlign="Center"/>
                                     </VBox>
+                                </VBox>
+
+                                <VBox>
+                                    <layoutData>
+                                        <layout:GridData span="XL4 L4 M12 S12" />
+                                    </layoutData>
+                                    <Button
+                                        id="calendarCreateRequestButton"
+                                        text="{i18n>btnCreateRequest}"
+                                        icon="sap-icon://add"
+                                        type="Emphasized"
+                                        width="100%"
+                                        class="sapUiSmallMarginBottom"
+                                        press="onCreateRequestFromCalendar" />
+                                    <!-- Legend -->
+                                    <unified:CalendarLegend id="calendarLegend" class="sapUiSmallMarginBottom">
+                                        <unified:items>
+                                            <unified:CalendarLegendItem text="{i18n>statusFullAttendance}" type="Type08" />
+                                            <unified:CalendarLegendItem text="{i18n>statusLateLeaveEarly}" type="Type02" />
+                                            <unified:CalendarLegendItem text="{i18n>statusAbsent}" type="Type03" />
+                                            <unified:CalendarLegendItem text="{i18n>statusScheduled}" type="Type06" />
+                                            <unified:CalendarLegendItem text="{i18n>statusOffNoSchedule}" type="Type09" />
+                                        </unified:items>
+                                    </unified:CalendarLegend>
                                 </VBox>
                             </layout:Grid>
                         </VBox>

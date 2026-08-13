@@ -97,6 +97,19 @@ test('Work Calendar hides generated week-number index column', () => {
     assert.match(view, /id="attendanceCalendar"[\s\S]*?showWeekNumbers="false"/);
 });
 
+test('Attendance details are rendered below the calendar in the left column', () => {
+    const calendarStart = view.indexOf('<!-- Work Calendar Section');
+    const calendarSection = view.slice(calendarStart, view.indexOf('<!-- My Requests Section'));
+    const calendarPosition = calendarSection.indexOf('id="attendanceCalendar"');
+    const detailPosition = calendarSection.indexOf('id="detailPanel"');
+    const rightColumnStart = calendarSection.indexOf('id="calendarCreateRequestButton"');
+
+    assert.ok(calendarPosition >= 0);
+    assert.ok(detailPosition > calendarPosition);
+    assert.ok(rightColumnStart > detailPosition);
+    assert.match(calendarSection, /id="detailPanel"[\s\S]*?id="placeholderDetail"/);
+});
+
 test('Embedded Timesheet navigation has an accessible collapse toggle', () => {
     assert.match(view, /sideExpanded="\{view>\/sideExpanded\}"/);
     assert.match(view, /selectedKey="\{= \$\{view>\/selectedTab\} \}"/);
