@@ -178,6 +178,8 @@
                                                         <Text id="detActEnd" text="" />
                                                         <Label text="{i18n>detStatus}" />
                                                         <ObjectStatus id="detStatus" text="" />
+                                                        <Label id="detOvertimeLabel" text="{i18n>detOvertime}" visible="false" />
+                                                        <Text id="detOvertime" text="" visible="false" />
                                                     </form:content>
                                                 </form:SimpleForm>
                                             </VBox>

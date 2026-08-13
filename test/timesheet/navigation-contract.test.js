@@ -104,6 +104,18 @@ test('Overtime sends the selected times and validates outside official working h
     assert.match(service, /Overtime cannot exceed 40 hours in a calendar month/);
 });
 
+test('Calendar marks PA2005 overtime dates and shows the OT interval in details', () => {
+    assert.match(controller, /hasOvertime: Boolean\(oRow\.HasOvertime\)/);
+    assert.match(controller, /overtimeText: this\._formatOvertimeText\(oRow\.OvertimeText\)/);
+    assert.match(controller, /Date: oData\.dateKey \+ \(oOvertime \? " \*" : ""\)/);
+    assert.match(controller, /RequestType === "OVERTIME"/);
+    assert.match(controller, /timesheetOtDate/);
+    assert.match(controller, /detOvertimeLabel/);
+    assert.match(controller, /overtimeHours\.toFixed\(2\)/);
+    assert.match(view, /id="detOvertimeLabel"/);
+    assert.match(view, /id="detOvertime"/);
+});
+
 test('Work Calendar hides generated week-number index column', () => {
     assert.match(view, /id="attendanceCalendar"[\s\S]*?showWeekNumbers="false"/);
 });

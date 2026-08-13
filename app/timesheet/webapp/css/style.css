@@ -37,3 +37,14 @@
     border-radius: 12px;
     border: none !important;
 }
+
+/* Keep the attendance color and add a visible marker for PA2005 overtime. */
+.timesheetOtDate::after {
+    content: "*";
+    position: absolute;
+    top: 0.05rem;
+    right: 0.3rem;
+    color: #c0392b;
+    font-size: 1rem;
+    font-weight: 700;
+}

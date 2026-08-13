@@ -70,6 +70,9 @@ sap.ui.define([
 
             // Attach after rendering to load data
             this.getView().attachEventOnce("afterRendering", function () {
+                this.byId("attendanceCalendar").addEventDelegate({
+                    onAfterRendering: this._decorateOvertimeDates.bind(this)
+                });
                 this._loadAttendanceData();
             }.bind(this));
 
@@ -239,6 +242,66 @@ sap.ui.define([
             return String(oDate.getHours()).padStart(2, '0') + ':' +
                 String(oDate.getMinutes()).padStart(2, '0') + ':' +
                 String(oDate.getSeconds()).padStart(2, '0');
+        },
+
+        _formatOvertimeText: function (sOvertimeText) {
+            return String(sOvertimeText || "").replace(/(\d{2})(\d{2})(\d{2})/g, "$1:$2:$3");
+        },
+
+        _getOvertimeForDateKey: function (sDateKey) {
+            var oScheduleRow = (this._aAttendanceData || []).find(function (oRow) {
+                return oRow.dateKey === sDateKey && oRow.hasOvertime;
+            });
+            if (oScheduleRow) return oScheduleRow;
+
+            var aRequests = (this._aRawRequests || []).filter(function (oRequest) {
+                var sStart = String(oRequest.StartDate || "").substring(0, 10);
+                var sEnd = String(oRequest.EndDate || oRequest.StartDate || "").substring(0, 10);
+                return oRequest.RequestType === "OVERTIME"
+                    && String(oRequest.Status) === "02"
+                    && oRequest.Status !== "04"
+                    && sDateKey >= sStart && sDateKey <= sEnd;
+            });
+            if (!aRequests.length) return null;
+
+            return {
+                overtimeText: aRequests.map(function (oRequest) {
+                    return this._formatOvertimeText(
+                        String(oRequest.CorrectedStartTime || "") + " - "
+                        + String(oRequest.CorrectedEndTime || "")
+                    );
+                }.bind(this)).join("; "),
+                overtimeHours: aRequests.reduce(function (fTotal, oRequest) {
+                    return fTotal + Number(oRequest.Duration || 0);
+                }, 0),
+                hasOvertime: true
+            };
+        },
+
+        _parseCalendarDomDate: function (sRawDate) {
+            var sValue = String(sRawDate || "");
+            if (/^\d{8}$/.test(sValue)) {
+                return new Date(
+                    Number(sValue.substring(0, 4)),
+                    Number(sValue.substring(4, 6)) - 1,
+                    Number(sValue.substring(6, 8))
+                );
+            }
+            var oDate = new Date(Number(sValue));
+            return Number.isNaN(oDate.getTime()) ? null : oDate;
+        },
+
+        _decorateOvertimeDates: function () {
+            var oCalendar = this.byId("attendanceCalendar");
+            if (!oCalendar || !oCalendar.$().length) return;
+            var that = this;
+            oCalendar.$().find("[data-sap-ui-date]").each(function () {
+                var oDate = that._parseCalendarDomDate(this.getAttribute("data-sap-ui-date"));
+                if (!oDate) return;
+                var oOvertime = that._getOvertimeForDateKey(that.getDateKey(oDate));
+                this.classList.toggle("timesheetOtDate", Boolean(oOvertime));
+                if (oOvertime) this.setAttribute("title", "* OT " + oOvertime.overtimeText);
+            });
         },
 
         _getTimeSeconds: function (sTime) {
@@ -553,8 +616,11 @@ sap.ui.define([
                         quotaUsed: Number(oRow.QuotaUsed || 0),
                         quotaRemaining: Number(oRow.QuotaRemaining || 0),
                         quotaUnit: oRow.QuotaUnit || "DAY",
-                        quotaValidFrom: oRow.QuotaValidFrom ? this.parseAbapDate(oRow.QuotaValidFrom) : null,
-                        quotaValidTo: oRow.QuotaValidTo ? this.parseAbapDate(oRow.QuotaValidTo) : null
+                         quotaValidFrom: oRow.QuotaValidFrom ? this.parseAbapDate(oRow.QuotaValidFrom) : null,
+                         quotaValidTo: oRow.QuotaValidTo ? this.parseAbapDate(oRow.QuotaValidTo) : null,
+                         hasOvertime: Boolean(oRow.HasOvertime),
+                         overtimeText: this._formatOvertimeText(oRow.OvertimeText),
+                         overtimeHours: Number(oRow.OvertimeHours || 0)
                     });
                 }.bind(this));
 
@@ -589,6 +655,7 @@ sap.ui.define([
 
             var aTableData = aWorkdays.map(function (oData, iIndex) {
                 var bIsWfh = Boolean(this._getApprovedRequestForDate(oData.date, "WFH"));
+                var oOvertime = this._getOvertimeForDateKey(oData.dateKey);
                 var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date, bIsWfh);
                 var bNoData = oData.actualStart === "--:--" || oData.actualEnd === "--:--" || (oData.actualStart === "00:00" && oData.actualEnd === "00:00");
                 
@@ -644,7 +711,7 @@ sap.ui.define([
 
                 return {
                     No: iIndex + 1,
-                    Date: oData.dateKey,
+                    Date: oData.dateKey + (oOvertime ? " *" : ""),
                     Checkin: oData.actualStart,
                     Checkout: oData.actualEnd,
                     StatusText: oInfo.text,
@@ -872,9 +939,18 @@ sap.ui.define([
                 this.byId("detActEnd").setText(oData.status === 3 ? "No Data" : oData.actualEnd);
             }
 
-            this.byId("detStatus").setText(oInfo.text);
-            this.byId("detStatus").setState(oInfo.state);
-        },
+             this.byId("detStatus").setText(oInfo.text);
+             this.byId("detStatus").setState(oInfo.state);
+
+            var oOvertime = this._getOvertimeForDateKey(oData.dateKey);
+             var oOvertimeLabel = this.byId("detOvertimeLabel");
+             var oOvertimeText = this.byId("detOvertime");
+             oOvertimeLabel.setVisible(Boolean(oOvertime));
+             oOvertimeText.setVisible(Boolean(oOvertime));
+             oOvertimeText.setText(oOvertime
+                 ? oOvertime.overtimeText + " (" + oOvertime.overtimeHours.toFixed(2) + " h)"
+                 : "");
+         },
 
         _hideDetail: function () {
             this.byId("placeholderDetail").setVisible(true);
@@ -1018,6 +1094,7 @@ sap.ui.define([
                     oPicker.setValueStateText(sText || "");
                 }
             }.bind(this));
+            this._decorateOvertimeDates();
         },
 
         _validateRequestDateRange: function (sPrefix, bShowMessage) {
