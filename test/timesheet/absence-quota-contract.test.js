@@ -24,7 +24,16 @@ test('Unrequested Leave is capped at today and excludes approved DAYOFF dates', 
     assert.match(controller, /var sEffectiveTo = sPeriodTo < sAsOfDate \? sPeriodTo : sAsOfDate/);
     assert.match(controller, /if \(oRow\.dateKey > sEffectiveTo \|\| oApprovedLeaveByDate\.has\(oRow\.dateKey\)\) return fTotal/);
     assert.match(controller, /oRequest\.RequestType !== "DAYOFF" \|\| String\(oRequest\.Status\) !== "02"/);
-    assert.match(controller, /iStatus === 3 && !oRow\.leaveType/);
+    assert.match(controller, /if \(iStatus === 3\) return 1/);
+    assert.match(controller, /return !oRow\.leaveType \? fTotal \+ this\._getUnrequestedDayFraction\(oRow\) : fTotal/);
+});
+
+test('Unrequested Leave includes late and early-leave hours as a day fraction', () => {
+    assert.match(controller, /_getUnrequestedDayFraction/);
+    assert.match(controller, /iMissingMinutes = Math\.max\(0, iActualStart - iScheduledStart\)/);
+    assert.match(controller, /iMissingMinutes \+= Math\.max\(0, iScheduledEndForComparison - iActualEnd\)/);
+    assert.match(controller, /iMissingMinutes \/ iScheduledHours/);
+    assert.match(controller, /!oRow\.leaveType \? fTotal \+ this\._getUnrequestedDayFraction\(oRow\)/);
 });
 
 test('Annual Leave sample uses SAP quota type 01 and day unit', () => {

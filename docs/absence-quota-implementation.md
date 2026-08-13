@@ -33,13 +33,18 @@ The backend source artifact is in
 `Requested Leave` counts approved `DAYOFF` requests in the selected month.
 For this first scope, `DAYOFF` represents Annual Leave.
 
-`Unrequested Leave` counts a scheduled workday only when:
+`Unrequested Leave` is expressed in day units and includes both full-day
+absence and unapproved missing working time. For each scheduled workday:
 
 1. the date is not later than the server/browser current date;
 2. the day is not `OFF`, `FREE`, `REST`, holiday, or a non-working shift;
-3. `AttendanceStatus = 3`;
-4. there is no leave status; and
-5. the date is not covered by an approved `DAYOFF` request.
+3. there is no leave status; and
+4. the date is not covered by an approved `DAYOFF` request.
+
+When `AttendanceStatus = 3`, the day contributes `1.000`. When
+`AttendanceStatus = 2` (late/early leave), the day contributes
+`missing_minutes / scheduled_shift_minutes`, capped at `1.000`. Other
+attendance statuses contribute `0.000`.
 
 Future dates are never included in `Unrequested Leave`.
 

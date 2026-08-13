@@ -241,6 +241,39 @@ sap.ui.define([
                 String(oDate.getSeconds()).padStart(2, '0');
         },
 
+        _getTimeMinutes: function (sTime) {
+            if (!sTime || sTime === "--:--") return null;
+            var aParts = String(sTime).split(":");
+            var iHours = Number(aParts[0]);
+            var iMinutes = Number(aParts[1]);
+            if (!Number.isFinite(iHours) || !Number.isFinite(iMinutes)) return null;
+            return iHours * 60 + iMinutes;
+        },
+
+        _getUnrequestedDayFraction: function (oRow) {
+            var iStatus = Number(oRow.status || 0);
+            if (iStatus === 3) return 1;
+            if (iStatus !== 2) return 0;
+
+            var iScheduledStart = this._getTimeMinutes(oRow.startTime);
+            var iScheduledEnd = this._getTimeMinutes(oRow.endTime);
+            var iActualStart = this._getTimeMinutes(oRow.actualStart);
+            var iActualEnd = this._getTimeMinutes(oRow.actualEnd);
+            if ([iScheduledStart, iScheduledEnd, iActualStart, iActualEnd].some(function (iValue) {
+                return iValue === null;
+            })) return 0;
+
+            var iScheduledHours = iScheduledEnd - iScheduledStart;
+            if (iScheduledHours <= 0) iScheduledHours += 24 * 60;
+            var iMissingMinutes = Math.max(0, iActualStart - iScheduledStart);
+            if (iActualEnd < iActualStart) iActualEnd += 24 * 60;
+            var iScheduledEndForComparison = iScheduledEnd;
+            if (iScheduledEndForComparison < iScheduledStart) iScheduledEndForComparison += 24 * 60;
+            iMissingMinutes += Math.max(0, iScheduledEndForComparison - iActualEnd);
+
+            return Math.min(1, iMissingMinutes / iScheduledHours);
+        },
+
         getStatusInfo: function (iStatus, sShiftCode, oDate, bIsWfh) {
             // Type08 = Green, Type01 = Yellow/Orange, Type03 = Red, Type06 = Blue, Type09 = Grey
             var sCode = (sShiftCode || "").toUpperCase();
@@ -628,9 +661,8 @@ sap.ui.define([
             }, 0);
             var fUnrequested = aScheduledRows.reduce(function (fTotal, oRow) {
                 if (oRow.dateKey > sEffectiveTo || oApprovedLeaveByDate.has(oRow.dateKey)) return fTotal;
-                var iStatus = Number(oRow.status || 0);
-                return iStatus === 3 && !oRow.leaveType ? fTotal + 1 : fTotal;
-            }, 0);
+                return !oRow.leaveType ? fTotal + this._getUnrequestedDayFraction(oRow) : fTotal;
+            }.bind(this), 0);
             var formatNumber = function (fValue) { return Number(fValue || 0).toFixed(3); };
             this.getView().setModel(new JSONModel({
                 quotaName: oQuotaRow.quotaName || "Annual Leave",
