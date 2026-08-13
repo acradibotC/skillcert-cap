@@ -248,6 +248,17 @@ sap.ui.define([
             return String(sOvertimeText || "").replace(/(\d{2})(\d{2})(\d{2})/g, "$1:$2:$3");
         },
 
+        _isSyncedOvertimeRequest: function (oRequest) {
+            var sStartTime = String(oRequest.CorrectedStartTime || "").replace(/\D/g, "");
+            var sEndTime = String(oRequest.CorrectedEndTime || "").replace(/\D/g, "");
+            return oRequest.RequestType === "OVERTIME"
+                && String(oRequest.Status) === "02"
+                && String(oRequest.SapPostStatus || "").toUpperCase() === "SUCCESS"
+                && Number(oRequest.Duration || 0) > 0
+                && sStartTime !== "" && sStartTime !== "000000"
+                && sEndTime !== "" && sEndTime !== "000000";
+        },
+
         _getOvertimeForDateKey: function (sDateKey) {
             var oScheduleRow = (this._aAttendanceData || []).find(function (oRow) {
                 return oRow.dateKey === sDateKey && oRow.hasOvertime;
@@ -257,11 +268,9 @@ sap.ui.define([
             var aRequests = (this._aRawRequests || []).filter(function (oRequest) {
                 var sStart = String(oRequest.StartDate || "").substring(0, 10);
                 var sEnd = String(oRequest.EndDate || oRequest.StartDate || "").substring(0, 10);
-                return oRequest.RequestType === "OVERTIME"
-                    && String(oRequest.Status) === "02"
-                    && oRequest.Status !== "04"
+                return this._isSyncedOvertimeRequest(oRequest)
                     && sDateKey >= sStart && sDateKey <= sEnd;
-            });
+            }.bind(this));
             if (!aRequests.length) return null;
 
             return {

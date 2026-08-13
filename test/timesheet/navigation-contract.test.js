@@ -109,6 +109,9 @@ test('Calendar marks PA2005 overtime dates and shows the OT interval in details'
     assert.match(controller, /overtimeText: this\._formatOvertimeText\(oRow\.OvertimeText\)/);
     assert.match(controller, /Date: oData\.dateKey \+ \(oOvertime \? " \*" : ""\)/);
     assert.match(controller, /RequestType === "OVERTIME"/);
+    assert.match(controller, /SapPostStatus.*SUCCESS/);
+    assert.match(controller, /Number\(oRequest\.Duration \|\| 0\) > 0/);
+    assert.match(controller, /sStartTime !== "000000"/);
     assert.match(controller, /\[data-sap-day\]/);
     assert.match(controller, /timesheetOtDate/);
     assert.match(controller, /detOvertimeLabel/);
