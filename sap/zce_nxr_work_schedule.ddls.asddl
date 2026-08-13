@@ -1,0 +1,35 @@
+@EndUserText.label: 'Employee Work Schedule Custom Entity'
+@ObjectModel.query.implementedBy: 'ABAP:ZCL_NXR_WORKSCHEDULE_QUERY'
+define custom entity ZCE_NXR_WORK_SCHEDULE
+{
+      @UI.lineItem     : [{ position: 10, label: 'Personnel Number' }]
+      @UI.selectionField:[{ position: 10 }]
+  key Pernr            : pernr_d;
+
+      @UI.lineItem     : [{ position: 20, label: 'Work Date' }]
+      @UI.selectionField:[{ position: 20 }]
+  key WorkDate         : dats;
+
+      StartTime        : uzeit;
+      EndTime          : uzeit;
+      ActualStartTime  : uzeit;
+      ActualEndTime    : uzeit;
+      ShiftCode        : tprog;
+      IsHoliday        : abap_boolean;
+      AttendanceStatus : abap.int1;
+      LeaveType        : subty;
+      LeaveName        : abap.char(40);
+      EmployeeName     : emnam;
+      DepartmentName   : abap.char(40);
+
+      // Annual Leave quota fields are repeated on each daily row so the
+      // existing WorkSchedule service remains backward compatible.
+      QuotaType        : ktart;
+      QuotaName        : abap.char(40);
+      QuotaEntitlement : abap.dec(7,3);
+      QuotaUsed        : abap.dec(7,3);
+      QuotaRemaining   : abap.dec(7,3);
+      QuotaUnit        : abap.char(3);
+      QuotaValidFrom   : dats;
+      QuotaValidTo     : dats;
+}

@@ -110,6 +110,55 @@
      "type": "cds.Integer",
      "@odata.Type": "Edm.Byte",
      "notNull": true
+    },
+    "LeaveType": {
+     "type": "cds.String",
+     "length": 4
+    },
+    "LeaveName": {
+     "type": "cds.String",
+     "length": 40
+    },
+    "EmployeeName": {
+     "type": "cds.String",
+     "length": 40
+    },
+    "DepartmentName": {
+     "type": "cds.String",
+     "length": 40
+    },
+    "QuotaType": {
+     "type": "cds.String",
+     "length": 2
+    },
+    "QuotaName": {
+     "type": "cds.String",
+     "length": 40
+    },
+    "QuotaEntitlement": {
+     "type": "cds.Decimal",
+     "precision": 7,
+     "scale": 3
+    },
+    "QuotaUsed": {
+     "type": "cds.Decimal",
+     "precision": 7,
+     "scale": 3
+    },
+    "QuotaRemaining": {
+     "type": "cds.Decimal",
+     "precision": 7,
+     "scale": 3
+    },
+    "QuotaUnit": {
+     "type": "cds.String",
+     "length": 3
+    },
+    "QuotaValidFrom": {
+     "type": "cds.Date"
+    },
+    "QuotaValidTo": {
+     "type": "cds.Date"
     }
    },
    "@Common.Label": "Employee Work Schedule Custom Entity",

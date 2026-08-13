@@ -53,6 +53,7 @@ sap.ui.define([
                 selectedTab: sInitialTab,
                 sideExpanded: true,
                 calendarBusy: false,
+                quotaBusy: false,
                 attMonth: String(oNow.getMonth() + 1),
                 attYear: String(oNow.getFullYear()),
                 reqViewMode: "employee", // Default view mode for Requests tab
@@ -65,6 +66,7 @@ sap.ui.define([
                 reqCountRejected: 0
             });
             this.getView().setModel(oViewModel, "view");
+            this.getView().setModel(new JSONModel({ available: false }), "quota");
 
             // Attach after rendering to load data
             this.getView().attachEventOnce("afterRendering", function () {
@@ -239,7 +241,7 @@ sap.ui.define([
                 String(oDate.getSeconds()).padStart(2, '0');
         },
 
-        getStatusInfo: function (iStatus, sShiftCode, oDate) {
+        getStatusInfo: function (iStatus, sShiftCode, oDate, bIsWfh) {
             // Type08 = Green, Type01 = Yellow/Orange, Type03 = Red, Type06 = Blue, Type09 = Grey
             var sCode = (sShiftCode || "").toUpperCase();
             var bIsOff = !sShiftCode || sCode === "OFF" || sCode === "FREE" || sCode === "";
@@ -249,21 +251,40 @@ sap.ui.define([
                 return { text: "Off / No Schedule", state: ValueState.None, type: "Type09" };
             }
 
+            var oToday = new Date();
+            oToday.setHours(0, 0, 0, 0);
+            var bIsToday = oDate && this.getDateKey(oDate) === this.getDateKey(oToday);
+
             switch (parseInt(iStatus, 10)) {
-                case 1: return { text: this.getText("statusFullAttendance"), state: ValueState.Success, type: "Type08" };
+                case 1: return { text: this.getText(bIsWfh ? "statusFullAttendanceWfh" : "statusFullAttendance"), state: ValueState.Success, type: "Type08" };
                 case 2: return { text: this.getText("statusLateLeaveEarly"), state: ValueState.Warning, type: "Type02" };
-                case 3: return { text: this.getText("statusAbsent"), state: ValueState.Error, type: "Type03" };
+                case 3:
+                    // A missing clock-in on the current day is still in progress,
+                    // not proof that the employee is absent.
+                    if (bIsToday) {
+                        return { text: this.getText("statusToday"), state: ValueState.Information, type: "Type06" };
+                    }
+                    return { text: this.getText("statusAbsent"), state: ValueState.Error, type: "Type03" };
                 case 4: return { text: "Leave (Full Day)", state: ValueState.Success, type: "Type08" };
                 case 5: return { text: "Leave (Partial)", state: ValueState.Warning, type: "Type02" };
                 default:
                     // Past workdays with no status → Absent; Future/today → Scheduled
-                    var oToday = new Date();
-                    oToday.setHours(0, 0, 0, 0);
                     if (oDate && oDate < oToday) {
                         return { text: this.getText("statusAbsent"), state: ValueState.Error, type: "Type03" };
                     }
-                    return { text: "Scheduled", state: ValueState.Information, type: "Type06" };
+                    return { text: this.getText(bIsToday ? "statusToday" : "statusScheduled"), state: ValueState.Information, type: "Type06" };
             }
+        },
+
+        _getApprovedRequestForDate: function (oDate, sRequestType) {
+            var sDateKey = this.getDateKey(oDate);
+            return (this._aRawRequests || []).find(function (oRequest) {
+                var sStart = String(oRequest.StartDate || "").substring(0, 10);
+                var sEnd = String(oRequest.EndDate || oRequest.StartDate || "").substring(0, 10);
+                return String(oRequest.Status) === "02"
+                    && (!sRequestType || oRequest.RequestType === sRequestType)
+                    && sStart && sDateKey >= sStart && sDateKey <= sEnd;
+            });
         },
 
         // ====== DATA FETCH ======
@@ -422,7 +443,15 @@ sap.ui.define([
                         actualEnd: this.formatTime(oRow.ActualEndTime),
                         isHoliday: oRow.IsHoliday,
                         leaveType: oRow.LeaveType,
-                        status: oRow.AttendanceStatus
+                        status: oRow.AttendanceStatus,
+                        quotaType: oRow.QuotaType,
+                        quotaName: oRow.QuotaName,
+                        quotaEntitlement: Number(oRow.QuotaEntitlement || 0),
+                        quotaUsed: Number(oRow.QuotaUsed || 0),
+                        quotaRemaining: Number(oRow.QuotaRemaining || 0),
+                        quotaUnit: oRow.QuotaUnit || "DAY",
+                        quotaValidFrom: oRow.QuotaValidFrom ? this.parseAbapDate(oRow.QuotaValidFrom) : null,
+                        quotaValidTo: oRow.QuotaValidTo ? this.parseAbapDate(oRow.QuotaValidTo) : null
                     });
                 }.bind(this));
 
@@ -432,6 +461,7 @@ sap.ui.define([
                 });
                 this._applyCalendarColors();
                 this._updateAttendanceTable();
+                this._updateQuotaSummary();
             }.bind(this)).catch(function (oError) {
                 oViewModel.setProperty("/calendarBusy", false);
                 console.error("[WorkCalendar] Failed to load WorkSchedule", oError);
@@ -455,7 +485,8 @@ sap.ui.define([
             var aRawRequests = this._aRawRequests || [];
 
             var aTableData = aWorkdays.map(function (oData, iIndex) {
-                var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date);
+                var bIsWfh = Boolean(this._getApprovedRequestForDate(oData.date, "WFH"));
+                var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date, bIsWfh);
                 var bNoData = oData.actualStart === "--:--" || oData.actualEnd === "--:--" || (oData.actualStart === "00:00" && oData.actualEnd === "00:00");
                 
                 var sDateKey = oData.dateKey;
@@ -525,7 +556,96 @@ sap.ui.define([
 
             var oAttModel = new JSONModel({ rows: aTableData });
             this.getView().setModel(oAttModel, "att");
+            this._updateQuotaSummary();
             console.log("[MyAttendance] Showing", aTableData.length, "rows for", iMonth + "/" + iYear);
+        },
+
+        _updateQuotaSummary: function () {
+            var oViewModel = this.getView().getModel("view");
+            var iMonth = parseInt(oViewModel.getProperty("/attMonth"), 10);
+            var iYear = parseInt(oViewModel.getProperty("/attYear"), 10);
+            var oToday = new Date();
+            oToday.setHours(0, 0, 0, 0);
+            var sPeriodFrom = iYear + "-" + String(iMonth).padStart(2, "0") + "-01";
+            var oMonthEnd = new Date(iYear, iMonth, 0);
+            var sPeriodTo = iYear + "-" + String(iMonth).padStart(2, "0") + "-" + String(oMonthEnd.getDate()).padStart(2, "0");
+            var sAsOfDate = this.getDateKey(oToday);
+            var sEffectiveTo = sPeriodTo < sAsOfDate ? sPeriodTo : sAsOfDate;
+            var aRows = this._aAttendanceData || [];
+            var oQuotaRow = aRows.find(function (oRow) {
+                return oRow.quotaType || oRow.quotaEntitlement || oRow.quotaValidTo;
+            });
+
+            if (!oQuotaRow) {
+                this.getView().setModel(new JSONModel({
+                    quotaName: "Annual Leave",
+                    entitlement: "0.000",
+                    used: "0.000",
+                    remaining: "0.000",
+                    unit: "DAY",
+                    validFrom: "",
+                    validTo: "",
+                    requestedLeave: "0.000",
+                    unrequestedLeave: "0.000",
+                    periodText: sPeriodFrom + " - " + sPeriodTo,
+                    asOfDate: sAsOfDate,
+                    available: false
+                }), "quota");
+                return;
+            }
+
+            var aScheduledRows = aRows.filter(function (oRow) {
+                var sCode = String(oRow.shiftCode || "").toUpperCase();
+                return oRow.dateKey >= sPeriodFrom && oRow.dateKey <= sPeriodTo
+                    && sCode && !["OFF", "FREE", "REST", "HOLIDAY", "NONWORK"].includes(sCode)
+                    && !oRow.isHoliday && oRow.startTime && oRow.endTime
+                    && oRow.startTime !== "--:--" && oRow.endTime !== "--:--";
+            });
+            var oScheduledByDate = new Map(aScheduledRows.map(function (oRow) { return [oRow.dateKey, oRow]; }));
+            var oApprovedLeaveByDate = new Map();
+            (this._aRawRequests || []).forEach(function (oRequest) {
+                if (oRequest.RequestType !== "DAYOFF" || String(oRequest.Status) !== "02") return;
+                var sStart = String(oRequest.StartDate || "").slice(0, 10);
+                var sEnd = String(oRequest.EndDate || oRequest.StartDate || "").slice(0, 10);
+                if (!sStart || !sEnd) return;
+                var aDates = [];
+                var oDate = new Date(sStart + "T00:00:00");
+                var oEnd = new Date(sEnd + "T00:00:00");
+                while (oDate <= oEnd) {
+                    var sDate = this.getDateKey(oDate);
+                    if (sDate >= sPeriodFrom && sDate <= sPeriodTo && oScheduledByDate.has(sDate)) aDates.push(sDate);
+                    oDate.setDate(oDate.getDate() + 1);
+                }
+                var fDuration = Number(oRequest.Duration || 0);
+                var fPerDate = aDates.length > 0 ? fDuration / aDates.length : 0;
+                aDates.forEach(function (sDate) {
+                    oApprovedLeaveByDate.set(sDate, Math.max(oApprovedLeaveByDate.get(sDate) || 0, fPerDate));
+                });
+            }.bind(this));
+
+            var fRequested = Array.from(oApprovedLeaveByDate.values()).reduce(function (fTotal, fValue) {
+                return fTotal + fValue;
+            }, 0);
+            var fUnrequested = aScheduledRows.reduce(function (fTotal, oRow) {
+                if (oRow.dateKey > sEffectiveTo || oApprovedLeaveByDate.has(oRow.dateKey)) return fTotal;
+                var iStatus = Number(oRow.status || 0);
+                return iStatus === 3 && !oRow.leaveType ? fTotal + 1 : fTotal;
+            }, 0);
+            var formatNumber = function (fValue) { return Number(fValue || 0).toFixed(3); };
+            this.getView().setModel(new JSONModel({
+                quotaName: oQuotaRow.quotaName || "Annual Leave",
+                entitlement: formatNumber(oQuotaRow.quotaEntitlement),
+                used: formatNumber(oQuotaRow.quotaUsed),
+                remaining: formatNumber(oQuotaRow.quotaRemaining),
+                unit: oQuotaRow.quotaUnit || "DAY",
+                validFrom: oQuotaRow.quotaValidFrom ? this.getDateKey(oQuotaRow.quotaValidFrom) : "",
+                validTo: oQuotaRow.quotaValidTo ? this.getDateKey(oQuotaRow.quotaValidTo) : "",
+                requestedLeave: formatNumber(fRequested),
+                unrequestedLeave: formatNumber(fUnrequested),
+                periodText: sPeriodFrom + " - " + sPeriodTo,
+                asOfDate: sAsOfDate,
+                available: true
+            }), "quota");
         },
 
         _applyCalendarColors: function () {
@@ -533,7 +653,8 @@ sap.ui.define([
             oCalendar.removeAllSpecialDates();
 
             this._aAttendanceData.forEach(function (oData) {
-                var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date);
+                var bIsWfh = Boolean(this._getApprovedRequestForDate(oData.date, "WFH"));
+                var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date, bIsWfh);
                 var bIsHoliday = oData.isHoliday;
                 var sCode = (oData.shiftCode || "").toUpperCase();
                 var bIsOff = !oData.shiftCode || sCode === "OFF" || sCode === "FREE" || sCode === "";
@@ -546,7 +667,7 @@ sap.ui.define([
                 oCalendar.addSpecialDate(new DateTypeRange({
                     startDate: oData.date,
                     type: sType,
-                    tooltip: oData.shiftCode || "Off"
+                    tooltip: oInfo.text
                 }));
             }.bind(this));
         },
@@ -626,7 +747,8 @@ sap.ui.define([
             this.byId("placeholderDetail").setVisible(false);
             this.byId("detailPanel").setVisible(true);
 
-            var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date);
+            var bIsWfh = Boolean(this._getApprovedRequestForDate(oData.date, "WFH"));
+            var oInfo = this.getStatusInfo(oData.status, oData.shiftCode, oData.date, bIsWfh);
 
             // Format date string to English (e.g. DD/MM/YYYY)
             var sDateStr = String(oData.date.getDate()).padStart(2, '0') + '/' +
@@ -1086,6 +1208,7 @@ sap.ui.define([
 
                     // Save raw requests for attendance table calculation
                     this._aRawRequests = aResults;
+                    this._applyCalendarColors();
                     this._updateAttendanceTable();
 
                 }.bind(this),

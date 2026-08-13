@@ -59,6 +59,18 @@
                 <Property Name="ShiftCode" Type="Edm.String" Nullable="false" MaxLength="4"/>
                 <Property Name="IsHoliday" Type="Edm.Boolean" Nullable="false"/>
                 <Property Name="AttendanceStatus" Type="Edm.Byte" Nullable="false"/>
+                <Property Name="LeaveType" Type="Edm.String" MaxLength="4"/>
+                <Property Name="LeaveName" Type="Edm.String" MaxLength="40"/>
+                <Property Name="EmployeeName" Type="Edm.String" MaxLength="40"/>
+                <Property Name="DepartmentName" Type="Edm.String" MaxLength="40"/>
+                <Property Name="QuotaType" Type="Edm.String" MaxLength="2"/>
+                <Property Name="QuotaName" Type="Edm.String" MaxLength="40"/>
+                <Property Name="QuotaEntitlement" Type="Edm.Decimal" Precision="7" Scale="3"/>
+                <Property Name="QuotaUsed" Type="Edm.Decimal" Precision="7" Scale="3"/>
+                <Property Name="QuotaRemaining" Type="Edm.Decimal" Precision="7" Scale="3"/>
+                <Property Name="QuotaUnit" Type="Edm.String" MaxLength="3"/>
+                <Property Name="QuotaValidFrom" Type="Edm.Date"/>
+                <Property Name="QuotaValidTo" Type="Edm.Date"/>
             </EntityType>
             <EntityContainer Name="Container">
                 <EntitySet Name="WorkSchedule" EntityType="com.sap.gateway.srvd.zsd_hr_workschedule.v0001.WorkScheduleType"/>
