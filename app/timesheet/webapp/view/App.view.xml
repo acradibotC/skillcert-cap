@@ -200,21 +200,21 @@
                                         visible="{quota>/available}"
                                         class="sapUiSmallMarginBottom">
                                         <VBox class="sapUiSmallMargin">
-                                            <Title text="{quota>quotaName}" level="H4" />
-                                            <Text text="{i18n>quotaPeriod}: {quota>periodText}" />
+                                            <Title text="{quota>/quotaName}" level="H4" />
+                                            <Text text="{i18n>quotaPeriod}: {quota>/periodText}" />
                                             <ObjectNumber
-                                                number="{quota>remaining}"
-                                                unit="{quota>unit}"
+                                                number="{quota>/remaining}"
+                                                unit="{quota>/unit}"
                                                 emphasized="true"
                                                 class="sapUiSmallMarginTop" />
-                                            <Text text="{i18n>quotaEntitlement}: {quota>entitlement} {quota>unit}" />
-                                            <Text text="{i18n>quotaUsed}: {quota>used} {quota>unit}" />
-                                            <Text text="{i18n>quotaRequested}: {quota>requestedLeave} {quota>unit}" />
+                                            <Text text="{i18n>quotaEntitlement}: {quota>/entitlement} {quota>/unit}" />
+                                            <Text text="{i18n>quotaUsed}: {quota>/used} {quota>/unit}" />
+                                            <Text text="{i18n>quotaRequested}: {quota>/requestedLeave} {quota>/unit}" />
                                             <ObjectStatus
-                                                text="{i18n>quotaUnrequested}: {quota>unrequestedLeave} {quota>unit}"
+                                                text="{i18n>quotaUnrequested}: {quota>/unrequestedLeave} {quota>/unit}"
                                                 state="Error"
                                                 class="sapUiTinyMarginTop" />
-                                            <Text text="{i18n>quotaAsOf}: {quota>asOfDate}" class="sapUiTinyMarginTop" />
+                                            <Text text="{i18n>quotaAsOf}: {quota>/asOfDate}" class="sapUiTinyMarginTop" />
                                         </VBox>
                                     </Panel>
                                     <Button

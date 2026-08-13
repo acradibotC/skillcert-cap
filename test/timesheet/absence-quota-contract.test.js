@@ -16,8 +16,8 @@ test('Annual Leave quota reuses WorkSchedule metadata and renders a personal pan
         assert.match(sapDdl, new RegExp('\\b' + field + '\\b'));
     }
     assert.match(view, /id="annualLeaveQuotaPanel"/);
-    assert.match(view, /quota>remaining/);
-    assert.match(view, /quota>unrequestedLeave/);
+    assert.match(view, /quota>\/remaining/);
+    assert.match(view, /quota>\/unrequestedLeave/);
 });
 
 test('Unrequested Leave is capped at today and excludes approved DAYOFF dates', () => {
