@@ -41,7 +41,6 @@ sap.ui.define([
 
     var CONTROL_BY_FIELD = {
         TELEPHONE: "profileTelephoneInput",
-        WORK_EMAIL: "profileWorkEmailInput",
         ADDRESS: "profilePermanentAddressInput",
         CURR_ADDRESS: "profileCurrentAddressInput",
         MARITAL_STATUS: "profileMaritalStatusEditInput",
@@ -151,8 +150,11 @@ sap.ui.define([
 
                 oProfile.states = {};
                 aResults[1].forEach(function (oField) {
+                    var bClientEditable = oField.FieldCode !== "WORK_EMAIL" &&
+                        oField.Editable === true && oField.Locked !== true;
                     oProfile.states[oField.FieldCode] = Object.assign({}, oField, {
-                        EffectiveEditable: oField.Editable === true && oField.Locked !== true,
+                        Editable: oField.FieldCode === "WORK_EMAIL" ? false : oField.Editable,
+                        EffectiveEditable: bClientEditable,
                         StatusText: ""
                     });
                 });
@@ -230,6 +232,9 @@ sap.ui.define([
         },
 
         _decorateProfile: function (oProfile) {
+            // SAP user e-mail addresses are case-insensitive. Normalize the value for a
+            // consistent display and keep the SAP-owned field outside the edit flow.
+            oProfile.WorkEmail = String(oProfile.WorkEmail || "").trim().toLowerCase();
             oProfile.Initials = this._initials(oProfile.EmployeeName);
             oProfile.PaymentMethodDisplay = this._paymentMethodText(oProfile.PayMethod, oProfile.PayMethodText);
             oProfile.HasBankTransfer = this._isBankTransfer(oProfile.PayMethod, oProfile.PayMethodText);
@@ -286,12 +291,14 @@ sap.ui.define([
                 }
                 var sValue = vValue === null || vValue === undefined ? "" : String(vValue);
                 var oFieldState = Object.assign({}, (oProfile.states && oProfile.states[sCode]) || {});
+                var bEditable = sCode !== "WORK_EMAIL" && oFieldState.Editable === true &&
+                    oFieldState.Locked !== true;
 
                 oValues[sCode] = sValue;
                 oOriginal[sCode] = sValue;
                 mStates[sCode] = Object.assign(oFieldState, {
-                    EffectiveEditable: !bForceReadOnly && Boolean(oFieldState.Editable === true &&
-                        oFieldState.Locked !== true)
+                    Editable: sCode === "WORK_EMAIL" ? false : oFieldState.Editable,
+                    EffectiveEditable: !bForceReadOnly && bEditable
                 });
             });
 
@@ -368,7 +375,7 @@ sap.ui.define([
             ], [new Sorter("Sequence", false)], {}, 100).then(function (aItems) {
                 aItems.forEach(function (oItem) {
                     var sCode = oItem.FieldCode;
-                    if (!FIELD_PROPERTY[sCode]) {
+                    if (!FIELD_PROPERTY[sCode] || sCode === "WORK_EMAIL") {
                         return;
                     }
                     oEditState.values[sCode] = oItem.NewValue || "";
@@ -463,13 +470,17 @@ sap.ui.define([
                     },
                     confirm: function (oEvent) {
                         var oItem = oEvent.getParameter("selectedItem");
-                        if (!oItem) return;
-                        var oContext = oItem.getBindingContext("profileCatalog");
-                        var oEditModel = this.getView().getModel("profileEdit");
-                        oEditModel.setProperty("/values/MARITAL_STATUS", oContext.getProperty("Code"));
-                        this._clearControlState(this.byId("profileMaritalStatusEditInput"));
+                        if (oItem) {
+                            var oContext = oItem.getBindingContext("profileCatalog");
+                            var oEditModel = this.getView().getModel("profileEdit");
+                            oEditModel.setProperty("/values/MARITAL_STATUS", oContext.getProperty("Code"));
+                            this._clearControlState(this.byId("profileMaritalStatusEditInput"));
+                        }
+                        oEvent.getSource().destroy();
                     }.bind(this),
-                    cancel: function () {}
+                    cancel: function (oEvent) {
+                        oEvent.getSource().destroy();
+                    }
                 });
                 oDialog.setModel(oCatalog, "profileCatalog");
                 oDialog.bindAggregation("items", {
@@ -480,9 +491,8 @@ sap.ui.define([
                         type: "Active"
                     })
                 });
-                oDialog.attachAfterClose(function () { oDialog.destroy(); });
                 oDialog.open();
-            }.bind(this)).catch(function () {
+            }.bind(this), function () {
                 MessageBox.error(this._bundle().getText("profileValueHelpUnavailable"));
             }.bind(this));
         },
@@ -509,14 +519,18 @@ sap.ui.define([
                     },
                     confirm: function (oEvent) {
                         var oItem = oEvent.getParameter("selectedItem");
-                        if (!oItem) return;
-                        var oContext = oItem.getBindingContext("profileCatalog");
-                        var oEditModel = this.getView().getModel("profileEdit");
-                        oEditModel.setProperty("/values/BANK_COUNTRY", oContext.getProperty("BankCountry") || "VN");
-                        oEditModel.setProperty("/values/BANK_KEY", oContext.getProperty("BankKey"));
-                        this._clearControlState(this.byId("profileBankKeyInput"));
+                        if (oItem) {
+                            var oContext = oItem.getBindingContext("profileCatalog");
+                            var oEditModel = this.getView().getModel("profileEdit");
+                            oEditModel.setProperty("/values/BANK_COUNTRY", oContext.getProperty("BankCountry") || "VN");
+                            oEditModel.setProperty("/values/BANK_KEY", oContext.getProperty("BankKey"));
+                            this._clearControlState(this.byId("profileBankKeyInput"));
+                        }
+                        oEvent.getSource().destroy();
                     }.bind(this),
-                    cancel: function () {}
+                    cancel: function (oEvent) {
+                        oEvent.getSource().destroy();
+                    }
                 });
                 oDialog.setModel(oCatalog, "profileCatalog");
                 oDialog.bindAggregation("items", {
@@ -527,9 +541,8 @@ sap.ui.define([
                         type: "Active"
                     })
                 });
-                oDialog.attachAfterClose(function () { oDialog.destroy(); });
                 oDialog.open();
-            }.bind(this)).catch(function () {
+            }.bind(this), function () {
                 MessageBox.error(this._bundle().getText("profileValueHelpUnavailable"));
             }.bind(this));
         },
