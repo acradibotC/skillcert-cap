@@ -517,10 +517,15 @@ function ensureRemoteServiceCredentials(serviceName, service) {
         service?.credentials
     ].filter(Boolean);
     for (const credentials of credentialTargets) {
-        if (username && !credentials.username) {
+        // package.json may contain ${UI5_USERNAME}/${UI5_PASSWORD} placeholders.
+        // Those placeholders are truthy before dotenv/CDS resolves them, so
+        // only filling missing properties leaves the remote client without a
+        // usable BasicAuthentication header. Always prefer the runtime
+        // credentials supplied by the deployment environment.
+        if (username) {
             credentials.username = username;
         }
-        if (password && !credentials.password) {
+        if (password) {
             credentials.password = password;
         }
     }
