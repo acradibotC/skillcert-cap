@@ -81,7 +81,11 @@ sap.ui.define([
                     { Code: "T", DisplayText: this._bundle().getText("profilePaymentBankTransfer") }
                 ],
                 maritalStatuses: [],
-                banks: []
+                banks: [],
+                loaded: {
+                    maritalStatuses: false,
+                    banks: false
+                }
             }), "profileCatalog");
 
             this.getOwnerComponent().pUserLoaded.then(function (bAuthorized) {
@@ -132,8 +136,12 @@ sap.ui.define([
                 ProfileApi.requestList(oModel, "/MyProfileRequests", [], [
                     new Sorter("SubmittedAt", true)
                 ], {}, 100),
-                ProfileApi.requestList(oModel, "/ProfileBanks", [], [], {}, 200).catch(function () { return []; }),
-                ProfileApi.requestList(oModel, "/ProfileMaritalStatuses", [], [], {}, 50).catch(function () { return []; })
+                ProfileApi.requestList(oModel, "/ProfileBanks", [], [], {}, 200)
+                    .then(function (aRows) { return { rows: aRows, loaded: true }; })
+                    .catch(function () { return { rows: [], loaded: false }; }),
+                ProfileApi.requestList(oModel, "/ProfileMaritalStatuses", [], [], {}, 50)
+                    .then(function (aRows) { return { rows: aRows, loaded: true }; })
+                    .catch(function () { return { rows: [], loaded: false }; })
             ]).then(function (aResults) {
                 var oProfile = aResults[0];
                 if (!oProfile) {
@@ -152,15 +160,10 @@ sap.ui.define([
                 this.getView().getModel("profile").setData(oProfile);
                 this._setProfileEditDisplayState(oProfile);
                 var aRequests = aResults[2] || [];
-                var aBanks = aResults[3] || [];
-                var aMaritalStatuses = (aResults[4] || []).map(function (oStatus) {
-                    return {
-                        Code: oStatus.Code || oStatus.MaritalStatusCode,
-                        DisplayText: oStatus.DisplayText || oStatus.MaritalStatusText || oStatus.MaritalStatusCode,
-                        Language: oStatus.Language,
-                        IsSimulation: oStatus.IsSimulation === true
-                    };
-                });
+                var oBankResult = aResults[3] || { rows: [], loaded: false };
+                var oMaritalResult = aResults[4] || { rows: [], loaded: false };
+                var aBanks = this._mapBanks(oBankResult.rows || []);
+                var aMaritalStatuses = this._mapMaritalStatuses(oMaritalResult.rows || []);
                 if (oProfile.BankKey && !aBanks.some(function (oBank) {
                     return String(oBank.BankCountry || "") === String(oProfile.BankCountry || "VN") &&
                         String(oBank.BankKey || "") === String(oProfile.BankKey || "");
@@ -172,7 +175,9 @@ sap.ui.define([
                         IsSimulation: false
                     });
                 }
-                this.getView().getModel("profileCatalog").setProperty("/banks", aBanks);
+                var oCatalog = this.getView().getModel("profileCatalog");
+                oCatalog.setProperty("/banks", aBanks);
+                oCatalog.setProperty("/loaded/banks", oBankResult.loaded === true);
                 if (oProfile.MaritalStatusCode && !aMaritalStatuses.some(function (oStatus) {
                     return String(oStatus.Code || "") === String(oProfile.MaritalStatusCode);
                 })) {
@@ -183,7 +188,8 @@ sap.ui.define([
                         IsSimulation: false
                     });
                 }
-                this.getView().getModel("profileCatalog").setProperty("/maritalStatuses", aMaritalStatuses);
+                oCatalog.setProperty("/maritalStatuses", aMaritalStatuses);
+                oCatalog.setProperty("/loaded/maritalStatuses", oMaritalResult.loaded === true);
                 aRequests.forEach(function (oRequest) {
                     oRequest.StatusText = this._statusText(oRequest.Status);
                 }.bind(this));
@@ -394,76 +400,138 @@ sap.ui.define([
             this._clearControlState(oEvent.getSource());
         },
 
-        onMaritalStatusValueHelp: function () {
+        _mapBanks: function (aRows) {
+            return (aRows || []).map(function (oBank) {
+                return {
+                    BankCountry: String(oBank.BankCountry || oBank.Banks || "VN").trim() || "VN",
+                    BankKey: String(oBank.BankKey || oBank.Bankl || "").trim(),
+                    BankName: String(oBank.BankName || oBank.Banka || oBank.BankKey || "").trim(),
+                    IsSimulation: oBank.IsSimulation === true
+                };
+            }).filter(function (oBank) {
+                return Boolean(oBank.BankKey);
+            });
+        },
+
+        _mapMaritalStatuses: function (aRows) {
+            return (aRows || []).map(function (oStatus) {
+                var sCode = String(oStatus.MaritalStatusCode || oStatus.Code || oStatus.Famst || "").trim();
+                return {
+                    Code: sCode,
+                    DisplayText: String(oStatus.MaritalStatusText || oStatus.DisplayText || oStatus.Ftext || sCode).trim(),
+                    Language: String(oStatus.Language || oStatus.Sprsl || "EN").trim(),
+                    IsSimulation: oStatus.IsSimulation === true
+                };
+            }).filter(function (oStatus) {
+                return Boolean(oStatus.Code);
+            });
+        },
+
+        _loadProfileCatalog: function (sPath, sProperty, sLoadedProperty, fnMap, iLimit) {
             var oCatalog = this.getView().getModel("profileCatalog");
-            var oDialog = new SelectDialog({
-                title: this._bundle().getText("profileMaritalStatus"),
-                noDataText: this._bundle().getText("profileNoValueHelpData"),
-                search: function (oEvent) {
-                    var sQuery = oEvent.getParameter("value") || "";
-                    var oBinding = oEvent.getSource().getBinding("items");
-                    oBinding.filter(sQuery ? [new Filter([
-                        new Filter("DisplayText", FilterOperator.Contains, sQuery)
-                    ], false)] : []);
-                },
-                confirm: function (oEvent) {
-                    var oItem = oEvent.getParameter("selectedItem");
-                    if (!oItem) return;
-                    var oContext = oItem.getBindingContext("profileCatalog");
-                    var oEditModel = this.getView().getModel("profileEdit");
-                    oEditModel.setProperty("/values/MARITAL_STATUS", oContext.getProperty("Code"));
-                    this._clearControlState(this.byId("profileMaritalStatusEditInput"));
-                }.bind(this),
-                cancel: function () {}
-            });
-            oDialog.setModel(oCatalog, "profileCatalog");
-            oDialog.bindAggregation("items", {
-                path: "profileCatalog>/maritalStatuses",
-                template: new StandardListItem({
-                    title: "{profileCatalog>DisplayText}",
-                    description: "{profileCatalog>Code}",
-                    type: "Active"
-                })
-            });
-            oDialog.attachAfterClose(function () { oDialog.destroy(); });
-            oDialog.open();
+            if (oCatalog.getProperty(sLoadedProperty) === true) {
+                return Promise.resolve(oCatalog.getProperty(sProperty) || []);
+            }
+
+            return ProfileApi.requestList(this._model(), sPath, [], [], {}, iLimit).then(function (aRows) {
+                var aValues = fnMap.call(this, aRows || []);
+                oCatalog.setProperty(sProperty, aValues);
+                oCatalog.setProperty(sLoadedProperty, true);
+                return aValues;
+            }.bind(this));
+        },
+
+        onMaritalStatusValueHelp: function () {
+            this._loadProfileCatalog(
+                "/ProfileMaritalStatuses",
+                "/maritalStatuses",
+                "/loaded/maritalStatuses",
+                this._mapMaritalStatuses,
+                50
+            ).then(function () {
+                var oCatalog = this.getView().getModel("profileCatalog");
+                var oDialog = new SelectDialog({
+                    title: this._bundle().getText("profileMaritalStatus"),
+                    noDataText: this._bundle().getText("profileNoValueHelpData"),
+                    search: function (oEvent) {
+                        var sQuery = oEvent.getParameter("value") || "";
+                        var oBinding = oEvent.getSource().getBinding("items");
+                        oBinding.filter(sQuery ? [new Filter([
+                            new Filter("DisplayText", FilterOperator.Contains, sQuery),
+                            new Filter("Code", FilterOperator.Contains, sQuery)
+                        ], false)] : []);
+                    },
+                    confirm: function (oEvent) {
+                        var oItem = oEvent.getParameter("selectedItem");
+                        if (!oItem) return;
+                        var oContext = oItem.getBindingContext("profileCatalog");
+                        var oEditModel = this.getView().getModel("profileEdit");
+                        oEditModel.setProperty("/values/MARITAL_STATUS", oContext.getProperty("Code"));
+                        this._clearControlState(this.byId("profileMaritalStatusEditInput"));
+                    }.bind(this),
+                    cancel: function () {}
+                });
+                oDialog.setModel(oCatalog, "profileCatalog");
+                oDialog.bindAggregation("items", {
+                    path: "profileCatalog>/maritalStatuses",
+                    template: new StandardListItem({
+                        title: "{profileCatalog>DisplayText}",
+                        description: "{profileCatalog>Code}",
+                        type: "Active"
+                    })
+                });
+                oDialog.attachAfterClose(function () { oDialog.destroy(); });
+                oDialog.open();
+            }.bind(this)).catch(function () {
+                MessageBox.error(this._bundle().getText("profileValueHelpUnavailable"));
+            }.bind(this));
         },
 
         onBankKeyValueHelp: function () {
-            var oCatalog = this.getView().getModel("profileCatalog");
-            var oDialog = new SelectDialog({
-                title: this._bundle().getText("profileBankKey"),
-                noDataText: this._bundle().getText("profileNoValueHelpData"),
-                search: function (oEvent) {
-                    var sQuery = oEvent.getParameter("value") || "";
-                    var oBinding = oEvent.getSource().getBinding("items");
-                    oBinding.filter(sQuery ? [new Filter([
-                        new Filter("BankKey", FilterOperator.Contains, sQuery),
-                        new Filter("BankName", FilterOperator.Contains, sQuery)
-                    ], false)] : []);
-                },
-                confirm: function (oEvent) {
-                    var oItem = oEvent.getParameter("selectedItem");
-                    if (!oItem) return;
-                    var oContext = oItem.getBindingContext("profileCatalog");
-                    var oEditModel = this.getView().getModel("profileEdit");
-                    oEditModel.setProperty("/values/BANK_COUNTRY", oContext.getProperty("BankCountry") || "VN");
-                    oEditModel.setProperty("/values/BANK_KEY", oContext.getProperty("BankKey"));
-                    this._clearControlState(this.byId("profileBankKeyInput"));
-                }.bind(this),
-                cancel: function () {}
-            });
-            oDialog.setModel(oCatalog, "profileCatalog");
-            oDialog.bindAggregation("items", {
-                path: "profileCatalog>/banks",
-                template: new StandardListItem({
-                    title: "{profileCatalog>BankName}",
-                    description: "{profileCatalog>BankKey}",
-                    type: "Active"
-                })
-            });
-            oDialog.attachAfterClose(function () { oDialog.destroy(); });
-            oDialog.open();
+            this._loadProfileCatalog(
+                "/ProfileBanks",
+                "/banks",
+                "/loaded/banks",
+                this._mapBanks,
+                200
+            ).then(function () {
+                var oCatalog = this.getView().getModel("profileCatalog");
+                var oDialog = new SelectDialog({
+                    title: this._bundle().getText("profileBankKey"),
+                    noDataText: this._bundle().getText("profileNoValueHelpData"),
+                    search: function (oEvent) {
+                        var sQuery = oEvent.getParameter("value") || "";
+                        var oBinding = oEvent.getSource().getBinding("items");
+                        oBinding.filter(sQuery ? [new Filter([
+                            new Filter("BankKey", FilterOperator.Contains, sQuery),
+                            new Filter("BankName", FilterOperator.Contains, sQuery)
+                        ], false)] : []);
+                    },
+                    confirm: function (oEvent) {
+                        var oItem = oEvent.getParameter("selectedItem");
+                        if (!oItem) return;
+                        var oContext = oItem.getBindingContext("profileCatalog");
+                        var oEditModel = this.getView().getModel("profileEdit");
+                        oEditModel.setProperty("/values/BANK_COUNTRY", oContext.getProperty("BankCountry") || "VN");
+                        oEditModel.setProperty("/values/BANK_KEY", oContext.getProperty("BankKey"));
+                        this._clearControlState(this.byId("profileBankKeyInput"));
+                    }.bind(this),
+                    cancel: function () {}
+                });
+                oDialog.setModel(oCatalog, "profileCatalog");
+                oDialog.bindAggregation("items", {
+                    path: "profileCatalog>/banks",
+                    template: new StandardListItem({
+                        title: "{profileCatalog>BankName}",
+                        description: "{profileCatalog>BankKey}",
+                        type: "Active"
+                    })
+                });
+                oDialog.attachAfterClose(function () { oDialog.destroy(); });
+                oDialog.open();
+            }.bind(this)).catch(function () {
+                MessageBox.error(this._bundle().getText("profileValueHelpUnavailable"));
+            }.bind(this));
         },
 
         _clearControlState: function (oControl) {
