@@ -627,6 +627,45 @@ function sapApplyErrorStatus(error) {
     ) || 0;
 }
 
+function safeRemoteErrorDiagnostic(error) {
+    const details = error?.response?.data?.error ||
+        error?.reason?.response?.data?.error ||
+        error?.cause?.response?.data?.error;
+    const rawMessage = details?.message?.value ||
+        details?.message ||
+        error?.reason?.message ||
+        error?.cause?.message ||
+        error?.message ||
+        'Remote SAP request failed.';
+    const message = String(rawMessage)
+        .replace(/\b(Basic|Bearer)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 [REDACTED]')
+        .replace(/\b(authorization|password|passwd|pwd|token|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+        .replace(/\s+/g, ' ')
+        .slice(0, 500);
+    const code = String(
+        details?.code ||
+        error?.code ||
+        error?.reason?.code ||
+        error?.cause?.code ||
+        ''
+    ).slice(0, 100);
+
+    return {
+        status: sapApplyErrorStatus(error) || 503,
+        code,
+        message
+    };
+}
+
+function requestCorrelationId(req) {
+    return String(
+        req?.context?.id ||
+        req?.http?.req?.headers?.['x-correlation-id'] ||
+        cds.context?.id ||
+        'unavailable'
+    ).slice(0, 128);
+}
+
 function normalizeApplyResult(result, defaults = {}) {
     const body = Array.isArray(result)
         ? result[0]
@@ -1378,9 +1417,23 @@ module.exports = async function ProfileService() {
             if (typeof options.filter === 'function') rows = (rows || []).filter(options.filter);
             return (rows || []).map(mapper);
         } catch (error) {
+            const diagnostic = safeRemoteErrorDiagnostic(error);
+            console.error('[ProfileService] SAP profile value help failed:', {
+                service: profileDisplay.serviceName,
+                entity,
+                status: diagnostic.status,
+                code: diagnostic.code,
+                message: diagnostic.message,
+                correlationId: requestCorrelationId(req),
+                filterFields: Object.keys(options.where || {}),
+                runtimeCredentials: {
+                    usernameConfigured: Boolean(process.env.UI5_USERNAME),
+                    passwordConfigured: Boolean(process.env.UI5_PASSWORD)
+                }
+            });
             return reject(
                 req,
-                error.statusCode || error.status || 503,
+                diagnostic.status,
                 'SAP_PROFILE_VALUE_HELP_UNAVAILABLE',
                 `SAP profile value help ${entity} is not available.`
             );
