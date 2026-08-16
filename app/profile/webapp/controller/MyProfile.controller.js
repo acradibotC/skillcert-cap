@@ -611,10 +611,26 @@ sap.ui.define([
                     "profileResubmitSuccess" : "profileSubmitSuccess"));
                 return this.refresh();
             }.bind(this)).catch(function (oError) {
-                MessageBox.error(this._bundle().getText(this._errorKey(oError)));
+                MessageBox.error(this._submitErrorMessage(oError));
             }.bind(this)).finally(function () {
                 oEditModel.setProperty("/busy", false);
             });
+        },
+
+        _submitErrorMessage: function (oError) {
+            var oInfo = ProfileApi.errorInfo(oError);
+            var aDetailedCodes = [
+                "PROFILE_CHANGE_INVALID",
+                "PROFILE_FIELD_LOCKED",
+                "PROFILE_VERSION_STALE",
+                "PROFILE_REQUEST_STALE",
+                "SAP_PROFILE_WRITE_FAILED",
+                "SAP_PROFILE_WRITE_REJECTED"
+            ];
+            if (aDetailedCodes.includes(oInfo.code) && oInfo.message) {
+                return oInfo.message;
+            }
+            return this._bundle().getText(this._errorKey(oError));
         },
 
         _applyValidationErrors: function (mErrors) {

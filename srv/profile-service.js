@@ -1041,7 +1041,22 @@ async function stageProfileSubmission(req, request, items, context, comment) {
             result = await sendProfileApplyCreate(sapApply, profileApplyPayload(request, items, context, comment), stagingPayload);
         }
     } catch (error) {
-        return reject(req, error.statusCode || error.status || 502, 'SAP_PROFILE_WRITE_FAILED', sapApplyErrorMessage(error));
+        const diagnostic = safeRemoteErrorDiagnostic(error);
+        console.error('[ProfileService] SAP profile staging failed', {
+            correlationId: requestCorrelationId(req),
+            status: diagnostic.status,
+            code: diagnostic.code,
+            message: diagnostic.message,
+            entityPath: profileApplyEntityPath(),
+            changedFields: stagingPayload.ChangedFields,
+            payloadProperties: Object.keys(stagingPayload).sort()
+        });
+        return reject(
+            req,
+            diagnostic.status || 502,
+            'SAP_PROFILE_WRITE_FAILED',
+            diagnostic.message
+        );
     }
 
     const normalized = normalizeApplyResult(result, defaults);

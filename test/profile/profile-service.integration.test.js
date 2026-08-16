@@ -418,6 +418,47 @@ test('profile approval applies changes through configured SAP profile OData adap
             user: user()
         }));
         assert.equal(fieldsAfterApprove.find(field => field.FieldCode === 'CURR_ADDRESS').Locked, false);
+
+        const requestIndex = sentRequests.length;
+        const combinedRequest = await service.send(new cds.Request({
+            event: 'submitProfileChange',
+            data: {
+                IdempotencyKey: `profile-submit-sap-marital-bank-${Date.now()}`,
+                ProfileVersion: profile.ProfileVersion,
+                Remark: 'Update marital status and bank details',
+                Changes: [
+                    { FieldCode: 'MARITAL_STATUS', NewValue: '3' },
+                    { FieldCode: 'PAY_METHOD', NewValue: 'T' },
+                    { FieldCode: 'BANK_COUNTRY', NewValue: 'VN' },
+                    { FieldCode: 'BANK_KEY', NewValue: '01202011' },
+                    { FieldCode: 'BANK_ACCT', NewValue: '31456643134' }
+                ]
+            },
+            user: user()
+        }));
+
+        assert.equal(combinedRequest.Status, '01');
+        assert.equal(sentRequests[requestIndex].method, 'POST');
+        assert.equal(sentRequests[requestIndex].path, '/ProfileApplyRequest');
+        assert.equal(sentRequests[requestIndex].data.MaritalStatusCode, '3');
+        assert.equal(sentRequests[requestIndex].data.PayMethod, 'T');
+        assert.equal(sentRequests[requestIndex].data.BankCountry, 'VN');
+        assert.equal(sentRequests[requestIndex].data.BankKey, '01202011');
+        assert.equal(sentRequests[requestIndex].data.BankAccount, '31456643134');
+        assert.equal(
+            sentRequests[requestIndex].data.ChangedFields,
+            'MARITAL_STATUS,PAY_METHOD,BANK_COUNTRY,BANK_KEY,BANK_ACCT'
+        );
+
+        await service.send(new cds.Request({
+            event: 'rejectProfileChange',
+            data: {
+                RequestId: combinedRequest.ID,
+                ExpectedVersion: combinedRequest.Version,
+                HrComment: 'Regression test cleanup.'
+            },
+            user: user('hr@example.com', '90000099', true)
+        }));
     } finally {
         if (oldApplyMode === undefined) delete process.env.PROFILE_APPLY_MODE;
         else process.env.PROFILE_APPLY_MODE = oldApplyMode;
