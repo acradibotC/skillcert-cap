@@ -138,7 +138,9 @@ sap.ui.define([
             return !!(window.XLSX &&
                 typeof window.XLSX.read === "function" &&
                 window.XLSX.utils &&
-                typeof window.XLSX.utils.sheet_to_json === "function");
+                typeof window.XLSX.utils.sheet_to_json === "function" &&
+                window.XLSX.SSF &&
+                typeof window.XLSX.SSF.parse_date_code === "function");
         },
 
         _ensureSheetJs: function () {
@@ -259,7 +261,11 @@ sap.ui.define([
             var workbook = window.XLSX.read(arrayBuffer, { type: "array" });
             var sheetName = workbook.SheetNames[0];
             var worksheet = workbook.Sheets[sheetName];
-            var rawData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            // Keep Excel numeric date serials intact. Converting a WorkDate
+            // into a JavaScript Date makes a date-only field vulnerable to a
+            // browser timezone shift (for example 2026-08-08 -> 2026-08-07).
+            var rawData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", raw: true });
+            var bDate1904 = !!(workbook.Workbook && workbook.Workbook.WBProps && workbook.Workbook.WBProps.date1904);
 
             if (rawData.length < 2) {
                 MessageBox.warning("The Excel file contains no data rows (only header or empty).");
@@ -274,7 +280,7 @@ sap.ui.define([
                 // Skip completely empty rows
                 if (!row || row.every(function(cell) { return cell === "" || cell === null || cell === undefined; })) continue;
 
-                var record = this._convertRow(row, i + 1);
+                var record = this._convertRow(row, i + 1, bDate1904);
                 aRecords.push(record);
             }
 
@@ -301,7 +307,7 @@ sap.ui.define([
          * Columns: 0=PERNR, 1=WorkDate, 2=FirstEntry, 3=LastExit,
          *          4=IOT, 5=IOTwF, 6=IWA, 7=#Entry, 8=#Exit
          */
-        _convertRow: function (row, rowIndex) {
+        _convertRow: function (row, rowIndex, bDate1904) {
             var errors = [];
             var oBundle = this.getView().getModel("i18n").getResourceBundle();
 
@@ -316,8 +322,9 @@ sap.ui.define([
             }
 
             // --- Work Date conversion ---
-            var sDate = String(row[1] || "").trim();
-            var sDateInternal = this._parseDate(sDate);
+            var vDate = row[1];
+            var sDate = vDate === undefined || vDate === null ? "" : String(vDate).trim();
+            var sDateInternal = this._parseDate(vDate, bDate1904);
             var sDateDisplay = sDate;
             if (!sDateInternal) {
                 errors.push(oBundle.getText("errDateInvalid"));
@@ -413,23 +420,30 @@ sap.ui.define([
         },
 
         /**
-         * Parse date string into YYYYMMDD.
+         * Parse a date-only Excel value into YYYYMMDD.
          * Supports: DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD, YYYYMMDD, Excel serial number
          */
-        _parseDate: function (sDate) {
-            if (!sDate) return null;
+        _parseDate: function (vDate, bDate1904) {
+            if (vDate === undefined || vDate === null || vDate === "") return null;
 
-            // Excel serial number (numeric)
-            if (!isNaN(sDate) && Number(sDate) > 10000) {
-                var excelEpoch = new Date(1899, 11, 30);
-                var d = new Date(excelEpoch.getTime() + Number(sDate) * 86400000);
-                var mm = ("0" + (d.getMonth() + 1)).slice(-2);
-                var dd = ("0" + d.getDate()).slice(-2);
-                var sExcelDate = d.getFullYear() + mm + dd;
+            var s = String(vDate).trim();
+
+            // Preserve a textual YYYYMMDD value as a date key rather than
+            // mistaking it for an Excel serial number.
+            if (/^\d{8}$/.test(s)) return this._isValidDateUpload(s) ? s : null;
+
+            // SheetJS applies the Excel 1900 leap-year compatibility rule and
+            // supports the optional 1904 date system. Do not construct a
+            // JavaScript Date here: WorkDate has no time component and must
+            // never be shifted by the browser timezone.
+            if (!isNaN(s) && Number(s) > 10000) {
+                var oDateCode = window.XLSX.SSF.parse_date_code(Number(s), { date1904: !!bDate1904 });
+                if (!oDateCode || !oDateCode.y || !oDateCode.m || !oDateCode.d) return null;
+                var sExcelDate = String(oDateCode.y).padStart(4, "0") +
+                    String(oDateCode.m).padStart(2, "0") +
+                    String(oDateCode.d).padStart(2, "0");
                 return this._isValidDateUpload(sExcelDate) ? sExcelDate : null;
             }
-
-            var s = String(sDate).trim();
 
             // DD.MM.YYYY or DD/MM/YYYY
             var m1 = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
@@ -444,9 +458,6 @@ sap.ui.define([
                 var sIsoDate = m2[1] + m2[2] + m2[3];
                 return this._isValidDateUpload(sIsoDate) ? sIsoDate : null;
             }
-
-            // YYYYMMDD
-            if (/^\d{8}$/.test(s)) return this._isValidDateUpload(s) ? s : null;
 
             return null;
         },
