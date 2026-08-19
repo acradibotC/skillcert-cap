@@ -629,7 +629,7 @@ sap.ui.define([
             if (sKey === "team") {
                 var oProfileComponent = this.getOwnerComponent();
                 if (oProfileComponent && oProfileComponent.reloadTeamMembers) {
-                    oProfileComponent.reloadTeamMembers();
+                    oProfileComponent.reloadTeamMembers(false);
                 }
             }
             
@@ -744,7 +744,7 @@ sap.ui.define([
         onRetryTeamMembers: function () {
             var oComponent = this.getOwnerComponent();
             if (oComponent && oComponent.reloadTeamMembers) {
-                oComponent.reloadTeamMembers();
+                oComponent.reloadTeamMembers(true);
             }
         },
 

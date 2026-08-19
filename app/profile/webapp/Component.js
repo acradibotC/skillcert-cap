@@ -68,6 +68,7 @@ sap.ui.define([
                 error: ""
             });
             this.setModel(oTeamModel, "team");
+            var pTeamMembersLoad = null;
 
             var fnResolveAuthorization = function (bAuthorized) {
                 if (bResolved) {
@@ -79,8 +80,14 @@ sap.ui.define([
             };
 
             var fnFinish = function (bAuthorized, aTeam) {
+                var aCurrentTeam = oTeamModel.getProperty("/teamMembers") || [];
+                // A transient empty response must not erase a list that was
+                // already loaded successfully for this authenticated manager.
+                var aNextTeam = (aTeam && aTeam.length === 0 && aCurrentTeam.length > 0)
+                    ? aCurrentTeam
+                    : (aTeam || []);
                 oTeamModel.setData({
-                    teamMembers: aTeam || [],
+                    teamMembers: aNextTeam,
                     loadState: "ready",
                     error: ""
                 });
@@ -96,7 +103,15 @@ sap.ui.define([
                 fnResolveAuthorization(true);
             };
 
-            var fnLoadProfileAndHierarchy = function () {
+            var fnLoadProfileAndHierarchy = function (bForceReload) {
+                // The component already starts this load after /api/currentUser.
+                // Re-entering the Team tab must share that promise instead of
+                // starting a second request whose empty result can overwrite a
+                // successfully loaded list.
+                if (pTeamMembersLoad) {
+                    return pTeamMembersLoad;
+                }
+
                 var sEmail = oUserModel.getProperty("/email");
                 var sSapUserId = oUserModel.getProperty("/sapUserId") || sEmail;
                 var oODataModel = that.getModel("odata");
@@ -112,7 +127,7 @@ sap.ui.define([
                 var oContext = oODataModel.bindContext("/UserProfile('" +
                     String(sSapUserId).replace(/'/g, "''") + "')");
 
-                oContext.requestObject().then(function (oProfile) {
+                var pLoad = oContext.requestObject().then(function (oProfile) {
                     if (!oProfile) {
                         fnFinish(true, []);
                         return;
@@ -125,61 +140,97 @@ sap.ui.define([
                     oUserModel.setProperty("/position", oProfile.PositionName || oProfile.PositionId || "");
                     oUserModel.setProperty("/department", oProfile.OrgUnitName || oProfile.OrgUnitId || "");
 
-                    var bIsManager = Boolean(oProfile.IsManager || oUserModel.getProperty("/isManager"));
+                    var sIsManager = String(oProfile.IsManager == null ? "" : oProfile.IsManager)
+                        .trim().toUpperCase();
+                    var bIsManager = sIsManager === "X" || sIsManager === "TRUE" ||
+                        oUserModel.getProperty("/isManager") === true;
                     oUserModel.setProperty("/isManager", bIsManager);
                     if (!bIsManager) {
                         fnFinish(true, []);
                         return;
                     }
 
-                    // SAP systems may return the manager user ID with different
-                    // casing in UserProfile and TeamMembers. Query all normalized
-                    // variants instead of relying on one case-sensitive value.
-                    var aManagerIds = [sSapUserId, oProfile.UserId]
+                    // ManagerUserId is the SAP user ID, not the employee number.
+                    // Use one exact, server-side equality filter at a time. SAP
+                    // rejects/ignores the nested OR filter used here previously,
+                    // and its result could make a valid team look empty.
+                    // Keep the authenticated PERNR as a compatibility candidate
+                    // for older CDS projections that exposed the manager key as
+                    // personnel number instead of the annotated system ID.
+                    var aManagerIds = [
+                        oProfile.UserId,
+                        sSapUserId,
+                        oUserModel.getProperty("/userId"),
+                        oUserModel.getProperty("/pernr"),
+                        sEmail
+                    ]
                         .filter(Boolean)
                         .reduce(function (aIds, sId) {
-                            [String(sId).trim(), String(sId).trim().toUpperCase(), String(sId).trim().toLowerCase()]
-                                .forEach(function (sVariant) {
-                                    if (sVariant && aIds.indexOf(sVariant) < 0) {
-                                        aIds.push(sVariant);
-                                    }
-                                });
+                            var sValue = String(sId).trim();
+                            [sValue, sValue.toUpperCase(), sValue.toLowerCase()].forEach(function (sVariant) {
+                                if (sVariant && aIds.indexOf(sVariant) < 0) {
+                                    aIds.push(sVariant);
+                                }
+                            });
                             return aIds;
                         }, []);
-                    var oManagerFilter = new Filter({
-                        filters: aManagerIds.map(function (sId) {
-                            return new Filter("ManagerUserId", FilterOperator.EQ, sId);
-                        }),
-                        and: false
-                    });
-                    var oListBinding = oODataModel.bindList("/TeamMembers", null, null, [oManagerFilter]);
 
-                    return oListBinding.requestContexts(0, 100).then(function (aContexts) {
-                        var aTeam = aContexts.map(function (oTeamContext) {
-                            var oMember = oTeamContext.getObject();
-                            return {
-                                pernr: oMember.EmployeePernr,
-                                userId: oMember.EmployeeUserId || oMember.EmployeePernr,
-                                name: oMember.EmployeeName,
-                                position: oMember.PositionName || oMember.PositionId || "",
-                                department: oMember.OrgUnitName || oMember.OrgUnitId || "",
-                                email: oMember.EmployeeEmail || "",
-                                phone: oMember.EmployeePhone || "",
-                                avatarUrl: "sap-icon://employee"
-                            };
+                    var fnReadTeamMembers = function (iIndex) {
+                        if (iIndex >= aManagerIds.length) {
+                            fnFinish(true, []);
+                            return Promise.resolve([]);
+                        }
+                        var oListBinding = oODataModel.bindList("/TeamMembers", null, null, [
+                            new Filter("ManagerUserId", FilterOperator.EQ, aManagerIds[iIndex])
+                        ]);
+                        return oListBinding.requestContexts(0, 100).then(function (aContexts) {
+                            if (!aContexts || aContexts.length === 0) {
+                                return fnReadTeamMembers(iIndex + 1);
+                            }
+                            var aTeam = aContexts.map(function (oTeamContext) {
+                                var oMember = oTeamContext.getObject();
+                                return {
+                                    pernr: oMember.EmployeePernr,
+                                    userId: oMember.EmployeeUserId || oMember.EmployeePernr,
+                                    name: oMember.EmployeeName,
+                                    position: oMember.PositionName || oMember.PositionId || "",
+                                    department: oMember.OrgUnitName || oMember.OrgUnitId || "",
+                                    email: oMember.EmployeeEmail || "",
+                                    phone: oMember.EmployeePhone || "",
+                                    avatarUrl: "sap-icon://employee"
+                                };
+                            });
+                            fnFinish(true, aTeam);
+                            return aTeam;
                         });
-                        fnFinish(true, aTeam);
-                    });
+                    };
+                    return fnReadTeamMembers(0);
                 }).catch(function (oError) {
                     console.warn("User profile enrichment failed", oError && oError.message);
                     fnFailTeamLoad(oError);
                 });
+                pTeamMembersLoad = pLoad.then(function (aTeam) {
+                    pTeamMembersLoad = null;
+                    return aTeam;
+                }, function (oError) {
+                    pTeamMembersLoad = null;
+                    throw oError;
+                });
+                return pTeamMembersLoad;
             };
 
             // Exposed for Team Management when the user re-enters the tab or
             // presses Retry after a transient SAP/OData failure.
             this.reloadTeamMembers = function () {
-                return fnLoadProfileAndHierarchy();
+                // Keep the current list while refreshing. Only an explicit retry
+                // starts a new request; tab navigation shares an in-flight load.
+                var bForceReload = Boolean(arguments[0]);
+                var aCurrentTeam = oTeamModel.getProperty("/teamMembers") || [];
+                if (!bForceReload && oTeamModel.getProperty("/loadState") === "ready" &&
+                    aCurrentTeam.length > 0) {
+                    return Promise.resolve(aCurrentTeam);
+                }
+                return fnLoadProfileAndHierarchy(bForceReload);
             };
 
             jQuery.ajax({
