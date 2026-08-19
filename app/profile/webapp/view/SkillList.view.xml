@@ -227,6 +227,18 @@
                                             </OverflowToolbar>
                                         </subHeader>
                                         <content>
+                                            <MessageStrip
+                                                text="{team>/error}"
+                                                type="Error"
+                                                showIcon="true"
+                                                visible="{= ${team>/loadState} === 'error' }"
+                                                class="sapUiSmallMargin" />
+                                            <Button
+                                                text="Retry"
+                                                type="Emphasized"
+                                                visible="{= ${team>/loadState} === 'error' }"
+                                                press="onRetryTeamMembers"
+                                                class="sapUiSmallMarginBegin sapUiSmallMarginBottom" />
                                             <List id="teamList"
                                                   items="{team>/teamMembers}"
                                                   mode="SingleSelectMaster"

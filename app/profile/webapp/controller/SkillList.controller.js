@@ -625,6 +625,13 @@ sap.ui.define([
             }
 
             oViewModel.setProperty("/selectedTab", sKey);
+
+            if (sKey === "team") {
+                var oProfileComponent = this.getOwnerComponent();
+                if (oProfileComponent && oProfileComponent.reloadTeamMembers) {
+                    oProfileComponent.reloadTeamMembers();
+                }
+            }
             
             var oTable;
             if (sKey === "mySkills") {
@@ -732,6 +739,13 @@ sap.ui.define([
                 }));
             }
             oBinding.filter(aFilters);
+        },
+
+        onRetryTeamMembers: function () {
+            var oComponent = this.getOwnerComponent();
+            if (oComponent && oComponent.reloadTeamMembers) {
+                oComponent.reloadTeamMembers();
+            }
         },
 
         onApproveTeamRequest: function (oEvent) {

@@ -62,14 +62,38 @@ sap.ui.define([
 
             var that = this;
             var bResolved = false;
-            var fnFinish = function (bAuthorized, aTeam) {
+            var oTeamModel = new JSONModel({
+                teamMembers: [],
+                loadState: "loading",
+                error: ""
+            });
+            this.setModel(oTeamModel, "team");
+
+            var fnResolveAuthorization = function (bAuthorized) {
                 if (bResolved) {
                     return;
                 }
                 bResolved = true;
-                that.setModel(new JSONModel({ teamMembers: aTeam || [] }), "team");
                 oUserModel.setProperty("/loadState", bAuthorized ? "ready" : "denied");
                 fnResolveUser(Boolean(bAuthorized));
+            };
+
+            var fnFinish = function (bAuthorized, aTeam) {
+                oTeamModel.setData({
+                    teamMembers: aTeam || [],
+                    loadState: "ready",
+                    error: ""
+                });
+                fnResolveAuthorization(bAuthorized);
+            };
+
+            var fnFailTeamLoad = function (oError) {
+                var sMessage = oError && (oError.message || oError.statusText);
+                oTeamModel.setProperty("/loadState", "error");
+                oTeamModel.setProperty("/error", sMessage || "Unable to load team members from SAP.");
+                // Authentication is already valid. Resolve the app without hiding
+                // the team-service failure as an empty, successful list.
+                fnResolveAuthorization(true);
             };
 
             var fnLoadProfileAndHierarchy = function () {
@@ -81,6 +105,9 @@ sap.ui.define([
                     fnFinish(true, []);
                     return;
                 }
+
+                oTeamModel.setProperty("/loadState", "loading");
+                oTeamModel.setProperty("/error", "");
 
                 var oContext = oODataModel.bindContext("/UserProfile('" +
                     String(sSapUserId).replace(/'/g, "''") + "')");
@@ -105,9 +132,27 @@ sap.ui.define([
                         return;
                     }
 
-                    var oListBinding = oODataModel.bindList("/TeamMembers", null, null, [
-                        new Filter("ManagerUserId", FilterOperator.EQ, sSapUserId)
-                    ]);
+                    // SAP systems may return the manager user ID with different
+                    // casing in UserProfile and TeamMembers. Query all normalized
+                    // variants instead of relying on one case-sensitive value.
+                    var aManagerIds = [sSapUserId, oProfile.UserId]
+                        .filter(Boolean)
+                        .reduce(function (aIds, sId) {
+                            [String(sId).trim(), String(sId).trim().toUpperCase(), String(sId).trim().toLowerCase()]
+                                .forEach(function (sVariant) {
+                                    if (sVariant && aIds.indexOf(sVariant) < 0) {
+                                        aIds.push(sVariant);
+                                    }
+                                });
+                            return aIds;
+                        }, []);
+                    var oManagerFilter = new Filter({
+                        filters: aManagerIds.map(function (sId) {
+                            return new Filter("ManagerUserId", FilterOperator.EQ, sId);
+                        }),
+                        and: false
+                    });
+                    var oListBinding = oODataModel.bindList("/TeamMembers", null, null, [oManagerFilter]);
 
                     return oListBinding.requestContexts(0, 100).then(function (aContexts) {
                         var aTeam = aContexts.map(function (oTeamContext) {
@@ -126,11 +171,15 @@ sap.ui.define([
                         fnFinish(true, aTeam);
                     });
                 }).catch(function (oError) {
-                    // The authenticated identity remains valid even when the optional
-                    // skill-service profile enrichment is temporarily unavailable.
                     console.warn("User profile enrichment failed", oError && oError.message);
-                    fnFinish(true, []);
+                    fnFailTeamLoad(oError);
                 });
+            };
+
+            // Exposed for Team Management when the user re-enters the tab or
+            // presses Retry after a transient SAP/OData failure.
+            this.reloadTeamMembers = function () {
+                return fnLoadProfileAndHierarchy();
             };
 
             jQuery.ajax({
