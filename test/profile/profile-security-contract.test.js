@@ -2,17 +2,18 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-test('server security defaults fail closed and preserve revoked identity links', () => {
+test('server security defaults fail closed and resolve employee identity from live SAP', () => {
     const source = fs.readFileSync('srv/server.js', 'utf8');
 
     assert.doesNotMatch(source, /NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]0['"]/);
     assert.doesNotMatch(source, /rejectUnauthorized\s*:\s*false/);
     assert.match(source, /SESSION_SECRET must be configured in production/);
     assert.match(source, /SAP technical credentials are not configured/);
-    assert.match(source, /ProfileIdentityLinks/);
-    assert.match(source, /IDENTITY_LINK_REVOKED/);
-    assert.match(source, /where\(\{ provider, subject \}\)/);
-    assert.doesNotMatch(source, /where\(\{ provider, subject, active: true \}\)/);
+    assert.match(source, /SAP UserProfile is the source of truth/);
+    assert.match(source, /let profile = await readByEmail\(email\)/);
+    assert.doesNotMatch(source, /ProfileIdentityLinks/);
+    assert.doesNotMatch(source, /IDENTITY_LINK_CONFLICT/);
+    assert.doesNotMatch(source, /IDENTITY_LINK_REVOKED/);
 });
 
 test('profile authorization is based on employee link or HR role, not manager status', () => {

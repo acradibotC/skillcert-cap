@@ -175,14 +175,14 @@ cds.on('bootstrap', app => {
     });
 
     // Custom endpoint to get current user info for UI5.
-    // The immutable OAuth subject -> Pernr link is validated against SAP.
-    // Email is only used to bootstrap the link because work email is editable.
+    // SAP UserProfile is the source of truth for the current OAuth email -> Pernr mapping.
+    // Do not retain a second identity mapping in the local SQLite database: an HR-approved
+    // email reassignment in SAP must take effect on the next authenticated request.
     app.get('/api/currentUser', async (req, res) => {
         if (!req.isAuthenticated()) {
             return res.status(401).json({ error: "Unauthorized" });
         }
 
-        const provider = 'google';
         const subject = String(req.user.id || '').trim();
         const email = req.user.emails && req.user.emails[0].value
             ? String(req.user.emails[0].value).trim()
@@ -201,66 +201,9 @@ cds.on('bootstrap', app => {
             });
         }
 
-        if (req.session?.userInfo) {
-            if (!sessionUserMatches(req)) {
-                delete req.session.userInfo;
-            } else {
-                try {
-                    const { ProfileIdentityLinks } = cds.entities('znxr09.db');
-                    const cachedLink = ProfileIdentityLinks
-                        ? await SELECT.one.from(ProfileIdentityLinks).where({ provider, subject })
-                        : null;
-                    if (cachedLink && cachedLink.active === false) {
-                        delete req.session.userInfo;
-                        return res.status(403).json({
-                            authorized: false,
-                            code: 'IDENTITY_LINK_REVOKED',
-                            userId: subject,
-                            email,
-                            name,
-                            pernr: null,
-                            errorMessage: 'The login identity link has been revoked. Please contact your administrator.'
-                        });
-                    }
-                } catch (error) {
-                    console.error('[Auth] Cached identity-link validation failed:', error.message);
-                    return res.status(503).json({
-                        authorized: false,
-                        code: 'IDENTITY_VALIDATION_UNAVAILABLE',
-                        userId: subject,
-                        email,
-                        name,
-                        pernr: null,
-                        errorMessage: 'Unable to validate the login identity.'
-                    });
-                }
-                req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email, req.session.userInfo.orgUnitId);
-                req.session.userInfo.canUseHrTools = canUseHrTools(
-                    req.session.userInfo.orgUnitId,
-                    req.session.userInfo.email
-                );
-                return res.json(req.session.userInfo);
-            }
-        }
-
         try {
             const axios = require('axios');
             const sapUrl = cds.env.requires.ZUI_NXR_SKILLREQ_O4.credentials.url;
-            const { ProfileIdentityLinks } = cds.entities('znxr09.db');
-            const identityLink = ProfileIdentityLinks
-                ? await SELECT.one.from(ProfileIdentityLinks).where({ provider, subject })
-                : null;
-            if (identityLink && identityLink.active === false) {
-                return res.status(403).json({
-                    authorized: false,
-                    code: 'IDENTITY_LINK_REVOKED',
-                    userId: subject,
-                    email,
-                    name,
-                    pernr: null,
-                    errorMessage: 'The login identity link has been revoked. Please contact your administrator.'
-                });
-            }
             const { username: sapUser, password: sapPass } = getSapCredentials();
 
             const axiosConfig = {
@@ -295,48 +238,12 @@ cds.on('bootstrap', app => {
                 ensureSapQuerySucceeded(response);
                 return extractProfile(response);
             };
-            const readByPernr = async (pernr) => {
-                const filter = "Pernr eq '" + escapeODataString(pernr) + "'";
-                const response = await axios.get(
-                    trimTrailingSlash(sapUrl) + '/UserProfile?$filter=' + encodeURIComponent(filter) + '&$top=1',
-                    axiosConfig
-                );
-                ensureSapQuerySucceeded(response);
-                return extractProfile(response);
-            };
-
             let profile = await readByEmail(email);
             if (!profile && email.toUpperCase() !== email) {
                 profile = await readByEmail(email.toUpperCase());
             }
-            if (!profile && identityLink) {
-                profile = await readByPernr(identityLink.employeePernr);
-            }
-
-            if (profile && identityLink && String(profile.Pernr) !== String(identityLink.employeePernr)) {
-                console.warn(`[Auth] OAuth subject "${subject}" resolved to a different Pernr than its stored identity link.`);
-                return res.status(403).json({
-                    authorized: false,
-                    code: 'IDENTITY_LINK_CONFLICT',
-                    userId: subject,
-                    email,
-                    sapUserId: profile.UserId || email,
-                    name,
-                    pernr: null,
-                    errorMessage: 'The login identity conflicts with the registered employee record. Please contact your administrator.'
-                });
-            }
 
             if (profile && profile.Pernr) {
-                if (ProfileIdentityLinks) {
-                    await UPSERT.into(ProfileIdentityLinks).entries({
-                        provider,
-                        subject,
-                        employeePernr: String(profile.Pernr),
-                        loginEmail: email,
-                        active: true
-                    });
-                }
                 const userInfo = {
                     authorized: true,
                     userId: subject,
@@ -1157,22 +1064,6 @@ cds.on('bootstrap', app => {
                 error: 'The authenticated identity must be mapped again.'
             });
         }
-        try {
-            const { ProfileIdentityLinks } = cds.entities('znxr09.db');
-            const identityLink = ProfileIdentityLinks
-                ? await SELECT.one.from(ProfileIdentityLinks).where({
-                    provider: 'google',
-                    subject: String(req.user.id)
-                })
-                : null;
-            if (identityLink && identityLink.active === false) {
-                delete req.session.userInfo;
-                return res.status(403).json({ code: 'IDENTITY_LINK_REVOKED', error: 'The login identity link has been revoked.' });
-            }
-        } catch (error) {
-            console.error('[Auth] Identity-link validation failed:', error.message);
-            return res.status(503).json({ code: 'IDENTITY_VALIDATION_UNAVAILABLE', error: 'Unable to validate the login identity.' });
-        }
         req.session.userInfo.isHrAdmin = isProfileHrAdmin(req.session.userInfo.email, req.session.userInfo.orgUnitId);
         next();
     });
@@ -1644,18 +1535,9 @@ cds.on('listening', ({ server }) => {
         socket.join(room);
         console.log('[WS] User joined:', email);
 
-        // Reuse only the identity context established by /api/currentUser.
-        // Never bootstrap a separate email -> Pernr mapping on the socket path.
+        // Reuse only the SAP-validated identity context established by /api/currentUser.
         try {
             if (!sessionUserMatches(req) || !req.session.userInfo.authorized || !req.session.userInfo.pernr) {
-                socket.disconnect(true);
-                return;
-            }
-            const { ProfileIdentityLinks } = cds.entities('znxr09.db');
-            const identityLink = ProfileIdentityLinks
-                ? await SELECT.one.from(ProfileIdentityLinks).where({ provider: 'google', subject: String(req.user.id) })
-                : null;
-            if (identityLink && identityLink.active === false) {
                 socket.disconnect(true);
                 return;
             }
