@@ -14,6 +14,48 @@ function requiredCredentials(username, password, serviceName) {
     return { username, password };
 }
 
+/**
+ * Validate certification links at the CAP boundary before forwarding a
+ * request to SAP.  This is intentionally a syntax-only check: CAP must not
+ * dereference the provider URL (Coursera, Udemy, etc.) and must not rely on
+ * an outbound network call to decide whether a request can be submitted.
+ * The RAP validation in SAP should therefore be removed/disabled as well.
+ */
+function validateCertificationUrl(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return 'CertUrl is required for certification requests.';
+    if (raw.length > 255) return 'CertUrl must not exceed 255 characters.';
+
+    let parsed;
+    try {
+        parsed = new URL(raw);
+    } catch {
+        return 'CertUrl must be a valid URL.';
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+        return 'CertUrl must use a valid http:// or https:// URL.';
+    }
+
+    return null;
+}
+
+function validateSkillRequest(req) {
+    const data = req.data || {};
+    const requestType = String(data.ReqType || '').trim().toUpperCase();
+    const hasSkill = requestType === 'SKILL'
+        || (requestType === 'CERT' && String(data.QualName || '').trim());
+
+    if (hasSkill && !String(data.QualiId || '').trim()) {
+        req.error(400, 'QualiId is required. Select a qualification from the SAP catalog.');
+    }
+
+    if (requestType === 'CERT') {
+        const certUrlError = validateCertificationUrl(data.CertUrl);
+        if (certUrlError) req.error(400, certUrlError);
+    }
+}
+
 module.exports = {
     SkillService: async function() {
         const external = await cds.connect.to('ZUI_NXR_SKILLREQ_O4');
@@ -38,6 +80,15 @@ module.exports = {
             { "key": "Other", "text": "Khác" }
         ];
     });
+
+    // Keep the SAP qualification key mandatory at the service boundary.  The
+    // UI normally supplies QualiId from QualificationCatalog, but requests can
+    // also be sent directly to CAP (or by an older client).  Without this
+    // guard the request can be approved while the background job has no
+    // qualification to write to PA0024.  Certificates without a mapped Skill
+    // remain valid; a mapped certificate follows the same rule as SKILL.
+    this.before('CREATE', 'Request', validateSkillRequest);
+    this.before('UPDATE', 'Request', validateSkillRequest);
 
     this.on(['CREATE', 'UPDATE', 'DELETE'], 'Request', async (req) => {
         return external.run(req.query);

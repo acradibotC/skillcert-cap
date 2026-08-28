@@ -116,3 +116,17 @@ test('existing skill approval actions remain explicitly unbound', async () => {
         'Skill approveRequest must send an explicit empty JSON body to SAP OData V4'
     );
 });
+
+test('Skill requests require an SAP qualification key at the CAP boundary', () => {
+    const skillServiceSource = fs.readFileSync('srv/service.js', 'utf8');
+    assert.match(skillServiceSource, /this\.before\('CREATE',\s*'Request'/);
+    assert.match(skillServiceSource, /this\.before\('UPDATE',\s*'Request'/);
+    assert.match(skillServiceSource, /requestType\s*===\s*'SKILL'/);
+    assert.match(skillServiceSource, /data\.QualName/);
+    assert.match(skillServiceSource, /QualiId is required\. Select a qualification from the SAP catalog\./);
+    assert.match(skillServiceSource, /function validateCertificationUrl\(value\)/);
+    assert.match(skillServiceSource, /new URL\(raw\)/);
+    assert.ok(skillServiceSource.includes("CertUrl must use a valid http:// or https:// URL."));
+    assert.match(skillServiceSource, /requestType\s*===\s*'CERT'[\s\S]*?validateCertificationUrl\(data\.CertUrl\)/);
+    assert.doesNotMatch(skillServiceSource, /https?:\/\/[^'"`]*CertUrl/);
+});
